@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw } from 'lucide-react';
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
+import { api } from '../services/api';
 
 interface StudentExamProps {
   exam: Exam;
   questions: QuestionWithOptions[];
   userFullName: string;
+  username: string; // Needed for unique local storage key
+  startTime: number; // Absolute start time from server
   onFinish: (answers: Record<string, UserAnswerValue>) => Promise<void> | void;
   onExit: () => void;
 }
@@ -20,7 +23,7 @@ function shuffleArray<T>(array: T[]): T[] {
     return newArr;
 }
 
-const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName, onFinish, onExit }) => {
+const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName, username, startTime, onFinish, onExit }) => {
   // State to hold shuffled questions
   const [examQuestions, setExamQuestions] = useState<QuestionWithOptions[]>([]);
   
@@ -32,37 +35,133 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmFinish, setShowConfirmFinish] = useState(false);
+  
+  // LOCKDOWN STATE
+  const [isLocked, setIsLocked] = useState(true);
 
-  // Initialize Randomization on Mount
+  // STORAGE KEY
+  const storageKey = `cbt_answers_${username}_${exam.id}`;
+
+  // Initialize Randomization and Load Answers
   useEffect(() => {
     if (questions.length > 0) {
-        // 1. Shuffle Options within each question
+        // 1. Shuffle
         const questionsWithShuffledOptions = questions.map(q => ({
             ...q,
             options: shuffleArray(q.options)
         }));
-        
-        // 2. Shuffle the Questions themselves
         const fullyShuffled = shuffleArray(questionsWithShuffledOptions);
-        
         setExamQuestions(fullyShuffled);
-    }
-  }, [questions]);
 
-  // Timer Logic
+        // 2. Load Saved Answers (Resume)
+        try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.answers) setAnswers(parsed.answers);
+                if (parsed.doubtful) setDoubtful(parsed.doubtful);
+            }
+        } catch(e) { console.error("Failed to load saved answers", e); }
+    }
+  }, [questions, storageKey]);
+
+  // Persist Answers on Change
+  useEffect(() => {
+      if (Object.keys(answers).length > 0) {
+          localStorage.setItem(storageKey, JSON.stringify({ answers, doubtful }));
+      }
+  }, [answers, doubtful, storageKey]);
+
+  // Timer Logic (Absolute Time based)
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          executeFinish();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - startTime) / 1000);
+      const remaining = (exam.durasi * 60) - elapsedSeconds;
+      
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeLeft(0);
+        executeFinish();
+      } else {
+        setTimeLeft(remaining);
+      }
     }, 1000);
     return () => clearInterval(timer);
+  }, [startTime, exam.durasi]);
+
+  // POLLING: Check for Remote Reset (Kick)
+  useEffect(() => {
+      const poller = setInterval(async () => {
+          try {
+              const status = await api.checkStatus(username);
+              if (status === 'RESET') {
+                  onExit(); // Kick user out
+              }
+          } catch(e) {
+              console.warn("Status check failed", e);
+          }
+      }, 15000); // Check every 15 seconds
+
+      return () => clearInterval(poller);
+  }, [username, onExit]);
+
+  // --- SECURITY / LOCKDOWN LOGIC ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+        if (document.hidden) setIsLocked(false);
+    };
+
+    const handleFullscreenChange = () => {
+        if (!document.fullscreenElement) {
+             setIsLocked(false);
+        }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Prevent F12, Ctrl+Shift+I, Alt+Tab (best effort), etc.
+        if (
+            e.key === 'F12' || 
+            (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+            (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+            (e.ctrlKey && e.key === 'U') ||
+            e.altKey // Block Alt (commonly used for Tab switching)
+        ) {
+            e.preventDefault();
+        }
+    };
+
+    const preventContext = (e: Event) => e.preventDefault();
+    
+    // Add Listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    // @ts-ignore
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('contextmenu', preventContext);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('selectstart', preventContext); // Disable Text Selection
+
+    return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        // @ts-ignore
+        document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.removeEventListener('contextmenu', preventContext);
+        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('selectstart', preventContext);
+    };
   }, []);
+
+  const resumeExam = async () => {
+      try {
+          const el = document.documentElement;
+          if (el.requestFullscreen) await el.requestFullscreen();
+          // @ts-ignore
+          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      } catch(e) { console.error(e); }
+      setIsLocked(true);
+  };
 
   // Wait until shuffling is done
   if (examQuestions.length === 0) {
@@ -72,6 +171,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const currentQ = examQuestions[currentIdx];
 
   const formatTime = (seconds: number) => {
+    if (seconds < 0) seconds = 0;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -112,6 +212,11 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const executeFinish = async () => {
     setShowConfirmFinish(false);
     setIsSubmitting(true);
+    // Allow exit from fullscreen during submission
+    try {
+        if(document.fullscreenElement) await document.exitFullscreen();
+    } catch(e) {}
+    
     try {
       await onFinish(answers);
     } catch (error) {
@@ -119,12 +224,6 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       setIsSubmitting(false);
       alert("Gagal mengirim jawaban. Silakan periksa koneksi internet anda dan coba lagi.");
     }
-  };
-
-  const handleExitClick = () => {
-      if(confirm("Apakah anda yakin ingin keluar dari ujian? Progres mungkin tidak tersimpan.")) {
-          onExit();
-      }
   };
 
   const getFontSizeClass = () => {
@@ -138,7 +237,30 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const isLastQuestion = currentIdx === examQuestions.length - 1;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 font-sans overflow-hidden noselect">
+    <div className="flex flex-col h-screen bg-slate-100 font-sans overflow-hidden select-none">
+      
+      {/* SECURITY OVERLAY */}
+      {!isLocked && (
+          <div className="fixed inset-0 z-[100] bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+              <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-lg w-full">
+                  <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <ShieldAlert size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Peringatan Keamanan!</h2>
+                  <p className="text-slate-500 mb-8">
+                      Anda terdeteksi keluar dari mode layar penuh atau berpindah aplikasi. 
+                      Untuk melanjutkan ujian, silakan kembali ke mode aman.
+                  </p>
+                  <button 
+                    onClick={resumeExam}
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition"
+                  >
+                      <RotateCcw size={20} /> Lanjutkan Ujian
+                  </button>
+              </div>
+          </div>
+      )}
+
       {/* Header */}
       <header className="h-16 bg-white/95 backdrop-blur shadow-sm border-b border-slate-200 flex justify-between items-center px-4 md:px-6 z-40 sticky top-0">
         <div className="flex items-center gap-3">
@@ -164,14 +286,6 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
           </div>
 
           <button 
-             onClick={handleExitClick}
-             className="p-2 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition"
-             title="Logout / Exit"
-          >
-             <LogOut size={20} />
-          </button>
-
-          <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow transition"
           >
@@ -191,7 +305,6 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                 <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded">
                   SOAL NO. {currentIdx + 1}
                 </span>
-                {/* ID Soal Removed as requested */}
               </div>
               <div className="flex gap-1 bg-white p-1 rounded-lg border border-slate-200">
                 {(['sm', 'md', 'lg'] as const).map(s => (

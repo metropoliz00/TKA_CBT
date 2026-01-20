@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
@@ -20,6 +20,7 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [startTime, setStartTime] = useState<number>(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   // System Check State
   const [sysInfo, setSysInfo] = useState({ os: 'Unknown', device: 'Unknown', ram: 'Unknown', status: 'Checking...' });
@@ -112,14 +113,38 @@ function App() {
     }
   };
 
+  const handleVerifyToken = async () => {
+      if (!inputToken) {
+          setErrorMsg('Harap isi token ujian.');
+          return;
+      }
+      setLoading(true);
+      setErrorMsg('');
+      try {
+          const serverToken = await api.getServerToken();
+          if (inputToken.toUpperCase() !== serverToken.toUpperCase()) {
+              setErrorMsg('Token ujian tidak valid!');
+              setLoading(false);
+              return;
+          }
+          setShowConfirmModal(true);
+      } catch (e) {
+          console.error(e);
+          setErrorMsg('Gagal verifikasi token.');
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const handleStartExam = async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
-        // Validate Token
+        // Validate Token Again (Security)
         const serverToken = await api.getServerToken();
         if (inputToken.toUpperCase() !== serverToken.toUpperCase()) {
             setErrorMsg('Token ujian tidak valid!');
+            setShowConfirmModal(false);
             setLoading(false);
             return;
         }
@@ -128,20 +153,36 @@ function App() {
         const qData = await api.getQuestions(selectedExamId);
         if (qData.length === 0) {
             setErrorMsg('Soal tidak ditemukan untuk mapel ini.');
+            setShowConfirmModal(false);
             setLoading(false);
             return;
         }
 
         // Notify Backend (Log Activity)
-        await api.startExam(currentUser.username, currentUser.nama_lengkap, selectedExamId);
+        // Returns { success, startTime, isResuming }
+        const res = await api.startExam(currentUser.username, currentUser.nama_lengkap, selectedExamId);
+        const activeStartTime = res.startTime || Date.now();
+
+        // TRIGGER FULLSCREEN MODE
+        try {
+            const el = document.documentElement;
+            if (el.requestFullscreen) await el.requestFullscreen();
+            // @ts-ignore
+            else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+            // @ts-ignore
+            else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+        } catch (e) {
+            console.warn("Fullscreen blocked or not supported", e);
+        }
 
         setQuestions(qData);
-        setStartTime(Date.now());
+        setStartTime(activeStartTime); // Use correct start time for timer
         setErrorMsg('');
         setView('exam');
     } catch (err) {
         console.error(err);
         setErrorMsg('Gagal memuat soal. Periksa koneksi.');
+        setShowConfirmModal(false);
     } finally {
         setLoading(false);
     }
@@ -150,7 +191,19 @@ function App() {
   const handleFinishExam = async (answers: any) => {
     if (!currentUser || !selectedExamId) return;
     setLoading(true);
+    
+    // Exit Fullscreen if active
     try {
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+        }
+    } catch (e) { console.warn("Exit fullscreen failed", e); }
+
+    try {
+        // Clear Local Storage for this exam
+        const lsKey = `cbt_answers_${currentUser.username}_${selectedExamId}`;
+        localStorage.removeItem(lsKey);
+
         await api.submitExam({
             user: currentUser,
             subject: selectedExamId,
@@ -174,6 +227,7 @@ function App() {
     setConfirmData({ day: 'Hari', month: 'Bulan', year: 'Tahun' });
     setQuestions([]);
     setShowPassword(false);
+    setShowConfirmModal(false);
     setView('login');
   };
 
@@ -401,8 +455,8 @@ function App() {
                             />
                             {errorMsg && <p className="text-center text-red-500 mt-2 font-medium">{errorMsg}</p>}
                         </div>
-                        <button onClick={handleStartExam} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center">
-                            {loading ? <div className="loader border-white w-5 h-5"></div> : "MULAI MENGERJAKAN"}
+                        <button onClick={handleVerifyToken} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center">
+                            {loading ? <div className="loader border-white w-5 h-5"></div> : "SUBMIT"}
                         </button>
                     </div>
                 </div>
@@ -410,6 +464,59 @@ function App() {
             <footer className="bg-slate-50 border-t p-3 text-center text-xs text-gray-500">
                 @2026 | Dev. Team TKA CBT System
             </footer>
+
+            {/* CONFIRMATION POPUP MODAL */}
+            {showConfirmModal && selectedExam && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative">
+                        <div className="absolute top-4 right-4 z-10">
+                            <button onClick={() => setShowConfirmModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 pt-10 relative">
+                            {/* Decorative Background */}
+                            <div className="absolute top-0 right-0 opacity-5 pointer-events-none">
+                                <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M100 0C44.7715 0 0 44.7715 0 100C0 155.228 44.7715 200 100 200C155.228 200 200 155.228 200 100C200 44.7715 155.228 0 100 0Z" fill="currentColor"/>
+                                </svg>
+                            </div>
+
+                            <h3 className="text-2xl font-normal text-slate-700 mb-8">Konfirmasi Tes</h3>
+                            
+                            <div className="space-y-5">
+                                <div className="border-b border-slate-100 pb-3">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nama Tes</p>
+                                    <p className="text-base font-bold text-slate-800">{selectedExam.nama_ujian}</p>
+                                </div>
+                                <div className="border-b border-slate-100 pb-3">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status Tes</p>
+                                    <p className="text-base font-bold text-slate-800">Tes Baru</p>
+                                </div>
+                                <div className="border-b border-slate-100 pb-3">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Waktu Tes</p>
+                                    <p className="text-base font-bold text-slate-800">
+                                        {new Date().toLocaleString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\./g, ':')}
+                                    </p>
+                                </div>
+                                <div className="border-b border-slate-100 pb-3">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alokasi Waktu Tes</p>
+                                    <p className="text-base font-bold text-slate-800">{selectedExam.durasi} Menit</p>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleStartExam} 
+                                disabled={loading}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-full shadow-lg shadow-blue-200 transition-all mt-8 flex justify-center items-center"
+                            >
+                                {loading ? <Loader2 size={20} className="animate-spin" /> : "Mulai"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
   }
@@ -421,6 +528,8 @@ function App() {
         exam={selectedExam}
         questions={questions}
         userFullName={currentUser.nama_lengkap}
+        username={currentUser.username} // Pass username for keying
+        startTime={startTime} // Pass absolute start time
         onFinish={handleFinishExam}
         onExit={handleLogout}
       />

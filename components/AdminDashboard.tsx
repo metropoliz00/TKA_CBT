@@ -28,6 +28,14 @@ const formatDurationToText = (duration: string) => {
     } catch (e) { return duration; }
 };
 
+// Generic Export Function
+const exportToExcel = (data: any[], fileName: string, sheetName: string = "Data") => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, `${fileName}.xlsx`);
+};
+
 // Custom SVG Donut Chart
 const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: string, label?: string }[], size?: number }) => {
     const total = data.reduce((a, b) => a + b.value, 0);
@@ -91,7 +99,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                 <button onClick={() => setRoleFilter('siswa')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={18}/> Siswa</button>
                 <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={18}/> Proktor</button>
                 {currentUser.role === 'admin_pusat' && (
-                    <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={18}/> ADMIN</button>
+                    <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={18}/> Admin</button>
                 )}
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -100,10 +108,10 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">No</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4">Nama Lengkap</th><th className="p-4 w-32">Role</th><th className="p-4">Kelas / Sekolah</th></tr></thead>
+                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">No</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4">Nama Lengkap</th><th className="p-4 w-32">Role</th><th className="p-4">Sekolah</th></tr></thead>
                             <tbody className="divide-y divide-slate-50">
                                 {filteredUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : filteredUsers.map((u, i) => (
-                                    <tr key={i} className="hover:bg-slate-50 transition"><td className="p-4 text-center font-mono text-slate-400">{i+1}</td><td className="p-4 font-mono font-bold text-slate-700">{u.username}</td><td className="p-4 font-mono text-slate-500">{u.password}</td><td className="p-4 font-bold text-slate-700">{u.fullname}</td><td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'ADMIN' : (u.role || 'Siswa'))}</span></td><td className="p-4 text-slate-600">{u.school || '-'}</td></tr>
+                                    <tr key={i} className="hover:bg-slate-50 transition"><td className="p-4 text-center font-mono text-slate-400">{i+1}</td><td className="p-4 font-mono font-bold text-slate-700">{u.username}</td><td className="p-4 font-mono text-slate-500">{u.password}</td><td className="p-4 font-bold text-slate-700">{u.fullname}</td><td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'Admin' : 'Siswa')}</span></td><td className="p-4 text-slate-600">{u.school || '-'}</td></tr>
                                 ))}
                             </tbody>
                         </table>
@@ -301,7 +309,7 @@ const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students
 };
 
 // --- NEW COMPONENT: RILIS TOKEN ---
-const RilisTokenTab = ({ token, duration, refreshData }: { token: string, duration: number, refreshData: () => void }) => {
+const RilisTokenTab = ({ token, duration, refreshData, isRefreshing }: { token: string, duration: number, refreshData: () => void, isRefreshing: boolean }) => {
     return (
         <div className="flex flex-col items-center justify-center py-10 fade-in">
             <div className="bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center max-w-lg w-full">
@@ -327,8 +335,9 @@ const RilisTokenTab = ({ token, duration, refreshData }: { token: string, durati
                      </div>
                 </div>
 
-                <button onClick={refreshData} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
-                    <RefreshCw size={18}/> Refresh Data
+                <button onClick={refreshData} disabled={isRefreshing} className={`w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 ${isRefreshing ? 'opacity-75 cursor-wait' : ''}`}>
+                    <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} /> 
+                    {isRefreshing ? "Memuat Data..." : "Refresh Data"}
                 </button>
             </div>
         </div>
@@ -1006,6 +1015,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         try { return new Date(isoString).toLocaleTimeString(); } catch { return isoString; }
     };
 
+    const handleExport = () => {
+        const dataToExport = sortedStudents.map((s: any, i: number) => ({
+            No: i + 1,
+            Username: s.username,
+            "Nama Peserta": s.fullname,
+            "Asal Sekolah": s.school,
+            Mapel: s.subject,
+            Score: s.score,
+            "Waktu Mulai": calculateStartTime(s.timestamp, s.duration),
+            "Waktu Selesai": formatTime(s.timestamp),
+            Durasi: formatDurationToText(s.duration)
+        }));
+        exportToExcel(dataToExport, "Rekap_Nilai_Peserta", "Rekap Nilai");
+    };
+
     if (isRefreshing) {
         return (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 min-h-[400px] flex flex-col items-center justify-center fade-in">
@@ -1019,7 +1043,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden fade-in max-w-full mx-auto">
             <div className="p-5 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
                 <h3 className="font-bold text-slate-700 text-lg">Rekapitulasi Nilai Peserta</h3>
-                <button className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
                     <FileText size={16}/> Export Excel
                 </button>
             </div>
@@ -1072,9 +1096,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
     const handleRowsChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); };
 
+    const handleExport = () => {
+        const dataToExport = rankingData.map((s: any, i: number) => ({
+            Rank: i + 1,
+            Username: s.username,
+            "Nama Peserta": s.fullname,
+            "Asal Sekolah": s.school,
+            Nilai: s.score,
+            Durasi: formatDurationToText(s.duration)
+        }));
+        exportToExcel(dataToExport, "Peringkat_Peserta", "Peringkat");
+    };
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in max-w-full mx-auto">
-            <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center"><h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3></div>
+            <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
+                <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3>
+                <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                    <FileText size={16}/> Export Excel
+                </button>
+            </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
@@ -1134,6 +1175,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         return { correct, wrong, pct, diff };
     });
 
+    const handleExport = () => {
+        const dataToExport = finalStudents.map((s: any, i: number) => {
+            const row: any = {
+                No: i + 1,
+                "Nama Siswa": s.fullname,
+                Sekolah: s.school,
+                Nilai: s.score
+            };
+            currentQuestions.forEach((q: any, idx: number) => {
+                const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined;
+                row[`Q${idx + 1}`] = val !== undefined ? val : '-';
+            });
+            return row;
+        });
+        exportToExcel(dataToExport, `Analisis_Soal_${localSubject}`, "Analisis");
+    };
+
     if (!localSubject) return <div className="p-10 text-center text-slate-400">Tidak ada data untuk dianalisis.</div>
 
     return (
@@ -1141,6 +1199,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             <div className="p-5 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-2 font-bold text-slate-700"><BarChart3 className="text-indigo-600" size={24}/><span>Analisis Butir Soal</span></div>
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition mr-4">
+                        <FileText size={16}/> Export Excel
+                    </button>
                     <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                     <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
                 </div>
@@ -1170,10 +1231,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           <p className="text-xs text-slate-400 mt-1">{user.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel</p>
         </div>
         
-        <nav className="flex-1 px-4 space-y-2">
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
           <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'overview' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Home size={20} /> Dashboard</button>
           
-          {/* New Menus */}
+          <div className="pt-4 pb-2 pl-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Manajemen Ujian</div>
+          
           <button onClick={() => setActiveTab('status_tes')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'status_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Monitor size={20} /> Status Tes</button>
           <button onClick={() => setActiveTab('kelompok_tes')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'kelompok_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Group size={20} /> Kelompok Tes</button>
           
@@ -1183,13 +1245,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
           <button onClick={() => setActiveTab('rilis_token')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rilis_token' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Key size={20} /> Rilis Token</button>
 
-          {user.role === 'admin_pusat' && ( <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><FileQuestion size={20} /> Bank Soal</button> )}
-          <button onClick={() => setActiveTab('rekap')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rekap' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><LayoutDashboard size={20} /> Rekap Nilai</button>
-          <button onClick={() => setActiveTab('analisis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'analisis' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><BarChart3 size={20} /> Analisis Soal</button>
-          <button onClick={() => setActiveTab('ranking')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'ranking' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Award size={20} /> Peringkat</button>
+          {user.role === 'admin_pusat' && (
+             <>
+                <div className="pt-4 pb-2 pl-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Laporan & Data</div>
+                
+                <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><FileQuestion size={20} /> Bank Soal</button>
+                <button onClick={() => setActiveTab('rekap')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rekap' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><LayoutDashboard size={20} /> Rekap Nilai</button>
+                <button onClick={() => setActiveTab('analisis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'analisis' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><BarChart3 size={20} /> Analisis Soal</button>
+                <button onClick={() => setActiveTab('ranking')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'ranking' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Award size={20} /> Peringkat</button>
+             </>
+          )}
         </nav>
 
-        <div className="p-4 border-t border-slate-100"><button onClick={onLogout} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition"><LogOut size={20} /> Logout</button></div>
+        <div className="p-4 border-t border-slate-100 space-y-2">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">User Profile</p>
+                <p className="text-sm font-bold text-slate-800 leading-tight break-words mb-1">
+                    {user.nama_lengkap || user.username}
+                </p>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${user.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {user.role === 'admin_pusat' ? 'Administrator' : 'Proktor'}
+                </span>
+            </div>
+            <button onClick={onLogout} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition">
+                <LogOut size={20} /> Logout
+            </button>
+        </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto p-8">
@@ -1197,7 +1278,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           <div className="flex justify-between items-center mb-8">
             <div><h2 className="text-2xl font-bold text-slate-800">{getTabTitle()}</h2>{user.role === 'admin_sekolah' && (<p className="text-xs text-slate-500 font-bold uppercase mt-1">Proktor: {user.kelas_id}</p>)}</div>
             <div className="flex items-center gap-3">
-              <button onClick={fetchData} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative"><RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} /></button>
+              <button onClick={fetchData} disabled={isRefreshing} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative disabled:opacity-70 disabled:cursor-wait">
+                <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />
+              </button>
               <div className="bg-white p-2 rounded-full border border-slate-200 shadow-sm"><Settings size={20} className="text-slate-400" /></div>
               <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">{user.username.charAt(0).toUpperCase()}</div>
             </div>
@@ -1207,11 +1290,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
           {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} />}
           {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
-          {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} />}
+          {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
           {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
-          {activeTab === 'rekap' && <RekapTab />}
-          {activeTab === 'ranking' && <RankingTab />}
-          {activeTab === 'analisis' && <AnalisisTab />}
+          {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}
+          {activeTab === 'ranking' && user.role === 'admin_pusat' && <RankingTab />}
+          {activeTab === 'analisis' && user.role === 'admin_pusat' && <AnalisisTab />}
         </div>
       </main>
     </div>

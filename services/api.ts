@@ -80,9 +80,15 @@ export const api = {
     return null;
   },
 
-  // Log Start Exam
-  startExam: async (username: string, fullname: string, subject: string): Promise<void> => {
-      await callBackend('startExam', username, fullname, subject);
+  // Start Exam (Now returns { success, startTime, isResuming })
+  startExam: async (username: string, fullname: string, subject: string): Promise<any> => {
+      return await callBackend('startExam', username, fullname, subject);
+  },
+
+  // Check Status (For Polling Reset)
+  checkStatus: async (username: string): Promise<string> => {
+      const res: any = await callBackend('checkUserStatus', username);
+      return res.status;
   },
 
   // Get Exams / Subject List

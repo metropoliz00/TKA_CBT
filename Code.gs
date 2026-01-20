@@ -4,23 +4,18 @@
   Pastikan nama Sheet (Tab) di Google Spreadsheet sesuai dengan variabel di bawah ini.
 */
 const SHEET_USERS = "Users";      
-// Mapping Kolom Users Terbaru:
-// A(0): ID, B(1): Username, C(2): Password, D(3): Role, E(4): Nama Lengkap, F(5): Jenis Kelamin, G(6): Kelas ID
-// NEW: H(7): Active Exam, I(8): Session
-
-const SHEET_CONFIG = "Config";    // A:Key, B:Value
-const SHEET_RESULTS = "Nilai";    // Output Data (Nilai Akhir & Log JSON)
-const SHEET_REKAP = "Rekap_Analisis"; // Output Analisis Item (1/0)
-const SHEET_JAWABAN = "Jawaban";      // Output Jawaban Mentah (A/B/C)
-const SHEET_RANKING = "Rangking";     // Output Ranking
-const SHEET_LOGS = "Logs";            // Activity Logs
+const SHEET_CONFIG = "Config";    
+const SHEET_RESULTS = "Nilai";    
+const SHEET_REKAP = "Rekap_Analisis"; 
+const SHEET_JAWABAN = "Jawaban";      
+const SHEET_RANKING = "Rangking";     
+const SHEET_LOGS = "Logs";            
 
 const SYSTEM_SHEETS = [SHEET_USERS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS];
 
 /* ENTRY POINT: doPost */
 function doPost(e) {
   try {
-    // Robust parsing
     if (!e || !e.postData || !e.postData.contents) {
         return responseJSON({ error: "Invalid Request: No postData" });
     }
@@ -52,7 +47,8 @@ function processAction(action, args) {
     switch (action) {
       case 'login': return loginUser(args[0], args[1]);
       case 'startExam': return startExam(args[0], args[1], args[2]);
-      case 'getSubjectList': return getSubjectList(); // Now returns { subjects, duration }
+      case 'checkUserStatus': return checkUserStatus(args[0]); // NEW
+      case 'getSubjectList': return getSubjectList(); 
       case 'getTokenFromConfig': return getConfigValue('TOKEN', 'TOKEN');
       case 'getQuestionsFromSheet': return getQuestionsFromSheet(args[0]);
       case 'getRawQuestions': return adminGetQuestions(args[0]);
@@ -64,8 +60,8 @@ function processAction(action, args) {
       case 'getUsers': return getUsers(); 
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
-      case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]); // NEW
-      case 'resetLogin': return resetLogin(args[0]); // NEW
+      case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
+      case 'resetLogin': return resetLogin(args[0]);
       default: return { error: "Action not found: " + action };
     }
 }
@@ -85,7 +81,6 @@ function logUserActivity(username, fullname, action, details) {
     }
     logSheet.appendRow([new Date(), username, fullname, action, details]);
   } catch (e) {
-    // Ignore logging errors to prevent blocking main logic
     console.error("Logging failed", e);
   }
 }
@@ -109,7 +104,6 @@ function loginUser(username, password) {
       let roleRaw = String(data[i][3]).trim().toLowerCase();
       let finalRole = (roleRaw === 'admin' || roleRaw.includes('admin')) ? (roleRaw === 'admin_sekolah' ? 'admin_sekolah' : 'admin_pusat') : 'siswa';
       const fullname = data[i][4] || dbUser;
-      // Index 5 is Gender, Index 6 is Class
       const gender = data[i][5] || '-';
       const school = data[i][6] || '-';
       
@@ -130,18 +124,77 @@ function loginUser(username, password) {
   return { success: false, message: "Username/Password salah" };
 }
 
+// UPDATED: Start Exam with Resume Logic
 function startExam(username, fullname, subject) {
-  logUserActivity(username, fullname, "START", subject);
-  return { success: true };
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let logSheet = ss.getSheetByName(SHEET_LOGS);
+  let startTime = new Date().getTime(); // Default to now
+  let isResuming = false;
+
+  if (logSheet) {
+    const data = logSheet.getDataRange().getValues();
+    // Scan backwards to find the last valid session for this user + subject
+    // We look for a START that doesn't have a matching FINISH *after* it.
+    // RESET action does NOT clear the Start Time if we want to support Resume, 
+    // it just kicks the user out.
+    
+    for (let i = data.length - 1; i >= 1; i--) {
+        const rowUser = String(data[i][1]).toLowerCase();
+        const rowAction = String(data[i][3]).toUpperCase();
+        const rowDetail = String(data[i][4]); // Subject usually here
+
+        if (rowUser === String(username).toLowerCase()) {
+            if (rowAction === 'FINISH' && rowDetail.includes(subject)) {
+                // Determine if they finished THIS subject. If so, they shouldn't restart (or start new)
+                // For now, simply break, meaning "New Session" or "Done"
+                break; 
+            }
+            if (rowAction === 'START' && rowDetail === subject) {
+                // Found an active start for this subject
+                startTime = new Date(data[i][0]).getTime();
+                isResuming = true;
+                break;
+            }
+        }
+    }
+  }
+
+  // Always log the "Attempt" to start/resume
+  logUserActivity(username, fullname, isResuming ? "RESUME" : "START", subject);
+
+  return { success: true, startTime: startTime, isResuming: isResuming };
 }
 
-// NEW: Assign Group Logic (Updates Users Sheet)
+// NEW: Check User Status (For Force Logout)
+function checkUserStatus(username) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const logSheet = ss.getSheetByName(SHEET_LOGS);
+    if (!logSheet) return { status: 'OK' };
+
+    const data = logSheet.getDataRange().getValues();
+    // Scan backwards to find the LAST action for this user
+    for (let i = data.length - 1; i >= 1; i--) {
+        const rowUser = String(data[i][1]).toLowerCase();
+        if (rowUser === String(username).toLowerCase()) {
+            const action = String(data[i][3]).toUpperCase();
+            if (action === 'RESET') {
+                return { status: 'RESET' };
+            }
+            if (action === 'FINISH') {
+                return { status: 'FINISHED' };
+            }
+            // If START, LOGIN, RESUME -> OK
+            return { status: 'OK' };
+        }
+    }
+    return { status: 'OK' };
+}
+
 function assignTestGroup(usernames, examId, session) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
   const data = sheet.getDataRange().getValues();
-  // Ensure header has columns
   if (data[0].length < 9) {
      sheet.getRange(1, 8).setValue("Active_Exam");
      sheet.getRange(1, 9).setValue("Session");
@@ -151,18 +204,18 @@ function assignTestGroup(usernames, examId, session) {
   usernames.forEach(u => userMap.set(String(u).toLowerCase(), true));
 
   for (let i = 1; i < data.length; i++) {
-    const dbUser = String(data[i][1]).toLowerCase(); // Username col B
+    const dbUser = String(data[i][1]).toLowerCase();
     if (userMap.has(dbUser)) {
-        sheet.getRange(i + 1, 8).setValue(examId); // H
-        sheet.getRange(i + 1, 9).setValue(session); // I
+        sheet.getRange(i + 1, 8).setValue(examId); 
+        sheet.getRange(i + 1, 9).setValue(session); 
     }
   }
   
   return { success: true };
 }
 
-// NEW: Reset Login (Just logs a RESET action, which Dashboard interprets as clearing status)
 function resetLogin(username) {
+  // Just logs a RESET. The frontend polls for this and the dashboard interprets it as Offline.
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
   return { success: true };
 }
@@ -172,7 +225,6 @@ function getUsers() {
   if (!sheet) return [];
   const data = sheet.getDataRange().getDisplayValues();
   const users = [];
-  // Skip Header
   for (let i = 1; i < data.length; i++) {
     if (!data[i][1]) continue;
     users.push({
@@ -183,8 +235,8 @@ function getUsers() {
       fullname: data[i][4],
       gender: data[i][5],
       school: data[i][6],
-      active_exam: data[i][7] || '-', // Col H
-      session: data[i][8] || '-'      // Col I
+      active_exam: data[i][7] || '-', 
+      session: data[i][8] || '-'      
     });
   }
   return users;
@@ -193,17 +245,10 @@ function getUsers() {
 function getSubjectList() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
   const subjects = sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n));
-  
-  // Also fetch duration
   const duration = getConfigValue('DURATION', 60);
-  
-  return {
-    subjects: subjects,
-    duration: Number(duration)
-  };
+  return { subjects: subjects, duration: Number(duration) };
 }
 
-// Generic Config Getter
 function getConfigValue(key, defaultValue) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
   if (!sheet) return defaultValue;
@@ -214,7 +259,6 @@ function getConfigValue(key, defaultValue) {
   return defaultValue;
 }
 
-// Generic Config Saver
 function saveConfig(key, value) {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
   if (!sheet) {
@@ -247,7 +291,6 @@ function getQuestionsFromSheet(subject) {
     const options = [];
     const letters = ['A', 'B', 'C', 'D'];
     
-    // Auto-detect type if missing based on usage? Default to PG
     const type = data[i][2] || 'PG';
     
     if (type === 'PG' || type === 'PGK') {
@@ -324,8 +367,6 @@ function adminImportQuestions(sheetName, questionsList) {
       q.kunci_jawaban || '', q.bobot || 10
   ]);
 
-  // Bulk append using getRange/setValues for speed, or just simple appendRow loop
-  // For safety against sheet limits, we append them.
   const lastRow = sheet.getLastRow();
   sheet.getRange(lastRow + 1, 1, newRows.length, 10).setValues(newRows);
   
@@ -345,31 +386,25 @@ function adminDeleteQuestion(sheetName, id) {
   return { success: false };
 }
 
-/* =========================================
-   CORE FUNCTION: SUBMIT ANSWERS
-   ========================================= */
 function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startStr, endStr, durationStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   answers = answers || {};
 
-  // 1. Get Questions
   const qSheet = ss.getSheetByName(subject);
   if (!qSheet) return { success: false, message: "Mapel tidak ditemukan" };
   
   const qData = qSheet.getDataRange().getValues();
   
-  // 2. Scoring & Analysis Logic
   let totalScore = 0;
   let maxScore = 0;
   let correctCount = 0;
   let wrongCount = 0;
   
-  const itemAnalysis = {};      // Object {Q1: 1, Q2: 0}
-  const itemAnalysisRow = [];   // Array [1, 0, 1...] for Rekap Sheet
-  const rawAnswersRow = [];     // Array ["A", "B", "A,C"...] for Jawaban Sheet
+  const itemAnalysis = {};      
+  const itemAnalysisRow = [];   
+  const rawAnswersRow = [];     
 
-  // Loop through questions in the sheet
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
     if (String(row[0]) === "") continue;
@@ -383,16 +418,14 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     
     let isCorrect = false;
     const userAns = answers[qId];
-    let ansStr = ""; // String representation of answer
+    let ansStr = ""; 
 
     if (userAns !== undefined && userAns !== null) {
-        // Pilihan Ganda
         if (qType === 'PG') {
-            const val = String(userAns).split('-').pop(); // "Q1-A" -> "A"
+            const val = String(userAns).split('-').pop(); 
             ansStr = val;
             if (val === keyRaw) isCorrect = true;
         } 
-        // Pilihan Ganda Kompleks
         else if (qType === 'PGK') {
             const keys = keyRaw.split(',').map(k=>k.trim());
             const uVals = Array.isArray(userAns) ? userAns.map(u => u.split('-').pop()) : [];
@@ -401,7 +434,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
                 isCorrect = true;
             }
         } 
-        // Benar Salah
         else if (qType === 'BS') {
             const keys = keyRaw.split(',').map(k=>k.trim());
             const uVals = []; 
@@ -434,13 +466,11 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     if (rawAnswersRow.length < 50) rawAnswersRow.push(ansStr);
   }
 
-  // Pad arrays to 50
   while(itemAnalysisRow.length < 50) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 50) rawAnswersRow.push("");
 
   const finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
-  // 3. Save to Sheets
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {
       shNilai = ss.insertSheet(SHEET_RESULTS);
@@ -451,12 +481,10 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   let shRekap = ss.getSheetByName(SHEET_REKAP);
   if (!shRekap) {
       shRekap = ss.insertSheet(SHEET_REKAP);
-      // Added "Detail Penilaian" column
       const h = ["Waktu Selesai", "Nama Peserta", "Asal Sekolah", "Mapel", "Durasi", "Benar", "Salah", "Nilai", "Detail Penilaian"];
       for(let k=1; k<=50; k++) h.push(`Q${k}`);
       shRekap.appendRow(h);
   }
-  // Added JSON string to the row data for "Detail Penilaian"
   shRekap.appendRow([timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, JSON.stringify(itemAnalysis), ...itemAnalysisRow]);
 
   let shJawab = ss.getSheetByName(SHEET_JAWABAN);
@@ -496,8 +524,8 @@ function getDashboardData() {
                 fullname: d[i][4], 
                 school: d[i][6], 
                 status: 'OFFLINE',
-                active_exam: d[i][7] || '-', // Col H
-                session: d[i][8] || '-' // Col I
+                active_exam: d[i][7] || '-', 
+                session: d[i][8] || '-' 
             };
             totalUsers++;
         }
@@ -509,7 +537,6 @@ function getDashboardData() {
   const qMap = {};
   
   if (rSheet) {
-    // IMPORTANT: Use getDisplayValues to preserve duration format (e.g. "00:45:10")
     const d = rSheet.getDataRange().getDisplayValues();
     for(let i=1; i<d.length; i++) {
        if(!d[i][0]) continue;
@@ -533,38 +560,28 @@ function getDashboardData() {
 
   const lSheet = ss.getSheetByName(SHEET_LOGS);
   const feed = [];
-  const seenUsersInFeed = new Set(); // Track unique users for the feed
+  const seenUsersInFeed = new Set(); 
 
   if (lSheet) {
-      const d = lSheet.getDataRange().getDisplayValues(); // Use DisplayValues
-      // Iterate Backwards (Latest first)
+      const d = lSheet.getDataRange().getDisplayValues(); 
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).toLowerCase();
           const act = String(d[i][3]).toUpperCase();
 
-          // 1. Update Status logic 
-          // If we encounter a RESET log, and the user hasn't finished (or we want to clear finished), 
-          // we force status to OFFLINE or WORKING depending on needs.
           if (users[uname] && users[uname].status !== 'FINISHED') {
              if (!seenUsersInFeed.has(uname)) {
-                  if (act === 'START') users[uname].status = 'WORKING';
+                  if (act === 'START' || act === 'RESUME') users[uname].status = 'WORKING';
                   else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
-                  else if (act === 'RESET') users[uname].status = 'OFFLINE'; // Reset clears status
+                  else if (act === 'RESET') users[uname].status = 'OFFLINE'; 
              }
           }
-          // Special Case: If RESET is the very last action, it overrides FINISHED too if we want re-exam.
-          // For now, let's keep FINISHED as final unless manually handled, but 'RESET' essentially clears active state.
 
-          // 2. Feed Logic: Only add to feed if we haven't seen this user yet
           if (!seenUsersInFeed.has(uname)) {
               seenUsersInFeed.add(uname);
               if (feed.length < 20) {
-                  // Lookup school from users object
                   const school = users[uname] ? users[uname].school : '-';
-                  
-                  // Extract Subject
                   let subject = '-';
-                  if (act === 'START') {
+                  if (act === 'START' || act === 'RESUME') {
                       subject = d[i][4];
                   } else if (act === 'FINISH') {
                       const det = String(d[i][4]);
@@ -595,7 +612,6 @@ function getDashboardData() {
   const token = getConfigValue('TOKEN', 'TOKEN');
   const duration = getConfigValue('DURATION', 60);
 
-  // Return full users list for Status Tes menu
   return { 
     students, 
     questionsMap: qMap, 
@@ -604,6 +620,6 @@ function getDashboardData() {
     duration: duration,
     statusCounts: counts, 
     activityFeed: feed,
-    allUsers: Object.values(users) // Return structured user data for table
+    allUsers: Object.values(users)
   };
 }
