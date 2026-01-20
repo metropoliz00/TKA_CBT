@@ -313,7 +313,7 @@ function App() {
                 </button>
                 
                 <p className="text-center text-[10px] text-slate-400 mt-6">
-                    Klik "LANJUTKAN" untuk masuk ke mode layar penuh.
+                    Klik "LANJUTKAN" jika perangkat anda sudah kompetibel
                 </p>
             </div>
         </div>
