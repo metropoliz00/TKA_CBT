@@ -274,7 +274,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const isLastQuestion = currentIdx === examQuestions.length - 1;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-slate-100 font-sans overflow-hidden select-none touch-manipulation">
       
       {/* SECURITY OVERLAY */}
       {!isLocked && (
