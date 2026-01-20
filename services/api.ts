@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbySQDv_5XA4pDwCbYiBAIyvdFGwY5tPswskTCoVpfkADZe76V0AQJB1wVeTenoyTud1/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbwsIy8eBVkDeOQcGVVA9WmoGIzqvohF0R_jOnSK3l7dhlQBRt2z6thBY7IlzdZDa1xd/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -163,7 +163,7 @@ export const api = {
       return await callBackend('saveQuestion', subject, data);
   },
 
-  // NEW: Import Questions (Bulk)
+  // Import Questions (Bulk)
   importQuestions: async (subject: string, data: QuestionRow[]): Promise<{success: boolean, message: string}> => {
       return await callBackend('importQuestions', subject, data);
   },
@@ -173,9 +173,19 @@ export const api = {
       return await callBackend('deleteQuestion', subject, id);
   },
 
-  // NEW: Get All Users (Admin)
+  // Get All Users (Admin)
   getUsers: async (): Promise<any[]> => {
       return await callBackend('getUsers');
+  },
+
+  // NEW: Assign Test Group (Kelompok Tes)
+  assignTestGroup: async (usernames: string[], examId: string, session: string): Promise<{success: boolean}> => {
+      return await callBackend('assignTestGroup', usernames, examId, session);
+  },
+
+  // NEW: Reset Login
+  resetLogin: async (username: string): Promise<{success: boolean}> => {
+      return await callBackend('resetLogin', username);
   },
 
   // Submit Exam

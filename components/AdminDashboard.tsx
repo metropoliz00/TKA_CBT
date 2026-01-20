@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
 import * as XLSX from 'xlsx';
@@ -12,19 +12,12 @@ interface AdminDashboardProps {
 // Helper to format duration string "HH:mm:ss" or "mm:ss" to text "X Jam Y Menit Z Detik"
 const formatDurationToText = (duration: string) => {
     if (!duration || duration === '-' || duration === 'undefined') return '-';
-    
-    // Robust parsing for different formats (HH:mm:ss, mm:ss, or mixed)
     try {
         const parts = duration.split(':').map(p => parseInt(p, 10) || 0);
         let h = 0, m = 0, s = 0;
-
-        if (parts.length === 3) {
-            [h, m, s] = parts;
-        } else if (parts.length === 2) {
-            [m, s] = parts;
-        } else {
-            return duration; // Fallback
-        }
+        if (parts.length === 3) { [h, m, s] = parts; } 
+        else if (parts.length === 2) { [m, s] = parts; } 
+        else { return duration; }
         
         const textParts = [];
         if (h > 0) textParts.push(`${h} Jam`);
@@ -32,19 +25,16 @@ const formatDurationToText = (duration: string) => {
         if (s > 0) textParts.push(`${s} Detik`);
         
         return textParts.length > 0 ? textParts.join(' ') : '0 Detik';
-    } catch (e) {
-        return duration;
-    }
+    } catch (e) { return duration; }
 };
 
-// Custom SVG Donut Chart Component with Legend
+// Custom SVG Donut Chart
 const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: string, label?: string }[], size?: number }) => {
     const total = data.reduce((a, b) => a + b.value, 0);
     let cumulative = 0;
     const center = size / 2;
     const radius = (size - 40) / 2;
     const circumference = 2 * Math.PI * radius;
-
     return (
         <div className="relative flex items-center justify-center">
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
@@ -54,32 +44,18 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
                     const offset = cumulative * circumference;
                     cumulative += percentage;
                     return (
-                        <circle
-                            key={i}
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            fill="transparent"
-                            stroke={item.color}
-                            strokeWidth="24"
-                            strokeDasharray={`${dashArray} ${circumference}`}
-                            strokeDashoffset={-offset}
-                            className="transition-all duration-1000 ease-out"
-                        />
+                        <circle key={i} cx={center} cy={center} r={radius} fill="transparent" stroke={item.color} strokeWidth="24" strokeDasharray={`${dashArray} ${circumference}`} strokeDashoffset={-offset} className="transition-all duration-1000 ease-out" />
                     );
                 })}
                 {total === 0 && <circle cx={center} cy={center} r={radius} fill="transparent" stroke="#e2e8f0" strokeWidth="24" />}
             </svg>
-            <div className="absolute flex flex-col items-center">
-                <span className="text-2xl font-bold text-slate-700">{total}</span>
-                <span className="text-xs text-slate-400 font-bold uppercase">Total</span>
-            </div>
+            <div className="absolute flex flex-col items-center"><span className="text-2xl font-bold text-slate-700">{total}</span><span className="text-xs text-slate-400 font-bold uppercase">Total</span></div>
         </div>
     );
 };
 
-// --- DATA USER COMPONENT ---
-const DataUserTab = ({ currentUser }: { currentUser: User }) => {
+// --- DATA USER COMPONENT (RENAMED TO DAFTAR PESERTA) ---
+const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [roleFilter, setRoleFilter] = useState<'siswa' | 'admin_sekolah' | 'admin_pusat'>('siswa');
@@ -90,25 +66,17 @@ const DataUserTab = ({ currentUser }: { currentUser: User }) => {
             try {
                 const data = await api.getUsers();
                 setUsers(data);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
+            } catch (e) { console.error(e); } finally { setLoading(false); }
         };
         fetchUsers();
     }, []);
 
     const filteredUsers = useMemo(() => {
         let res = users;
-
-        // 1. FILTER BY SCHOOL (If Proktor)
         if (currentUser.role === 'admin_sekolah') {
             const mySchool = (currentUser.kelas_id || '').toLowerCase();
             res = res.filter(u => (u.school || '').toLowerCase() === mySchool);
         }
-
-        // 2. FILTER BY ROLE TAB
         return res.filter(u => {
             const r = (u.role || '').toLowerCase();
             if (roleFilter === 'admin_sekolah') return r === 'admin_sekolah';
@@ -119,83 +87,253 @@ const DataUserTab = ({ currentUser }: { currentUser: User }) => {
 
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
-            {/* Filter Tabs */}
             <div className="flex flex-col sm:flex-row gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                <button 
-                    onClick={() => setRoleFilter('siswa')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <GraduationCap size={18}/> Data Siswa
-                </button>
-                {/* Hide Admin filters for Proktor if preferred, but keeping accessible for now so they can see themselves */}
-                <button 
-                    onClick={() => setRoleFilter('admin_sekolah')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                    <UserCheck size={18}/> Data Proktor
-                </button>
+                <button onClick={() => setRoleFilter('siswa')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={18}/> Siswa</button>
+                <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={18}/> Proktor</button>
                 {currentUser.role === 'admin_pusat' && (
-                    <button 
-                        onClick={() => setRoleFilter('admin_pusat')}
-                        className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
-                    >
-                        <Shield size={18}/> ADMIN
-                    </button>
+                    <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={18}/> ADMIN</button>
                 )}
             </div>
-
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20">
-                        <Loader2 size={40} className="animate-spin text-indigo-600 mb-2" />
-                        <span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span>
-                    </div>
+                    <div className="flex flex-col items-center justify-center py-20"><Loader2 size={40} className="animate-spin text-indigo-600 mb-2" /><span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span></div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
-                                <tr>
-                                    <th className="p-4 w-16 text-center">No</th>
-                                    <th className="p-4">Username</th>
-                                    <th className="p-4">Password</th>
-                                    <th className="p-4">Nama Lengkap</th>
-                                    <th className="p-4 w-32">Role</th>
-                                    <th className="p-4">Kelas / Sekolah</th>
-                                </tr>
-                            </thead>
+                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">No</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4">Nama Lengkap</th><th className="p-4 w-32">Role</th><th className="p-4">Kelas / Sekolah</th></tr></thead>
                             <tbody className="divide-y divide-slate-50">
-                                {filteredUsers.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user untuk kategori ini.</td></tr>
-                                ) : filteredUsers.map((u, i) => (
-                                    <tr key={i} className="hover:bg-slate-50 transition">
-                                        <td className="p-4 text-center font-mono text-slate-400">{i+1}</td>
-                                        <td className="p-4 font-mono font-bold text-slate-700">{u.username}</td>
-                                        <td className="p-4 font-mono text-slate-500">{u.password}</td>
-                                        <td className="p-4 font-bold text-slate-700">{u.fullname}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                                                u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : 
-                                                u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 
-                                                'bg-green-100 text-green-700'
-                                            }`}>
-                                                {u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'ADMIN' : (u.role || 'Siswa'))}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-slate-600">{u.school || '-'}</td>
-                                    </tr>
+                                {filteredUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : filteredUsers.map((u, i) => (
+                                    <tr key={i} className="hover:bg-slate-50 transition"><td className="p-4 text-center font-mono text-slate-400">{i+1}</td><td className="p-4 font-mono font-bold text-slate-700">{u.username}</td><td className="p-4 font-mono text-slate-500">{u.password}</td><td className="p-4 font-bold text-slate-700">{u.fullname}</td><td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'ADMIN' : (u.role || 'Siswa'))}</span></td><td className="p-4 text-slate-600">{u.school || '-'}</td></tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
-            <div className="text-right text-xs text-slate-400 italic px-2">
-                * Data diambil langsung dari Spreadsheet (Sheet: Users)
-            </div>
         </div>
     );
 };
 
+// --- NEW COMPONENT: STATUS TES (MONITORING & RESET) ---
+const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
+    const [filterSchool, setFilterSchool] = useState('Semua');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredStudents = useMemo(() => {
+        let res = students;
+        if (currentUser.role === 'admin_sekolah') {
+            const mySchool = (currentUser.kelas_id || '').toLowerCase();
+            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
+        } else if (filterSchool !== 'Semua') {
+            res = res.filter(s => s.school === filterSchool);
+        }
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            res = res.filter(s => s.fullname.toLowerCase().includes(lower) || s.username.toLowerCase().includes(lower));
+        }
+        return res;
+    }, [students, currentUser, filterSchool, searchTerm]);
+
+    const handleReset = async (username: string) => {
+        if(confirm(`Reset login untuk user ${username}? Status akan kembali ke OFFLINE.`)) {
+            await api.resetLogin(username);
+            alert("Berhasil reset. Harap refresh data dashboard.");
+        }
+    };
+
+    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
+
+    return (
+        <div className="space-y-6 fade-in">
+             <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm justify-between items-center">
+                 <div className="flex gap-4 w-full md:w-auto">
+                     {currentUser.role === 'admin_pusat' && (
+                         <select className="p-2 border rounded-lg text-sm font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
+                             {schools.map(s=><option key={s} value={s}>{s}</option>)}
+                         </select>
+                     )}
+                     <div className="relative w-full md:w-64">
+                         <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
+                         <input type="text" placeholder="Cari Siswa..." className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
+                     </div>
+                 </div>
+                 <div className="text-sm font-bold text-slate-500">Total: {filteredStudents.length} Peserta</div>
+             </div>
+
+             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                            <tr>
+                                <th className="p-4">Username</th>
+                                <th className="p-4">Nama Lengkap</th>
+                                <th className="p-4">Sekolah</th>
+                                <th className="p-4">Mapel Aktif</th>
+                                <th className="p-4 text-center">Status</th>
+                                <th className="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {filteredStudents.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Tidak ada data.</td></tr> : filteredStudents.map((s,i) => {
+                                let badgeClass = "bg-slate-100 text-slate-500";
+                                if(s.status === 'LOGGED_IN') badgeClass = "bg-yellow-100 text-yellow-700";
+                                if(s.status === 'WORKING') badgeClass = "bg-blue-100 text-blue-700";
+                                if(s.status === 'FINISHED') badgeClass = "bg-emerald-100 text-emerald-700";
+                                
+                                return (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                        <td className="p-4 font-mono text-slate-600 font-bold">{s.username}</td>
+                                        <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
+                                        <td className="p-4 text-slate-600">{s.school}</td>
+                                        <td className="p-4 text-slate-500 text-xs">{s.active_exam || '-'}</td>
+                                        <td className="p-4 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${badgeClass}`}>{s.status.replace('_', ' ')}</span></td>
+                                        <td className="p-4 text-center">
+                                            <button onClick={()=>handleReset(s.username)} className="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg font-bold hover:bg-rose-100 transition flex items-center gap-1 mx-auto">
+                                                <RefreshCw size={12}/> Reset Login
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+        </div>
+    )
+};
+
+// --- NEW COMPONENT: KELOMPOK TES (ASSIGN GROUP) ---
+const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
+    const [selectedExam, setSelectedExam] = useState('');
+    const [exams, setExams] = useState<string[]>([]);
+    const [session, setSession] = useState('Sesi 1');
+    const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const loadExams = async () => {
+             const list = await api.getExams();
+             const names = list.map(e=>e.nama_ujian);
+             setExams(names);
+             if(names.length>0) setSelectedExam(names[0]);
+        };
+        loadExams();
+    }, []);
+
+    const filteredStudents = useMemo(() => {
+        if (currentUser.role === 'admin_sekolah') {
+            const mySchool = (currentUser.kelas_id || '').toLowerCase();
+            return students.filter(s => (s.school || '').toLowerCase() === mySchool);
+        }
+        return students;
+    }, [students, currentUser]);
+
+    const toggleUser = (username: string) => {
+        const newSet = new Set(selectedUsers);
+        if(newSet.has(username)) newSet.delete(username);
+        else newSet.add(username);
+        setSelectedUsers(newSet);
+    };
+
+    const toggleAll = () => {
+        if(selectedUsers.size === filteredStudents.length) setSelectedUsers(new Set());
+        else setSelectedUsers(new Set(filteredStudents.map(s=>s.username)));
+    };
+
+    const handleAssign = async () => {
+        if(selectedUsers.size === 0) return alert("Pilih minimal satu siswa.");
+        if(!selectedExam) return alert("Pilih Mapel Ujian.");
+        setLoading(true);
+        try {
+            await api.assignTestGroup(Array.from(selectedUsers), selectedExam, session);
+            alert(`Berhasil mengaktifkan ujian ${selectedExam} untuk ${selectedUsers.size} siswa.`);
+            setSelectedUsers(new Set());
+        } catch(e) { console.error(e); alert("Gagal menyimpan."); }
+        finally { setLoading(false); }
+    };
+
+    return (
+        <div className="space-y-6 fade-in">
+            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Atur Kelompok Ujian</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Ujian / Mapel</label>
+                        <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
+                            {exams.map(e=><option key={e} value={e}>{e}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Sesi</label>
+                        <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={session} onChange={e=>setSession(e.target.value)}>
+                            {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-end">
+                        <button onClick={handleAssign} disabled={loading} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
+                            {loading ? "Menyimpan..." : "Aktifkan Peserta"}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="border rounded-xl overflow-hidden max-h-[500px] flex flex-col">
+                    <div className="bg-slate-50 p-3 border-b font-bold text-slate-500 text-sm flex justify-between items-center">
+                        <span>Daftar Siswa ({filteredStudents.length})</span>
+                        <button onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedUsers.size === filteredStudents.length ? "Hapus Semua" : "Pilih Semua"}</button>
+                    </div>
+                    <div className="overflow-y-auto p-2 space-y-1">
+                        {filteredStudents.map(s => (
+                            <label key={s.username} className={`flex items-center p-3 rounded-lg border cursor-pointer transition ${selectedUsers.has(s.username) ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent'}`}>
+                                <input type="checkbox" className="w-5 h-5 accent-indigo-600 rounded mr-3" checked={selectedUsers.has(s.username)} onChange={()=>toggleUser(s.username)} />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-700 text-sm">{s.fullname}</div>
+                                    <div className="text-xs text-slate-400 font-mono">{s.username} • {s.school}</div>
+                                </div>
+                                <div className="text-xs font-bold text-slate-400">{s.active_exam || '-'}</div>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+};
+
+// --- NEW COMPONENT: RILIS TOKEN ---
+const RilisTokenTab = ({ token, duration, refreshData }: { token: string, duration: number, refreshData: () => void }) => {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 fade-in">
+            <div className="bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center max-w-lg w-full">
+                <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Key size={40} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Token Ujian Aktif</h2>
+                <p className="text-slate-500 mb-8">Berikan token ini kepada peserta untuk memulai ujian.</p>
+                
+                <div className="bg-slate-900 text-white p-8 rounded-2xl font-mono text-5xl font-extrabold tracking-[0.2em] shadow-inner mb-8 relative group cursor-pointer" onClick={() => navigator.clipboard.writeText(token)}>
+                    {token}
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-xs font-sans tracking-normal font-bold">Salin Token</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-left bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
+                     <div>
+                         <p className="text-xs text-slate-400 font-bold uppercase">Durasi Ujian</p>
+                         <p className="text-xl font-bold text-slate-700">{duration} Menit</p>
+                     </div>
+                     <div>
+                         <p className="text-xs text-slate-400 font-bold uppercase">Status</p>
+                         <p className="text-xl font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={18}/> Aktif</p>
+                     </div>
+                </div>
+
+                <button onClick={refreshData} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                    <RefreshCw size={18}/> Refresh Data
+                </button>
+            </div>
+        </div>
+    )
+}
 
 const BankSoalTab = () => {
     const [subjects, setSubjects] = useState<string[]>([]);
@@ -562,7 +700,7 @@ const BankSoalTab = () => {
 const SchoolIcon = ({ size, className }: { size: number, className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>;
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token'>('overview');
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
   const [dashboardData, setDashboardData] = useState<any>({ 
       students: [], 
@@ -571,7 +709,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       token: 'TOKEN',
       duration: 60,
       statusCounts: { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 },
-      activityFeed: []
+      activityFeed: [],
+      allUsers: [] // Extended user data for Status/Group tabs
   });
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -658,7 +797,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         case 'rekap': return "Rekapitulasi Nilai";
         case 'analisis': return "Analisis Statistik Soal";
         case 'ranking': return "Peringkat Peserta";
-        case 'data_user': return "Manajemen Data User";
+        case 'data_user': return "Daftar Peserta";
+        case 'status_tes': return "Status Tes & Reset Login";
+        case 'kelompok_tes': return "Kelompok Tes (Assignment)";
+        case 'rilis_token': return "Rilis Token";
         default: return "Dashboard";
     }
   };
@@ -850,33 +992,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         try {
             const endDate = new Date(endTimeStr);
             if (isNaN(endDate.getTime()) || !durationStr) return "-";
-            
-            // Handle both hh:mm:ss and mm:ss
             const parts = durationStr.split(':');
             let hours = 0, minutes = 0, seconds = 0;
-            
-            if (parts.length === 3) {
-                 hours = parseInt(parts[0], 10);
-                 minutes = parseInt(parts[1], 10);
-                 seconds = parseInt(parts[2], 10);
-            } else if (parts.length === 2) {
-                 minutes = parseInt(parts[0], 10);
-                 seconds = parseInt(parts[1], 10);
-            }
-            
+            if (parts.length === 3) { hours = parseInt(parts[0], 10); minutes = parseInt(parts[1], 10); seconds = parseInt(parts[2], 10); } 
+            else if (parts.length === 2) { minutes = parseInt(parts[0], 10); seconds = parseInt(parts[1], 10); }
             const durationMs = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
             const startDate = new Date(endDate.getTime() - durationMs);
-            
             return startDate.toLocaleTimeString();
-        } catch (e) {
-            return "-";
-        }
+        } catch (e) { return "-"; }
     };
 
     const formatTime = (isoString: string) => {
-        try {
-            return new Date(isoString).toLocaleTimeString();
-        } catch { return isoString; }
+        try { return new Date(isoString).toLocaleTimeString(); } catch { return isoString; }
     };
 
     if (isRefreshing) {
@@ -935,8 +1062,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const RankingTab = () => {
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
-    
-    // Sort logic
     const rankingData = useMemo(() => {
         return [...filteredStudents].sort((a: any, b: any) => b.score - a.score);
     }, [filteredStudents]);
@@ -945,95 +1070,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const currentData = rankingData.slice(startIndex, startIndex + rowsPerPage);
 
-    const handleRowsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setRowsPerPage(Number(e.target.value));
-        setCurrentPage(1);
-    };
+    const handleRowsChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); };
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in max-w-full mx-auto">
-            <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
-                <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3>
-            </div>
-            
+            <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center"><h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3></div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs">
-                        <tr>
-                            <th className="p-4 w-16 text-center">#</th>
-                            <th className="p-4 cursor-pointer hover:text-amber-700">Username</th>
-                            <th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th>
-                            <th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th>
-                            <th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th>
-                            <th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th>
-                        </tr>
-                    </thead>
+                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
-                        {currentData.length === 0 ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr>
-                        ) : (
+                        {currentData.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
                             currentData.map((s, i) => {
                                 const realRank = startIndex + i + 1;
                                 let rankBadge = <span className="font-mono text-slate-400 font-bold">#{realRank}</span>;
                                 if (realRank === 1) rankBadge = <span className="text-2xl">🥇</span>;
                                 if (realRank === 2) rankBadge = <span className="text-2xl">🥈</span>;
                                 if (realRank === 3) rankBadge = <span className="text-2xl">🥉</span>;
-
-                                return (
-                                    <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}>
-                                        <td className="p-4 text-center">{rankBadge}</td>
-                                        <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
-                                        <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
-                                        <td className="p-4 text-slate-600">{s.school}</td>
-                                        <td className="p-4 text-center">
-                                             <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                 {s.score}
-                                             </div>
-                                        </td>
-                                        <td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td>
-                                    </tr>
-                                );
+                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
                             })
                         )}
                     </tbody>
                 </table>
             </div>
-
-            {/* Pagination Controls */}
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
-                <div className="flex items-center gap-2 text-slate-600">
-                    <span>Tampilkan</span>
-                    <select 
-                        value={rowsPerPage} 
-                        onChange={handleRowsChange} 
-                        className="bg-white border border-slate-300 text-slate-700 rounded px-2 py-1 font-bold outline-none focus:ring-2 focus:ring-indigo-200"
-                    >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                    </select>
-                    <span>baris</span>
-                </div>
-
+                <div className="flex items-center gap-2 text-slate-600"><span>Tampilkan</span><select value={rowsPerPage} onChange={handleRowsChange} className="bg-white border border-slate-300 text-slate-700 rounded px-2 py-1 font-bold outline-none focus:ring-2 focus:ring-indigo-200"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option><option value={100}>100</option></select><span>baris</span></div>
                 <div className="flex items-center gap-2">
-                    <button 
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    <span className="font-bold text-slate-700 px-2">
-                        {currentPage} / {totalPages || 1}
-                    </span>
-                    <button 
-                        disabled={currentPage >= totalPages}
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    >
-                        <ChevronRight size={16} />
-                    </button>
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"><ChevronLeft size={16} /></button>
+                    <span className="font-bold text-slate-700 px-2">{currentPage} / {totalPages || 1}</span>
+                    <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"><ChevronRight size={16} /></button>
                 </div>
             </div>
         </div>
@@ -1041,57 +1105,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const AnalisisTab = () => {
-    // 1. Get available subjects from keys
     const subjects = useMemo(() => Object.keys(dashboardData.questionsMap), []);
-    
-    // 2. Local State for filters
     const [localSubject, setLocalSubject] = useState(subjects[0] || '');
     const [localSchool, setLocalSchool] = useState('Semua');
 
-    useEffect(() => {
-        if (!localSubject && subjects.length > 0) {
-            setLocalSubject(subjects[0]);
-        }
-    }, [subjects.length]);
+    useEffect(() => { if (!localSubject && subjects.length > 0) setLocalSubject(subjects[0]); }, [subjects.length]);
 
-    // 3. Filter Students by Subject first (Base population)
-    // We use filteredStudents which respects Admin Role already
     const studentsBySubject = filteredStudents.filter((s: any) => s.subject === localSubject);
-
-    // 4. Extract available schools from the students taking this subject
     const availableSchools = useMemo(() => {
         const schools = new Set(studentsBySubject.map((s: any) => s.school));
         const arr = Array.from(schools).filter(Boolean).sort();
         return ['Semua', ...arr];
     }, [studentsBySubject]);
 
-    // 5. Final Student Filter (School)
     const finalStudents = studentsBySubject.filter((s: any) => {
         if (localSchool !== 'Semua') return s.school === localSchool;
         return true;
     });
 
-    // 6. Sort Alphabetically for Analysis Table
     finalStudents.sort((a: any, b: any) => a.fullname.localeCompare(b.fullname));
-
-    // 7. Get Questions for the selected subject
     const currentQuestions = dashboardData.questionsMap[localSubject] || [];
-
-    // 8. Stats Calculation for Footer
     const stats = currentQuestions.map((q: any) => {
-        let correct = 0;
-        let wrong = 0;
-        finalStudents.forEach((s: any) => {
-            const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined;
-            if (val == 1) correct++;
-            else if (val == 0) wrong++;
-        });
+        let correct = 0; let wrong = 0;
+        finalStudents.forEach((s: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; if (val == 1) correct++; else if (val == 0) wrong++; });
         const total = correct + wrong;
         const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-        let diff = "M"; // Mudah
-        if (pct <= 50) diff = "S"; // Sukar
-        else if (pct <= 80) diff = "Sd"; // Sedang
-
+        let diff = "M"; if (pct <= 50) diff = "S"; else if (pct <= 80) diff = "Sd";
         return { correct, wrong, pct, diff };
     });
 
@@ -1099,101 +1138,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in">
-            {/* Control Bar */}
             <div className="p-5 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-2 font-bold text-slate-700">
-                     <BarChart3 className="text-indigo-600" size={24}/>
-                     <span>Analisis Butir Soal</span>
-                </div>
-                
+                <div className="flex items-center gap-2 font-bold text-slate-700"><BarChart3 className="text-indigo-600" size={24}/><span>Analisis Butir Soal</span></div>
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    {/* Subject Filter */}
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                             <BookOpen size={16}/>
-                        </div>
-                        <select 
-                            className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none"
-                            value={localSubject}
-                            onChange={(e) => {
-                                setLocalSubject(e.target.value);
-                                setLocalSchool('Semua'); // Reset school filter when subject changes
-                            }}
-                        >
-                            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-
-                    {/* School Filter */}
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                             <Filter size={16}/>
-                        </div>
-                        <select 
-                            className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none"
-                            value={localSchool}
-                            onChange={(e) => setLocalSchool(e.target.value)}
-                        >
-                            {availableSchools.map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}
-                        </select>
-                    </div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
                 </div>
             </div>
-
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-center border-collapse">
-                    <thead>
-                        <tr>
-                            <th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th>
-                            <th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">
-                                NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span>
-                            </th>
-                            {currentQuestions.map((q: any, i: number) => (
-                                <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th>
-                            ))}
-                            <th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
-                        {finalStudents.length === 0 ? (
-                            <tr><td colSpan={currentQuestions.length + 3} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr>
-                        ) : finalStudents.map((s: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td>
-                                <td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">
-                                    {s.fullname}
-                                    <div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div>
-                                </td>
-                                {currentQuestions.map((q: any) => {
-                                    const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined;
-                                    const isCorrect = val == 1;
-                                    return (
-                                        <td key={q.id} className="p-1 border-r border-slate-100">
-                                            <div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>
-                                                {val !== undefined ? val : '-'}
-                                            </div>
-                                        </td>
-                                    )
-                                })}
-                                <td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td>
-                            </tr>
+                        {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 3} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors"><td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td><td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">{s.fullname}<div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div></td>{currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td></tr>
                         ))}
-                        
-                        {/* Footer Stats */}
-                        {finalStudents.length > 0 && (
-                            <>
-                                <tr className="bg-slate-50 border-t-2 border-slate-200">
-                                    <td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>
-                                    {stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}
-                                    <td className="bg-slate-100"></td>
-                                </tr>
-                                <tr className="bg-slate-100">
-                                    <td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>
-                                    {stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}
-                                    <td className="bg-slate-200"></td>
-                                </tr>
-                            </>
-                        )}
+                        {finalStudents.length > 0 && ( <><tr className="bg-slate-50 border-t-2 border-slate-200"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}<td className="bg-slate-100"></td></tr><tr className="bg-slate-100"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}<td className="bg-slate-200"></td></tr></> )}
                     </tbody>
                 </table>
             </div>
@@ -1205,81 +1164,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
-      {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
         <div className="p-6">
           <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">Management System <span className="text-indigo-600">Center</span></h1>
-          <p className="text-xs text-slate-400 mt-1">
-              {user.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel
-          </p>
+          <p className="text-xs text-slate-400 mt-1">{user.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel</p>
         </div>
         
         <nav className="flex-1 px-4 space-y-2">
-          <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'overview' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-            <Home size={20} /> Dashboard
-          </button>
+          <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'overview' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Home size={20} /> Dashboard</button>
           
-          {/* Allow both Admin Pusat and Admin Sekolah to see Data User, but it will be filtered inside */}
+          {/* New Menus */}
+          <button onClick={() => setActiveTab('status_tes')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'status_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Monitor size={20} /> Status Tes</button>
+          <button onClick={() => setActiveTab('kelompok_tes')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'kelompok_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Group size={20} /> Kelompok Tes</button>
+          
           {(user.role === 'admin_pusat' || user.role === 'admin_sekolah') && (
-            <button onClick={() => setActiveTab('data_user')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <UserCog size={20} /> Data User
-            </button>
+            <button onClick={() => setActiveTab('data_user')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><List size={20} /> Daftar Peserta</button>
           )}
 
-          {user.role === 'admin_pusat' && (
-             <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <FileQuestion size={20} /> Bank Soal
-             </button>
-          )}
+          <button onClick={() => setActiveTab('rilis_token')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rilis_token' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Key size={20} /> Rilis Token</button>
 
-          <button onClick={() => setActiveTab('rekap')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rekap' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-            <LayoutDashboard size={20} /> Rekap Nilai
-          </button>
-          <button onClick={() => setActiveTab('analisis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'analisis' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-            <BarChart3 size={20} /> Analisis Soal
-          </button>
-          <button onClick={() => setActiveTab('ranking')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'ranking' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-            <Award size={20} /> Peringkat
-          </button>
+          {user.role === 'admin_pusat' && ( <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><FileQuestion size={20} /> Bank Soal</button> )}
+          <button onClick={() => setActiveTab('rekap')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rekap' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><LayoutDashboard size={20} /> Rekap Nilai</button>
+          <button onClick={() => setActiveTab('analisis')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'analisis' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><BarChart3 size={20} /> Analisis Soal</button>
+          <button onClick={() => setActiveTab('ranking')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'ranking' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Award size={20} /> Peringkat</button>
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <button onClick={onLogout} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition">
-            <LogOut size={20} /> Logout
-          </button>
-        </div>
+        <div className="p-4 border-t border-slate-100"><button onClick={onLogout} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition"><LogOut size={20} /> Logout</button></div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800">{getTabTitle()}</h2>
-                {user.role === 'admin_sekolah' && (
-                    <p className="text-xs text-slate-500 font-bold uppercase mt-1">Proktor: {user.kelas_id}</p>
-                )}
-            </div>
+            <div><h2 className="text-2xl font-bold text-slate-800">{getTabTitle()}</h2>{user.role === 'admin_sekolah' && (<p className="text-xs text-slate-500 font-bold uppercase mt-1">Proktor: {user.kelas_id}</p>)}</div>
             <div className="flex items-center gap-3">
-              <button onClick={fetchData} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative">
-                <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />
-              </button>
-              <div className="bg-white p-2 rounded-full border border-slate-200 shadow-sm">
-                <Settings size={20} className="text-slate-400" />
-              </div>
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">
-                {user.username.charAt(0).toUpperCase()}
-              </div>
+              <button onClick={fetchData} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative"><RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} /></button>
+              <div className="bg-white p-2 rounded-full border border-slate-200 shadow-sm"><Settings size={20} className="text-slate-400" /></div>
+              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">{user.username.charAt(0).toUpperCase()}</div>
             </div>
           </div>
 
           {activeTab === 'overview' && <OverviewTab />}
-          {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DataUserTab currentUser={user} />}
+          {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
+          {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} />}
+          {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
+          {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} />}
           {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
           {activeTab === 'rekap' && <RekapTab />}
           {activeTab === 'ranking' && <RankingTab />}
           {activeTab === 'analisis' && <AnalisisTab />}
-          
         </div>
       </main>
     </div>

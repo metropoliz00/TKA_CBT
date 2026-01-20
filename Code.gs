@@ -6,6 +6,7 @@
 const SHEET_USERS = "Users";      
 // Mapping Kolom Users Terbaru:
 // A(0): ID, B(1): Username, C(2): Password, D(3): Role, E(4): Nama Lengkap, F(5): Jenis Kelamin, G(6): Kelas ID
+// NEW: H(7): Active Exam, I(8): Session
 
 const SHEET_CONFIG = "Config";    // A:Key, B:Value
 const SHEET_RESULTS = "Nilai";    // Output Data (Nilai Akhir & Log JSON)
@@ -56,13 +57,15 @@ function processAction(action, args) {
       case 'getQuestionsFromSheet': return getQuestionsFromSheet(args[0]);
       case 'getRawQuestions': return adminGetQuestions(args[0]);
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
-      case 'importQuestions': return adminImportQuestions(args[0], args[1]); // New Bulk Import
+      case 'importQuestions': return adminImportQuestions(args[0], args[1]); 
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
       case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
       case 'getDashboardData': return getDashboardData();
-      case 'getUsers': return getUsers(); // New Action
+      case 'getUsers': return getUsers(); 
       case 'saveToken': return saveConfig('TOKEN', args[0]);
-      case 'saveConfig': return saveConfig(args[0], args[1]); // New Generic Saver
+      case 'saveConfig': return saveConfig(args[0], args[1]); 
+      case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]); // NEW
+      case 'resetLogin': return resetLogin(args[0]); // NEW
       default: return { error: "Action not found: " + action };
     }
 }
@@ -106,7 +109,7 @@ function loginUser(username, password) {
       let roleRaw = String(data[i][3]).trim().toLowerCase();
       let finalRole = (roleRaw === 'admin' || roleRaw.includes('admin')) ? (roleRaw === 'admin_sekolah' ? 'admin_sekolah' : 'admin_pusat') : 'siswa';
       const fullname = data[i][4] || dbUser;
-      // New Structure: Index 5 is Gender, Index 6 is Class
+      // Index 5 is Gender, Index 6 is Class
       const gender = data[i][5] || '-';
       const school = data[i][6] || '-';
       
@@ -132,6 +135,38 @@ function startExam(username, fullname, subject) {
   return { success: true };
 }
 
+// NEW: Assign Group Logic (Updates Users Sheet)
+function assignTestGroup(usernames, examId, session) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+  if (!sheet) return { success: false, message: "Sheet Users not found" };
+  
+  const data = sheet.getDataRange().getValues();
+  // Ensure header has columns
+  if (data[0].length < 9) {
+     sheet.getRange(1, 8).setValue("Active_Exam");
+     sheet.getRange(1, 9).setValue("Session");
+  }
+
+  const userMap = new Map();
+  usernames.forEach(u => userMap.set(String(u).toLowerCase(), true));
+
+  for (let i = 1; i < data.length; i++) {
+    const dbUser = String(data[i][1]).toLowerCase(); // Username col B
+    if (userMap.has(dbUser)) {
+        sheet.getRange(i + 1, 8).setValue(examId); // H
+        sheet.getRange(i + 1, 9).setValue(session); // I
+    }
+  }
+  
+  return { success: true };
+}
+
+// NEW: Reset Login (Just logs a RESET action, which Dashboard interprets as clearing status)
+function resetLogin(username) {
+  logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
+  return { success: true };
+}
+
 function getUsers() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return [];
@@ -147,7 +182,9 @@ function getUsers() {
       role: data[i][3],
       fullname: data[i][4],
       gender: data[i][5],
-      school: data[i][6]
+      school: data[i][6],
+      active_exam: data[i][7] || '-', // Col H
+      session: data[i][8] || '-'      // Col I
     });
   }
   return users;
@@ -454,7 +491,14 @@ function getDashboardData() {
     for(let i=1; i<d.length; i++) {
         const role = String(d[i][3]).toLowerCase();
         if (role === 'siswa') {
-            users[String(d[i][1]).toLowerCase()] = { username: d[i][1], fullname: d[i][4], school: d[i][6], status: 'OFFLINE' };
+            users[String(d[i][1]).toLowerCase()] = { 
+                username: d[i][1], 
+                fullname: d[i][4], 
+                school: d[i][6], 
+                status: 'OFFLINE',
+                active_exam: d[i][7] || '-', // Col H
+                session: d[i][8] || '-' // Col I
+            };
             totalUsers++;
         }
     }
@@ -498,13 +542,18 @@ function getDashboardData() {
           const uname = String(d[i][1]).toLowerCase();
           const act = String(d[i][3]).toUpperCase();
 
-          // 1. Update Status logic (Status uses the VERY latest log regardless)
+          // 1. Update Status logic 
+          // If we encounter a RESET log, and the user hasn't finished (or we want to clear finished), 
+          // we force status to OFFLINE or WORKING depending on needs.
           if (users[uname] && users[uname].status !== 'FINISHED') {
              if (!seenUsersInFeed.has(uname)) {
                   if (act === 'START') users[uname].status = 'WORKING';
                   else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
+                  else if (act === 'RESET') users[uname].status = 'OFFLINE'; // Reset clears status
              }
           }
+          // Special Case: If RESET is the very last action, it overrides FINISHED too if we want re-exam.
+          // For now, let's keep FINISHED as final unless manually handled, but 'RESET' essentially clears active state.
 
           // 2. Feed Logic: Only add to feed if we haven't seen this user yet
           if (!seenUsersInFeed.has(uname)) {
@@ -518,7 +567,6 @@ function getDashboardData() {
                   if (act === 'START') {
                       subject = d[i][4];
                   } else if (act === 'FINISH') {
-                      // Details is like "Math: 80"
                       const det = String(d[i][4]);
                       subject = det.includes(':') ? det.split(':')[0] : det;
                   }
@@ -547,6 +595,7 @@ function getDashboardData() {
   const token = getConfigValue('TOKEN', 'TOKEN');
   const duration = getConfigValue('DURATION', 60);
 
+  // Return full users list for Status Tes menu
   return { 
     students, 
     questionsMap: qMap, 
@@ -554,6 +603,7 @@ function getDashboardData() {
     token: token, 
     duration: duration,
     statusCounts: counts, 
-    activityFeed: feed 
+    activityFeed: feed,
+    allUsers: Object.values(users) // Return structured user data for table
   };
 }
