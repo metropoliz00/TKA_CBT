@@ -51,15 +51,18 @@ function processAction(action, args) {
     switch (action) {
       case 'login': return loginUser(args[0], args[1]);
       case 'startExam': return startExam(args[0], args[1], args[2]);
-      case 'getSubjectList': return getSubjectList();
-      case 'getTokenFromConfig': return getTokenFromConfig();
+      case 'getSubjectList': return getSubjectList(); // Now returns { subjects, duration }
+      case 'getTokenFromConfig': return getConfigValue('TOKEN', 'TOKEN');
       case 'getQuestionsFromSheet': return getQuestionsFromSheet(args[0]);
       case 'getRawQuestions': return adminGetQuestions(args[0]);
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
+      case 'importQuestions': return adminImportQuestions(args[0], args[1]); // New Bulk Import
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
       case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
       case 'getDashboardData': return getDashboardData();
-      case 'saveToken': return saveToken(args[0]);
+      case 'getUsers': return getUsers(); // New Action
+      case 'saveToken': return saveConfig('TOKEN', args[0]);
+      case 'saveConfig': return saveConfig(args[0], args[1]); // New Generic Saver
       default: return { error: "Action not found: " + action };
     }
 }
@@ -129,22 +132,53 @@ function startExam(username, fullname, subject) {
   return { success: true };
 }
 
+function getUsers() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getDisplayValues();
+  const users = [];
+  // Skip Header
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][1]) continue;
+    users.push({
+      id: data[i][0] || `U${i}`,
+      username: data[i][1],
+      password: data[i][2],
+      role: data[i][3],
+      fullname: data[i][4],
+      gender: data[i][5],
+      school: data[i][6]
+    });
+  }
+  return users;
+}
+
 function getSubjectList() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-  return sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n));
+  const subjects = sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n));
+  
+  // Also fetch duration
+  const duration = getConfigValue('DURATION', 60);
+  
+  return {
+    subjects: subjects,
+    duration: Number(duration)
+  };
 }
 
-function getTokenFromConfig() {
+// Generic Config Getter
+function getConfigValue(key, defaultValue) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
-  if (!sheet) return "TOKEN";
+  if (!sheet) return defaultValue;
   const data = sheet.getDataRange().getValues();
   for(let i=0; i<data.length; i++) {
-    if(String(data[i][0]).toUpperCase() === 'TOKEN') return String(data[i][1]);
+    if(String(data[i][0]).toUpperCase() === key.toUpperCase()) return data[i][1];
   }
-  return "TOKEN";
+  return defaultValue;
 }
 
-function saveToken(newToken) {
+// Generic Config Saver
+function saveConfig(key, value) {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
   if (!sheet) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CONFIG);
@@ -153,14 +187,14 @@ function saveToken(newToken) {
   const data = sheet.getDataRange().getValues();
   let found = false;
   for(let i=0; i<data.length; i++) {
-    if(String(data[i][0]).toUpperCase() === 'TOKEN') {
-      sheet.getRange(i+1, 2).setValue(newToken);
+    if(String(data[i][0]).toUpperCase() === key.toUpperCase()) {
+      sheet.getRange(i+1, 2).setValue(value);
       found = true; 
       break;
     }
   }
-  if (!found) sheet.appendRow(["TOKEN", newToken]);
-  return { success: true, token: newToken };
+  if (!found) sheet.appendRow([key.toUpperCase(), value]);
+  return { success: true, value: value };
 }
 
 function getQuestionsFromSheet(subject) {
@@ -234,6 +268,31 @@ function adminSaveQuestion(sheetName, qData) {
   else sheet.appendRow(rowVals);
   
   return { success: true, message: "Saved" };
+}
+
+function adminImportQuestions(sheetName, questionsList) {
+  if (!Array.isArray(questionsList) || questionsList.length === 0) {
+    return { success: false, message: "Data kosong" };
+  }
+
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+    sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"]);
+  }
+
+  const newRows = questionsList.map(q => [
+      q.id, q.text_soal, q.tipe_soal || 'PG', q.gambar || '',
+      q.opsi_a || '', q.opsi_b || '', q.opsi_c || '', q.opsi_d || '',
+      q.kunci_jawaban || '', q.bobot || 10
+  ]);
+
+  // Bulk append using getRange/setValues for speed, or just simple appendRow loop
+  // For safety against sheet limits, we append them.
+  const lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow + 1, 1, newRows.length, 10).setValues(newRows);
+  
+  return { success: true, message: `Berhasil mengimpor ${newRows.length} soal.` };
 }
 
 function adminDeleteQuestion(sheetName, id) {
@@ -355,11 +414,13 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   let shRekap = ss.getSheetByName(SHEET_REKAP);
   if (!shRekap) {
       shRekap = ss.insertSheet(SHEET_REKAP);
-      const h = ["Waktu Selesai", "Nama Peserta", "Asal Sekolah", "Mapel", "Durasi", "Benar", "Salah", "Nilai"];
+      // Added "Detail Penilaian" column
+      const h = ["Waktu Selesai", "Nama Peserta", "Asal Sekolah", "Mapel", "Durasi", "Benar", "Salah", "Nilai", "Detail Penilaian"];
       for(let k=1; k<=50; k++) h.push(`Q${k}`);
       shRekap.appendRow(h);
   }
-  shRekap.appendRow([timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, ...itemAnalysisRow]);
+  // Added JSON string to the row data for "Detail Penilaian"
+  shRekap.appendRow([timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, JSON.stringify(itemAnalysis), ...itemAnalysisRow]);
 
   let shJawab = ss.getSheetByName(SHEET_JAWABAN);
   if (!shJawab) {
@@ -393,7 +454,6 @@ function getDashboardData() {
     for(let i=1; i<d.length; i++) {
         const role = String(d[i][3]).toLowerCase();
         if (role === 'siswa') {
-            // Mapping: Username at 1, Fullname at 4, School at 6 (was 5)
             users[String(d[i][1]).toLowerCase()] = { username: d[i][1], fullname: d[i][4], school: d[i][6], status: 'OFFLINE' };
             totalUsers++;
         }
@@ -405,7 +465,8 @@ function getDashboardData() {
   const qMap = {};
   
   if (rSheet) {
-    const d = rSheet.getDataRange().getValues();
+    // IMPORTANT: Use getDisplayValues to preserve duration format (e.g. "00:45:10")
+    const d = rSheet.getDataRange().getDisplayValues();
     for(let i=1; i<d.length; i++) {
        if(!d[i][0]) continue;
        const uname = String(d[i][1]).toLowerCase();
@@ -414,7 +475,7 @@ function getDashboardData() {
        
        students.push({
            timestamp: d[i][0], username: d[i][1], fullname: d[i][2], school: d[i][3], 
-           subject: d[i][4], score: d[i][5], itemAnalysis: analysis, duration: d[i][7]
+           subject: d[i][4], score: Number(d[i][5]), itemAnalysis: analysis, duration: d[i][7]
        });
        
        if(users[uname]) {
@@ -428,26 +489,71 @@ function getDashboardData() {
 
   const lSheet = ss.getSheetByName(SHEET_LOGS);
   const feed = [];
+  const seenUsersInFeed = new Set(); // Track unique users for the feed
+
   if (lSheet) {
-      const d = lSheet.getDataRange().getValues();
+      const d = lSheet.getDataRange().getDisplayValues(); // Use DisplayValues
+      // Iterate Backwards (Latest first)
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).toLowerCase();
           const act = String(d[i][3]).toUpperCase();
+
+          // 1. Update Status logic (Status uses the VERY latest log regardless)
           if (users[uname] && users[uname].status !== 'FINISHED') {
-             if (act === 'START') users[uname].status = 'WORKING';
-             else if (act === 'LOGIN' && users[uname].status === 'OFFLINE') users[uname].status = 'LOGGED_IN';
+             if (!seenUsersInFeed.has(uname)) {
+                  if (act === 'START') users[uname].status = 'WORKING';
+                  else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
+             }
           }
-          if (feed.length < 15) feed.push({ timestamp: d[i][0], username: d[i][1], fullname: d[i][2], action: act, details: d[i][4] });
+
+          // 2. Feed Logic: Only add to feed if we haven't seen this user yet
+          if (!seenUsersInFeed.has(uname)) {
+              seenUsersInFeed.add(uname);
+              if (feed.length < 20) {
+                  // Lookup school from users object
+                  const school = users[uname] ? users[uname].school : '-';
+                  
+                  // Extract Subject
+                  let subject = '-';
+                  if (act === 'START') {
+                      subject = d[i][4];
+                  } else if (act === 'FINISH') {
+                      // Details is like "Math: 80"
+                      const det = String(d[i][4]);
+                      subject = det.includes(':') ? det.split(':')[0] : det;
+                  }
+
+                  feed.push({ 
+                      timestamp: d[i][0], 
+                      username: d[i][1], 
+                      fullname: d[i][2], 
+                      action: act, 
+                      details: d[i][4],
+                      school: school,
+                      subject: subject
+                  });
+              }
+          }
       }
   }
 
   const counts = { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
   Object.values(users).forEach(u => {
-      // Robust check
       if (counts[u.status] !== undefined) {
          counts[u.status]++;
       }
   });
 
-  return { students, questionsMap: qMap, totalUsers, token: getTokenFromConfig(), statusCounts: counts, activityFeed: feed };
+  const token = getConfigValue('TOKEN', 'TOKEN');
+  const duration = getConfigValue('DURATION', 60);
+
+  return { 
+    students, 
+    questionsMap: qMap, 
+    totalUsers, 
+    token: token, 
+    duration: duration,
+    statusCounts: counts, 
+    activityFeed: feed 
+  };
 }

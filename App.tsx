@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
 
-type ViewState = 'login' | 'confirm' | 'exam' | 'result' | 'admin';
+type ViewState = 'system_check' | 'login' | 'confirm' | 'exam' | 'result' | 'admin';
 
 function App() {
-  const [view, setView] = useState<ViewState>('login');
+  const [view, setView] = useState<ViewState>('system_check');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [examList, setExamList] = useState<Exam[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<string>('');
@@ -21,6 +21,9 @@ function App() {
   const [startTime, setStartTime] = useState<number>(0);
   const [showPassword, setShowPassword] = useState(false);
   
+  // System Check State
+  const [sysInfo, setSysInfo] = useState({ os: 'Unknown', device: 'Unknown', ram: 'Unknown', status: 'Checking...' });
+
   // Extra confirm fields
   const [confirmData, setConfirmData] = useState({
       day: 'Hari',
@@ -31,6 +34,48 @@ function App() {
   const renderDays = () => Array.from({length:31}, (_,i) => <option key={i} value={i+1}>{i+1}</option>);
   const renderYears = () => Array.from({length:30}, (_,i) => <option key={i} value={2015-i}>{2015-i}</option>);
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+  // System Check Logic (Device & Connection Status)
+  useEffect(() => {
+    if (view === 'system_check') {
+        // 1. Detect OS/Device
+        const userAgent = navigator.userAgent;
+        let os = "Unknown OS";
+        if (userAgent.indexOf("Win") !== -1) os = "Windows";
+        if (userAgent.indexOf("Mac") !== -1) os = "MacOS";
+        if (userAgent.indexOf("X11") !== -1) os = "UNIX";
+        if (userAgent.indexOf("Linux") !== -1) os = "Linux";
+        if (userAgent.indexOf("Android") !== -1) os = "Android";
+        if (userAgent.indexOf("like Mac") !== -1) os = "iOS";
+
+        // 2. RAM (Chrome only mostly)
+        const ram = (navigator as any).deviceMemory ? `${(navigator as any).deviceMemory} GB` : "N/A";
+
+        // 3. Connection Status Listener
+        const updateOnlineStatus = () => {
+            setSysInfo(prev => ({
+                ...prev,
+                status: navigator.onLine ? "Online" : "Offline"
+            }));
+        };
+
+        // Initial Set
+        setSysInfo({
+            os: os,
+            device: /Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent) ? "Mobile" : "Desktop",
+            ram: ram,
+            status: navigator.onLine ? "Online" : "Offline"
+        });
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+
+        return () => {
+            window.removeEventListener('online', updateOnlineStatus);
+            window.removeEventListener('offline', updateOnlineStatus);
+        };
+    }
+  }, [view]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +178,76 @@ function App() {
   };
 
   const selectedExam = examList.find(e => e.id === selectedExamId);
+
+  // --- RENDER SYSTEM CHECK ---
+  if (view === 'system_check') {
+      const isOffline = sysInfo.status === 'Offline';
+
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans fade-in">
+            <div className="bg-white max-w-md w-full rounded-2xl p-8 shadow-xl border border-slate-100 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+                
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <Monitor size={32} />
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-slate-800">System Check</h2>
+                    <p className="text-slate-500 text-sm mt-1">Memeriksa kompatibilitas perangkat...</p>
+                </div>
+
+                <div className="space-y-4 mb-8">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3">
+                            <Smartphone className="text-slate-400" size={20} />
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Device / OS</p>
+                                <p className="font-bold text-slate-700">{sysInfo.device} / {sysInfo.os}</p>
+                            </div>
+                        </div>
+                        <Check size={20} className="text-green-500" />
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3">
+                            <Cpu className="text-slate-400" size={20} />
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase">RAM</p>
+                                <p className="font-bold text-slate-700">{sysInfo.ram}</p>
+                            </div>
+                        </div>
+                        <Check size={20} className="text-green-500" />
+                    </div>
+
+                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isOffline ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex items-center gap-3">
+                            {isOffline ? <WifiOff className="text-red-400" size={20} /> : <Wifi className="text-slate-400" size={20} />}
+                            <div>
+                                <p className={`text-xs font-bold uppercase ${isOffline ? 'text-red-400' : 'text-slate-400'}`}>Status Device</p>
+                                <p className={`font-bold ${isOffline ? 'text-red-600' : 'text-emerald-600'}`}>{sysInfo.status}</p>
+                            </div>
+                        </div>
+                        <div className={`w-3 h-3 rounded-full ${isOffline ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={() => setView('login')}
+                    disabled={isOffline}
+                    className={`w-full font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 group ${isOffline ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'}`}
+                >
+                    {isOffline ? "KONEKSI TERPUTUS" : (
+                        <>LANJUTKAN <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>
+                    )}
+                </button>
+                
+                <p className="text-center text-[10px] text-slate-400 mt-6">
+                    Pastikan koneksi internet stabil selama ujian berlangsung.
+                </p>
+            </div>
+        </div>
+      );
+  }
 
   // --- RENDER LOGIN ---
   if (view === 'login') {

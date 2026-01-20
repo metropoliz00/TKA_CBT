@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbygibUMdsomw8fA5QmHn_LIFc_fMxfKs3Piyjvlwr7BO6-Sg-prC0tQW6VNcWfMAnwe/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbySQDv_5XA4pDwCbYiBAIyvdFGwY5tPswskTCoVpfkADZe76V0AQJB1wVeTenoyTud1/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -87,13 +87,24 @@ export const api = {
 
   // Get Exams / Subject List
   getExams: async (): Promise<Exam[]> => {
-    const subjects: string[] = await callBackend('getSubjectList') as string[];
-    if (Array.isArray(subjects)) {
+    const response: any = await callBackend('getSubjectList');
+    let subjects: string[] = [];
+    let duration = 60;
+
+    // Handle legacy (array only) vs new response { subjects, duration }
+    if (Array.isArray(response)) {
+        subjects = response;
+    } else if (response && response.subjects) {
+        subjects = response.subjects;
+        duration = response.duration || 60;
+    }
+
+    if (subjects.length > 0) {
         return subjects.map((s) => ({
             id: s,
             nama_ujian: s,
             waktu_mulai: new Date().toISOString(),
-            durasi: 60,
+            durasi: Number(duration),
             token_akses: 'TOKEN', 
             is_active: true
         }));
@@ -108,7 +119,12 @@ export const api = {
 
   // Save Token
   saveToken: async (newToken: string): Promise<{success: boolean}> => {
-      return await callBackend('saveToken', newToken);
+      return await callBackend('saveConfig', 'TOKEN', newToken);
+  },
+  
+  // Save Duration
+  saveDuration: async (minutes: number): Promise<{success: boolean}> => {
+      return await callBackend('saveConfig', 'DURATION', minutes);
   },
 
   // Get Questions from Sheet (Formatted for Exam)
@@ -147,9 +163,19 @@ export const api = {
       return await callBackend('saveQuestion', subject, data);
   },
 
+  // NEW: Import Questions (Bulk)
+  importQuestions: async (subject: string, data: QuestionRow[]): Promise<{success: boolean, message: string}> => {
+      return await callBackend('importQuestions', subject, data);
+  },
+
   // Delete Question
   deleteQuestion: async (subject: string, id: string): Promise<{success: boolean, message: string}> => {
       return await callBackend('deleteQuestion', subject, id);
+  },
+
+  // NEW: Get All Users (Admin)
+  getUsers: async (): Promise<any[]> => {
+      return await callBackend('getUsers');
   },
 
   // Submit Exam

@@ -1,23 +1,30 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
+import * as XLSX from 'xlsx';
 
 interface AdminDashboardProps {
     user: User;
     onLogout: () => void;
 }
 
-// Helper to format duration string "HH:mm:ss" to text "X Jam Y Menit Z Detik"
+// Helper to format duration string "HH:mm:ss" or "mm:ss" to text "X Jam Y Menit Z Detik"
 const formatDurationToText = (duration: string) => {
-    if (!duration || duration === '-') return '-';
+    if (!duration || duration === '-' || duration === 'undefined') return '-';
+    
+    // Robust parsing for different formats (HH:mm:ss, mm:ss, or mixed)
     try {
-        const parts = duration.split(':');
-        if (parts.length !== 3) return duration;
-        
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const s = parseInt(parts[2], 10);
+        const parts = duration.split(':').map(p => parseInt(p, 10) || 0);
+        let h = 0, m = 0, s = 0;
+
+        if (parts.length === 3) {
+            [h, m, s] = parts;
+        } else if (parts.length === 2) {
+            [m, s] = parts;
+        } else {
+            return duration; // Fallback
+        }
         
         const textParts = [];
         if (h > 0) textParts.push(`${h} Jam`);
@@ -71,6 +78,125 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
     );
 };
 
+// --- DATA USER COMPONENT ---
+const DataUserTab = ({ currentUser }: { currentUser: User }) => {
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [roleFilter, setRoleFilter] = useState<'siswa' | 'admin_sekolah' | 'admin_pusat'>('siswa');
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            setLoading(true);
+            try {
+                const data = await api.getUsers();
+                setUsers(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchUsers();
+    }, []);
+
+    const filteredUsers = useMemo(() => {
+        let res = users;
+
+        // 1. FILTER BY SCHOOL (If Proktor)
+        if (currentUser.role === 'admin_sekolah') {
+            const mySchool = (currentUser.kelas_id || '').toLowerCase();
+            res = res.filter(u => (u.school || '').toLowerCase() === mySchool);
+        }
+
+        // 2. FILTER BY ROLE TAB
+        return res.filter(u => {
+            const r = (u.role || '').toLowerCase();
+            if (roleFilter === 'admin_sekolah') return r === 'admin_sekolah';
+            if (roleFilter === 'admin_pusat') return r === 'admin_pusat' || r === 'admin';
+            return r === 'siswa' || r === '';
+        });
+    }, [users, roleFilter, currentUser]);
+
+    return (
+        <div className="space-y-6 fade-in max-w-full mx-auto">
+            {/* Filter Tabs */}
+            <div className="flex flex-col sm:flex-row gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+                <button 
+                    onClick={() => setRoleFilter('siswa')}
+                    className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <GraduationCap size={18}/> Data Siswa
+                </button>
+                {/* Hide Admin filters for Proktor if preferred, but keeping accessible for now so they can see themselves */}
+                <button 
+                    onClick={() => setRoleFilter('admin_sekolah')}
+                    className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                    <UserCheck size={18}/> Data Proktor
+                </button>
+                {currentUser.role === 'admin_pusat' && (
+                    <button 
+                        onClick={() => setRoleFilter('admin_pusat')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        <Shield size={18}/> ADMIN
+                    </button>
+                )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Loader2 size={40} className="animate-spin text-indigo-600 mb-2" />
+                        <span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                                <tr>
+                                    <th className="p-4 w-16 text-center">No</th>
+                                    <th className="p-4">Username</th>
+                                    <th className="p-4">Password</th>
+                                    <th className="p-4">Nama Lengkap</th>
+                                    <th className="p-4 w-32">Role</th>
+                                    <th className="p-4">Kelas / Sekolah</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredUsers.length === 0 ? (
+                                    <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user untuk kategori ini.</td></tr>
+                                ) : filteredUsers.map((u, i) => (
+                                    <tr key={i} className="hover:bg-slate-50 transition">
+                                        <td className="p-4 text-center font-mono text-slate-400">{i+1}</td>
+                                        <td className="p-4 font-mono font-bold text-slate-700">{u.username}</td>
+                                        <td className="p-4 font-mono text-slate-500">{u.password}</td>
+                                        <td className="p-4 font-bold text-slate-700">{u.fullname}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                                                u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : 
+                                                u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 
+                                                'bg-green-100 text-green-700'
+                                            }`}>
+                                                {u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'ADMIN' : (u.role || 'Siswa'))}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-slate-600">{u.school || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+            <div className="text-right text-xs text-slate-400 italic px-2">
+                * Data diambil langsung dari Spreadsheet (Sheet: Users)
+            </div>
+        </div>
+    );
+};
+
+
 const BankSoalTab = () => {
     const [subjects, setSubjects] = useState<string[]>([]);
     const [selectedSubject, setSelectedSubject] = useState('');
@@ -78,6 +204,7 @@ const BankSoalTab = () => {
     const [loadingData, setLoadingData] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [currentQ, setCurrentQ] = useState<QuestionRow | null>(null);
+    const [importing, setImporting] = useState(false);
 
     useEffect(() => {
         const loadSubjects = async () => {
@@ -149,6 +276,98 @@ const BankSoalTab = () => {
         setLoadingData(false);
     };
 
+    // --- IMPORT / EXPORT LOGIC ---
+    const downloadTemplate = () => {
+        const ws = XLSX.utils.json_to_sheet([
+            {
+                "ID Soal": "Q1",
+                "Teks Soal": "Berapakah hasil dari 1 + 1?",
+                "Tipe Soal (PG/PGK/BS)": "PG",
+                "Link Gambar": "",
+                "Opsi A / Pernyataan 1": "2",
+                "Opsi B / Pernyataan 2": "3",
+                "Opsi C / Pernyataan 3": "4",
+                "Opsi D / Pernyataan 4": "5",
+                "Kunci Jawaban": "A",
+                "Bobot": 10
+            },
+            {
+                "ID Soal": "Q2",
+                "Teks Soal": "Pilih bilangan prima (Lebih dari satu jawaban)",
+                "Tipe Soal (PG/PGK/BS)": "PGK",
+                "Link Gambar": "",
+                "Opsi A / Pernyataan 1": "2",
+                "Opsi B / Pernyataan 2": "4",
+                "Opsi C / Pernyataan 3": "3",
+                "Opsi D / Pernyataan 4": "9",
+                "Kunci Jawaban": "A,C",
+                "Bobot": 10
+            }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Template_Soal_CBT.xlsx");
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        setImporting(true);
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsName = wb.SheetNames[0];
+                const ws = wb.Sheets[wsName];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                
+                // Parse Data (Skip header row 0)
+                const parsedQuestions: QuestionRow[] = [];
+                // Expecting Columns: ID, Text, Type, Image, A, B, C, D, Key, Bobot
+                // Index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                for (let i = 1; i < data.length; i++) {
+                    const row: any = data[i];
+                    if (!row[0]) continue;
+                    parsedQuestions.push({
+                        id: String(row[0]),
+                        text_soal: String(row[1] || ""),
+                        tipe_soal: (String(row[2] || "PG").toUpperCase() as any),
+                        gambar: String(row[3] || ""),
+                        opsi_a: String(row[4] || ""),
+                        opsi_b: String(row[5] || ""),
+                        opsi_c: String(row[6] || ""),
+                        opsi_d: String(row[7] || ""),
+                        kunci_jawaban: String(row[8] || "").toUpperCase(),
+                        bobot: Number(row[9] || 10)
+                    });
+                }
+
+                if (parsedQuestions.length > 0) {
+                     await api.importQuestions(selectedSubject, parsedQuestions);
+                     alert(`Berhasil mengimpor ${parsedQuestions.length} soal.`);
+                     // Refresh
+                     setLoadingData(true);
+                     const freshData = await api.getRawQuestions(selectedSubject);
+                     setQuestions(freshData);
+                     setLoadingData(false);
+                } else {
+                    alert("Tidak ada data soal yang ditemukan dalam file.");
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Gagal membaca file Excel. Pastikan format sesuai template.");
+            } finally {
+                setImporting(false);
+                // Reset file input
+                if (e.target) e.target.value = '';
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
     // Helper for key placeholder
     const getKeyPlaceholder = (type: string) => {
         if (type === 'PG') return "Contoh: A";
@@ -166,7 +385,7 @@ const BankSoalTab = () => {
 
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
-             <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center">
+             <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4">
                     <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><FileQuestion size={24}/></div>
                     <div>
@@ -174,23 +393,41 @@ const BankSoalTab = () => {
                         <p className="text-xs text-slate-400">Edit database soal (Matematika / Bahasa Indonesia).</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <select 
-                        className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none font-bold"
+                        className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none font-bold min-w-[150px]"
                         value={selectedSubject}
                         onChange={e => setSelectedSubject(e.target.value)}
                     >
                         {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+
+                    <button 
+                        onClick={downloadTemplate}
+                        className="bg-slate-100 text-slate-600 px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition"
+                        title="Download Template Excel"
+                    >
+                        <Download size={16}/> Template
+                    </button>
+
+                    <label className={`cursor-pointer px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition text-white ${importing ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                        {importing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                        {importing ? "Mengimpor..." : "Import Excel"}
+                        <input type="file" accept=".xlsx" onChange={handleFileUpload} className="hidden" disabled={importing} />
+                    </label>
+
                     <button onClick={handleAddNew} className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-indigo-700 transition">
-                        <Plus size={16}/> Tambah Soal
+                        <Plus size={16}/> Tambah
                     </button>
                 </div>
              </div>
 
              <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
                 {loadingData ? (
-                    <div className="p-10 text-center"><div className="loader border-indigo-500 mx-auto"></div></div>
+                     <div className="flex flex-col items-center justify-center py-20">
+                        <Loader2 size={40} className="animate-spin text-indigo-600 mb-2" />
+                        <span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Soal...</span>
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
@@ -322,16 +559,17 @@ const BankSoalTab = () => {
     );
 };
 
-const SchoolIcon = ({ size }: { size: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>;
+const SchoolIcon = ({ size, className }: { size: number, className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>;
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user'>('overview');
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
   const [dashboardData, setDashboardData] = useState<any>({ 
       students: [], 
       questionsMap: {}, 
       totalUsers: 0, 
       token: 'TOKEN',
+      duration: 60,
       statusCounts: { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 },
       activityFeed: []
   });
@@ -339,6 +577,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [isEditingToken, setIsEditingToken] = useState(false);
+  
+  // Duration State
+  const [durationInput, setDurationInput] = useState(60);
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
 
   const fetchData = async () => {
     setIsRefreshing(true);
@@ -346,6 +588,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         const data = await api.getDashboardData();
         setDashboardData(data);
         setTokenInput(data.token);
+        setDurationInput(Number(data.duration) || 60);
     } catch (e) {
         console.error(e);
     } finally {
@@ -361,6 +604,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const handleUpdateToken = async () => {
       await api.saveToken(tokenInput);
       setIsEditingToken(false);
+      fetchData();
+  };
+  
+  const handleUpdateDuration = async () => {
+      await api.saveDuration(durationInput);
+      setIsEditingDuration(false);
       fetchData();
   };
   
@@ -401,6 +650,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     setSortConfig({ key, direction });
   };
 
+  // Helper function to get Dynamic Header Title
+  const getTabTitle = () => {
+    switch(activeTab) {
+        case 'overview': return "Dashboard Utama";
+        case 'bank_soal': return "Manajemen Bank Soal";
+        case 'rekap': return "Rekapitulasi Nilai";
+        case 'analisis': return "Analisis Statistik Soal";
+        case 'ranking': return "Peringkat Peserta";
+        case 'data_user': return "Manajemen Data User";
+        default: return "Dashboard";
+    }
+  };
+
   const OverviewTab = () => {
     // Stats for Charts
     const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = dashboardData.statusCounts || { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
@@ -413,6 +675,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         { value: WORKING, color: '#3b82f6', label: 'Mengerjakan' }, // Blue-500
         { value: FINISHED, color: '#10b981', label: 'Selesai' }, // Emerald-500
     ];
+    
+    // Filter Activity Feed for Proktor
+    const filteredFeed = useMemo(() => {
+        const feed = dashboardData.activityFeed || [];
+        if (user.role === 'admin_sekolah') {
+            const mySchool = (user.kelas_id || '').toLowerCase();
+            return feed.filter((log: any) => (log.school || '').toLowerCase() === mySchool);
+        }
+        return feed;
+    }, [dashboardData.activityFeed]);
 
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
@@ -420,7 +692,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3">
                 <div className="bg-blue-200 p-2 rounded-lg"><SchoolIcon size={20}/></div>
                 <div>
-                    <h3 className="font-bold text-sm uppercase tracking-wide">Mode Admin Sekolah</h3>
+                    <h3 className="font-bold text-sm uppercase tracking-wide">Mode Proktor</h3>
                     <p className="text-sm">Menampilkan data untuk: <b>{user.kelas_id}</b></p>
                 </div>
             </div>
@@ -439,21 +711,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Ujian Selesai</p><h3 className="text-3xl font-extrabold text-emerald-600 mt-1">{FINISHED}</h3></div>
                 <div className="bg-emerald-50 p-3 rounded-xl text-emerald-500"><CheckCircle2 size={24}/></div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center relative overflow-hidden group">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Token Ujian</p>
-                {isEditingToken ? (
-                    <div className="flex gap-2">
-                        <input type="text" className="w-full p-2 border border-slate-300 rounded text-center font-mono font-bold uppercase text-lg tracking-widest" value={tokenInput} onChange={e=>setTokenInput(e.target.value.toUpperCase())} maxLength={6} />
-                        <button onClick={generateToken} className="bg-amber-100 text-amber-600 p-2 rounded hover:bg-amber-200" title="Acak Token"><RefreshCw size={18}/></button>
-                        <button onClick={handleUpdateToken} className="bg-indigo-600 text-white p-2 rounded hover:bg-indigo-700"><Save size={18}/></button>
-                        <button onClick={()=>setIsEditingToken(false)} className="bg-slate-200 text-slate-600 p-2 rounded hover:bg-slate-300"><X size={18}/></button>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <span className="text-3xl font-mono font-bold text-slate-800 tracking-widest">{dashboardData.token}</span>
-                        <button onClick={()=>{ setTokenInput(dashboardData.token); setIsEditingToken(true); }} className="text-slate-400 hover:text-indigo-500 transition"><Edit size={18}/></button>
-                    </div>
-                )}
+            
+            <div className="grid grid-rows-2 gap-4">
+                {/* Token Card */}
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center relative overflow-hidden group">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Token Ujian</p>
+                    {isEditingToken ? (
+                        <div className="flex gap-1">
+                            <input type="text" className="w-full p-1 border border-slate-300 rounded text-center font-mono font-bold uppercase text-lg" value={tokenInput} onChange={e=>setTokenInput(e.target.value.toUpperCase())} maxLength={6} />
+                            <button onClick={generateToken} className="bg-amber-100 text-amber-600 p-1 rounded hover:bg-amber-200" title="Acak"><RefreshCw size={14}/></button>
+                            <button onClick={handleUpdateToken} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700"><Save size={14}/></button>
+                            <button onClick={()=>setIsEditingToken(false)} className="bg-slate-200 text-slate-600 p-1 rounded hover:bg-slate-300"><X size={14}/></button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl font-mono font-bold text-slate-800 tracking-widest">{dashboardData.token}</span>
+                            {user.role === 'admin_pusat' && (
+                                <button onClick={()=>{ setTokenInput(dashboardData.token); setIsEditingToken(true); }} className="text-slate-400 hover:text-indigo-500 transition"><Edit size={16}/></button>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Duration Card */}
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center relative overflow-hidden group">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Durasi (Menit)</p>
+                    {isEditingDuration ? (
+                        <div className="flex gap-1">
+                            <input type="number" className="w-full p-1 border border-slate-300 rounded text-center font-mono font-bold text-lg" value={durationInput} onChange={e=>setDurationInput(Number(e.target.value))} />
+                            <button onClick={handleUpdateDuration} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700"><Save size={14}/></button>
+                            <button onClick={()=>{ setDurationInput(Number(dashboardData.duration)); setIsEditingDuration(false); }} className="bg-slate-200 text-slate-600 p-1 rounded hover:bg-slate-300"><X size={14}/></button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl font-mono font-bold text-slate-800">{dashboardData.duration} <span className="text-xs text-slate-400">Menit</span></span>
+                            {user.role === 'admin_pusat' && (
+                                <button onClick={()=>{ setIsEditingDuration(true); }} className="text-slate-400 hover:text-indigo-500 transition"><Edit size={16}/></button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -468,46 +765,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     <div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-500 rounded"></div> Mengerjakan ({totalStatus > 0 ? Math.round((WORKING/totalStatus)*100) : 0}%)</div>
                     <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded"></div> Selesai ({totalStatus > 0 ? Math.round((FINISHED/totalStatus)*100) : 0}%)</div>
                 </div>
+                {user.role === 'admin_sekolah' && (
+                    <p className="mt-4 text-[10px] text-slate-400 text-center italic">Grafik di atas menampilkan total global. Untuk detail siswa sekolah Anda, lihat daftar Aktivitas Terbaru di samping.</p>
+                )}
             </div>
 
             {/* Activity Feed */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 col-span-2">
                 <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Activity size={18} className="text-indigo-500"/> Aktivitas Terbaru</h3>
                 <div className="space-y-0 h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                    {dashboardData.activityFeed && dashboardData.activityFeed.length > 0 ? (
-                        dashboardData.activityFeed.map((log: any, i: number) => {
-                            let icon = <AlertCircle size={16}/>;
+                    {filteredFeed && filteredFeed.length > 0 ? (
+                        filteredFeed.map((log: any, i: number) => {
+                            let icon = <AlertCircle size={20}/>;
                             let colorClass = "bg-slate-100 text-slate-500";
                             let statusText = "Unknown";
                             
                             if (log.action === 'LOGIN') {
-                                icon = <Key size={16}/>;
+                                icon = <Key size={20}/>;
                                 colorClass = "bg-yellow-100 text-yellow-600";
-                                statusText = "Sudah Login";
+                                statusText = "Login";
                             } else if (log.action === 'START') {
-                                icon = <PlayCircle size={16}/>;
+                                icon = <PlayCircle size={20}/>;
                                 colorClass = "bg-blue-100 text-blue-600";
-                                statusText = "Mengerjakan Soal";
+                                statusText = "Mengerjakan";
                             } else if (log.action === 'FINISH') {
-                                icon = <CheckCircle2 size={16}/>;
+                                icon = <CheckCircle2 size={20}/>;
                                 colorClass = "bg-emerald-100 text-emerald-600";
-                                statusText = "Selesai Mengerjakan";
+                                statusText = "Selesai";
+                            } else if (log.action === 'WORKING') { // Fallback from logs
+                                icon = <PlayCircle size={20}/>;
+                                colorClass = "bg-blue-100 text-blue-600";
+                                statusText = "Mengerjakan";
                             }
+
+                            const hasSubject = log.subject && log.subject !== '-' && log.subject !== 'Success';
 
                             return (
                                 <div key={i} className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition border-b border-slate-50 last:border-0">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${colorClass}`}>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${colorClass}`}>
                                         {icon}
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start">
-                                            <p className="text-sm font-bold text-slate-700">{log.fullname}</p>
-                                            <span className="text-[10px] font-mono text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start mb-0.5">
+                                            <p className="text-sm font-bold text-slate-700 truncate">{log.fullname}</p>
+                                            <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">{new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-0.5">
-                                            <span className={`font-bold ${colorClass.replace('bg-', 'text-').split(' ')[1]}`}>{statusText}</span>
-                                            {log.details && <span className="text-slate-400"> - {log.details}</span>}
-                                        </p>
+                                        
+                                        <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                                            <SchoolIcon size={12} className="text-slate-400"/>
+                                            <span className="truncate">{log.school || '-'}</span>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${colorClass.replace('text-', 'text-').replace('bg-', 'bg-opacity-20 ')}`}>
+                                                {statusText}
+                                            </span>
+                                            {hasSubject && (
+                                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                                    {log.subject}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -515,7 +833,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-400 italic">
                             <Activity size={32} className="mb-2 opacity-20"/>
-                            Belum ada aktivitas tercatat.
+                            Belum ada aktivitas tercatat untuk sekolah ini.
                         </div>
                     )}
                 </div>
@@ -533,12 +851,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             const endDate = new Date(endTimeStr);
             if (isNaN(endDate.getTime()) || !durationStr) return "-";
             
+            // Handle both hh:mm:ss and mm:ss
             const parts = durationStr.split(':');
-            if (parts.length !== 3) return "-";
+            let hours = 0, minutes = 0, seconds = 0;
             
-            const hours = parseInt(parts[0], 10);
-            const minutes = parseInt(parts[1], 10);
-            const seconds = parseInt(parts[2], 10);
+            if (parts.length === 3) {
+                 hours = parseInt(parts[0], 10);
+                 minutes = parseInt(parts[1], 10);
+                 seconds = parseInt(parts[2], 10);
+            } else if (parts.length === 2) {
+                 minutes = parseInt(parts[0], 10);
+                 seconds = parseInt(parts[1], 10);
+            }
             
             const durationMs = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
             const startDate = new Date(endDate.getTime() - durationMs);
@@ -554,6 +878,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             return new Date(isoString).toLocaleTimeString();
         } catch { return isoString; }
     };
+
+    if (isRefreshing) {
+        return (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 min-h-[400px] flex flex-col items-center justify-center fade-in">
+                <Loader2 size={48} className="animate-spin text-indigo-600 mb-4" />
+                <p className="text-slate-500 font-bold animate-pulse">Menyinkronkan Data Rekapitulasi...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden fade-in max-w-full mx-auto">
@@ -578,7 +911,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {sortedStudents.map((s: any, i: number) => (
+                        {sortedStudents.length === 0 ? (
+                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Belum ada data rekapitulasi untuk sekolah ini.</td></tr>
+                        ) : sortedStudents.map((s: any, i: number) => (
                             <tr key={i} className="hover:bg-slate-50 transition">
                                 <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
                                 <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
@@ -598,36 +933,108 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const RankingTab = () => {
-    const rankingData = [...filteredStudents].sort((a: any, b: any) => b.score - a.score);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
     
+    // Sort logic
+    const rankingData = useMemo(() => {
+        return [...filteredStudents].sort((a: any, b: any) => b.score - a.score);
+    }, [filteredStudents]);
+
+    const totalPages = Math.ceil(rankingData.length / rowsPerPage);
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const currentData = rankingData.slice(startIndex, startIndex + rowsPerPage);
+
+    const handleRowsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setRowsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+    };
+
     return (
-        <div className="max-w-7xl mx-auto fade-in">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat (Grid View)</h3>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in max-w-full mx-auto">
+            <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
+                <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rankingData.map((s: any, i: number) => {
-                    let rankColor = 'bg-white border-slate-100'; 
-                    let badgeColor = 'bg-slate-100 text-slate-500'; 
-                    let icon = null;
-                    if (i === 0) { rankColor = 'bg-yellow-50 border-yellow-200 shadow-md'; badgeColor = 'bg-yellow-400 text-yellow-900'; icon = '🥇'; }
-                    else if (i === 1) { rankColor = 'bg-slate-50 border-slate-300 shadow-sm'; badgeColor = 'bg-slate-300 text-slate-700'; icon = '🥈'; }
-                    else if (i === 2) { rankColor = 'bg-orange-50 border-orange-200 shadow-sm'; badgeColor = 'bg-orange-300 text-orange-800'; icon = '🥉'; }
-                    
-                    return (
-                        <div key={i} className={`relative rounded-2xl border p-6 flex flex-col items-center text-center transition hover:-translate-y-1 ${rankColor}`}>
-                            <div className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-sm ${badgeColor}`}>{icon || (i + 1)}</div>
-                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-2xl mb-4 shadow-lg">{s.fullname?.charAt(0)}</div>
-                            <h4 className="text-lg font-bold text-slate-800 truncate w-full">{s.fullname}</h4>
-                            <p className="text-xs text-slate-500 font-mono mb-2">{s.username}</p>
-                            <div className="text-sm text-slate-600 mb-4 h-10 flex items-center justify-center w-full bg-white/50 rounded-lg">{s.school}</div>
-                            <div className="w-full grid grid-cols-2 gap-2 mt-auto">
-                                <div className="bg-white p-2 rounded-lg border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase">Nilai</div><div className="text-xl font-bold text-indigo-600">{s.score}</div></div>
-                                <div className="bg-white p-2 rounded-lg border border-slate-100"><div className="text-xs text-slate-400 font-bold uppercase">Durasi</div><div className="text-sm font-bold text-slate-600 mt-1 truncate text-[10px] md:text-xs">{formatDurationToText(s.duration)}</div></div>
-                            </div>
-                        </div>
-                    )
-                })}
+            
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs">
+                        <tr>
+                            <th className="p-4 w-16 text-center">#</th>
+                            <th className="p-4 cursor-pointer hover:text-amber-700">Username</th>
+                            <th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th>
+                            <th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th>
+                            <th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th>
+                            <th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {currentData.length === 0 ? (
+                            <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr>
+                        ) : (
+                            currentData.map((s, i) => {
+                                const realRank = startIndex + i + 1;
+                                let rankBadge = <span className="font-mono text-slate-400 font-bold">#{realRank}</span>;
+                                if (realRank === 1) rankBadge = <span className="text-2xl">🥇</span>;
+                                if (realRank === 2) rankBadge = <span className="text-2xl">🥈</span>;
+                                if (realRank === 3) rankBadge = <span className="text-2xl">🥉</span>;
+
+                                return (
+                                    <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}>
+                                        <td className="p-4 text-center">{rankBadge}</td>
+                                        <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
+                                        <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
+                                        <td className="p-4 text-slate-600">{s.school}</td>
+                                        <td className="p-4 text-center">
+                                             <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                 {s.score}
+                                             </div>
+                                        </td>
+                                        <td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                <div className="flex items-center gap-2 text-slate-600">
+                    <span>Tampilkan</span>
+                    <select 
+                        value={rowsPerPage} 
+                        onChange={handleRowsChange} 
+                        className="bg-white border border-slate-300 text-slate-700 rounded px-2 py-1 font-bold outline-none focus:ring-2 focus:ring-indigo-200"
+                    >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span>baris</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button 
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    <span className="font-bold text-slate-700 px-2">
+                        {currentPage} / {totalPages || 1}
+                    </span>
+                    <button 
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -801,9 +1208,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
         <div className="p-6">
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">CBT <span className="text-indigo-600">Admin</span></h1>
+          <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">Management System <span className="text-indigo-600">Center</span></h1>
           <p className="text-xs text-slate-400 mt-1">
-              {user.role === 'admin_pusat' ? 'PUSAT' : 'SEKOLAH'} Management System
+              {user.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel
           </p>
         </div>
         
@@ -812,10 +1219,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             <Home size={20} /> Dashboard
           </button>
           
+          {/* Allow both Admin Pusat and Admin Sekolah to see Data User, but it will be filtered inside */}
+          {(user.role === 'admin_pusat' || user.role === 'admin_sekolah') && (
+            <button onClick={() => setActiveTab('data_user')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <UserCog size={20} /> Data User
+            </button>
+          )}
+
           {user.role === 'admin_pusat' && (
-              <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+             <button onClick={() => setActiveTab('bank_soal')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <FileQuestion size={20} /> Bank Soal
-              </button>
+             </button>
           )}
 
           <button onClick={() => setActiveTab('rekap')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rekap' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -841,9 +1255,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <div>
-                <h2 className="text-2xl font-bold text-slate-800 capitalize">{activeTab.replace('_', ' ')}</h2>
+                <h2 className="text-2xl font-bold text-slate-800">{getTabTitle()}</h2>
                 {user.role === 'admin_sekolah' && (
-                    <p className="text-xs text-slate-500 font-bold uppercase mt-1">Admin: {user.kelas_id}</p>
+                    <p className="text-xs text-slate-500 font-bold uppercase mt-1">Proktor: {user.kelas_id}</p>
                 )}
             </div>
             <div className="flex items-center gap-3">
@@ -860,6 +1274,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           </div>
 
           {activeTab === 'overview' && <OverviewTab />}
+          {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DataUserTab currentUser={user} />}
           {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
           {activeTab === 'rekap' && <RekapTab />}
           {activeTab === 'ranking' && <RankingTab />}
