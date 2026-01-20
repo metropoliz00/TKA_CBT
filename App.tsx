@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
@@ -35,6 +35,27 @@ function App() {
   const renderDays = () => Array.from({length:31}, (_,i) => <option key={i} value={i+1}>{i+1}</option>);
   const renderYears = () => Array.from({length:30}, (_,i) => <option key={i} value={2015-i}>{2015-i}</option>);
   const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+  // Helper to trigger fullscreen
+  const enterFullscreen = async () => {
+      const el = document.documentElement;
+      if (!document.fullscreenElement) {
+          try {
+              if (el.requestFullscreen) await el.requestFullscreen();
+              // @ts-ignore
+              else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+              // @ts-ignore
+              else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+          } catch (e) {
+              console.warn("Auto-fullscreen blocked by browser (requires user interaction).");
+          }
+      }
+  };
+
+  // Attempt fullscreen on mount (Optimistic for Kiosk/Allowed browsers)
+  useEffect(() => {
+      enterFullscreen();
+  }, []);
 
   // System Check Logic (Device & Connection Status)
   useEffect(() => {
@@ -80,6 +101,7 @@ function App() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    enterFullscreen(); // Ensure fullscreen on login attempt
     setLoading(true);
     setErrorMsg('');
 
@@ -114,6 +136,7 @@ function App() {
   };
 
   const handleVerifyToken = async () => {
+      enterFullscreen(); // Ensure fullscreen
       if (!inputToken) {
           setErrorMsg('Harap isi token ujian.');
           return;
@@ -163,17 +186,8 @@ function App() {
         const res = await api.startExam(currentUser.username, currentUser.nama_lengkap, selectedExamId);
         const activeStartTime = res.startTime || Date.now();
 
-        // TRIGGER FULLSCREEN MODE
-        try {
-            const el = document.documentElement;
-            if (el.requestFullscreen) await el.requestFullscreen();
-            // @ts-ignore
-            else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-            // @ts-ignore
-            else if (el.msRequestFullscreen) await el.msRequestFullscreen();
-        } catch (e) {
-            console.warn("Fullscreen blocked or not supported", e);
-        }
+        // TRIGGER FULLSCREEN MODE (Force)
+        enterFullscreen();
 
         setQuestions(qData);
         setStartTime(activeStartTime); // Use correct start time for timer
@@ -238,7 +252,7 @@ function App() {
       const isOffline = sysInfo.status === 'Offline';
 
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans fade-in">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans fade-in" onClick={enterFullscreen}>
             <div className="bg-white max-w-md w-full rounded-2xl p-8 shadow-xl border border-slate-100 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
                 
@@ -286,7 +300,10 @@ function App() {
                 </div>
 
                 <button 
-                    onClick={() => setView('login')}
+                    onClick={() => {
+                        enterFullscreen();
+                        setView('login');
+                    }}
                     disabled={isOffline}
                     className={`w-full font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 group ${isOffline ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'}`}
                 >
@@ -296,7 +313,7 @@ function App() {
                 </button>
                 
                 <p className="text-center text-[10px] text-slate-400 mt-6">
-                    Pastikan koneksi internet stabil selama ujian berlangsung.
+                    Klik "LANJUTKAN" untuk masuk ke mode layar penuh.
                 </p>
             </div>
         </div>
@@ -306,7 +323,7 @@ function App() {
   // --- RENDER LOGIN ---
   if (view === 'login') {
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans overflow-hidden relative">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans overflow-hidden relative" onClick={enterFullscreen}>
             <div className="absolute inset-0 z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-200/40 rounded-full blur-3xl animate-pulse"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-200/40 rounded-full blur-3xl animate-pulse" style={{animationDelay:'2s'}}></div>
@@ -388,7 +405,7 @@ function App() {
   // --- RENDER CONFIRM ---
   if (view === 'confirm') {
     return (
-        <div className="min-h-screen bg-slate-50 font-sans flex flex-col fade-in">
+        <div className="min-h-screen bg-slate-50 font-sans flex flex-col fade-in" onClick={enterFullscreen}>
             <header className="bg-white border-b border-slate-200 h-16 flex items-center px-6 md:px-10 justify-between sticky top-0 z-30">
                 <div className="flex items-center gap-2 text-blue-700 font-bold text-lg"><School size={24}/> <span>Konfirmasi Data</span></div>
                 <div className="flex items-center gap-4">
