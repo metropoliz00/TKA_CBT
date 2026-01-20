@@ -118,7 +118,20 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
         }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+        // ALLOW Ctrl + X (Minimize/Exit Fullscreen)
+        if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+            e.preventDefault();
+            if (document.fullscreenElement) {
+                try {
+                    await document.exitFullscreen();
+                } catch(err) {
+                    console.warn("Exit fullscreen failed or already exited");
+                }
+            }
+            return; // Stop further checks
+        }
+
         // Prevent F12, Ctrl+Shift+I, Alt+Tab (best effort), etc.
         if (
             e.key === 'F12' || 

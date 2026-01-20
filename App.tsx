@@ -57,6 +57,26 @@ function App() {
       enterFullscreen();
   }, []);
 
+  // Global Shortcut Listener (Ctrl + X to Minimize/Exit Fullscreen)
+  useEffect(() => {
+      const handleGlobalKeyDown = async (e: KeyboardEvent) => {
+          // Ctrl + X to exit fullscreen
+          if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+              e.preventDefault(); // Prevent 'Cut' or other defaults
+              if (document.fullscreenElement) {
+                  try {
+                      await document.exitFullscreen();
+                  } catch (err) {
+                      console.log("Exit fullscreen failed or already exited");
+                  }
+              }
+          }
+      };
+
+      window.addEventListener('keydown', handleGlobalKeyDown);
+      return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   // System Check Logic (Device & Connection Status)
   useEffect(() => {
     if (view === 'system_check') {
@@ -313,7 +333,7 @@ function App() {
                 </button>
                 
                 <p className="text-center text-[10px] text-slate-400 mt-6">
-                    Klik "LANJUTKAN" jika perangkat anda sudah kompetibel
+                    Klik "LANJUTKAN" untuk masuk ke mode layar penuh.
                 </p>
             </div>
         </div>
