@@ -36,8 +36,10 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmFinish, setShowConfirmFinish] = useState(false);
   
-  // LOCKDOWN STATE
+  // LOCKDOWN & VIOLATION STATE
   const [isLocked, setIsLocked] = useState(true);
+  const [violationCount, setViolationCount] = useState(0);
+  const MAX_VIOLATIONS = 3;
 
   // STORAGE KEY
   const storageKey = `cbt_answers_${username}_${exam.id}`;
@@ -106,20 +108,38 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       return () => clearInterval(poller);
   }, [username, onExit]);
 
-  // --- SECURITY / LOCKDOWN LOGIC ---
+  // --- SECURITY / LOCKDOWN LOGIC (3 STRIKES) ---
+  const handleViolation = () => {
+      setViolationCount(prev => {
+          const newCount = prev + 1;
+          // If max reached, user will be kicked out in the render check or immediately
+          if (newCount >= MAX_VIOLATIONS) {
+              // We delay slighty to show the message then kick
+              setTimeout(() => {
+                  alert("Anda telah melanggar aturan ujian sebanyak 3 kali. Sistem akan mengeluarkan anda otomatis.");
+                  onExit();
+              }, 500);
+          }
+          return newCount;
+      });
+      setIsLocked(false);
+  };
+
   useEffect(() => {
     const handleVisibilityChange = () => {
-        if (document.hidden) setIsLocked(false);
+        if (document.hidden) {
+             handleViolation();
+        }
     };
 
     const handleFullscreenChange = () => {
         if (!document.fullscreenElement) {
-             setIsLocked(false);
+             handleViolation();
         }
     };
 
     const handleKeyDown = async (e: KeyboardEvent) => {
-        // ALLOW Ctrl + X (Minimize/Exit Fullscreen)
+        // ALLOW Ctrl + X (Minimize/Exit Fullscreen) - This counts as violation if they don't return
         if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
             e.preventDefault();
             if (document.fullscreenElement) {
@@ -129,7 +149,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                     console.warn("Exit fullscreen failed or already exited");
                 }
             }
-            return; // Stop further checks
+            return; // Listener change will catch the violation
         }
 
         // Prevent F12, Ctrl+Shift+I, Alt+Tab (best effort), etc.
@@ -167,6 +187,10 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   }, []);
 
   const resumeExam = async () => {
+      if (violationCount >= MAX_VIOLATIONS) {
+          onExit();
+          return;
+      }
       try {
           const el = document.documentElement;
           if (el.requestFullscreen) await el.requestFullscreen();
@@ -255,21 +279,38 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       {/* SECURITY OVERLAY */}
       {!isLocked && (
           <div className="fixed inset-0 z-[100] bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
-              <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-lg w-full">
-                  <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <ShieldAlert size={40} />
+              <div className="bg-white p-6 md:p-10 rounded-3xl shadow-2xl max-w-lg w-full">
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <ShieldAlert size={32} className="md:w-10 md:h-10" />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Peringatan Keamanan!</h2>
-                  <p className="text-slate-500 mb-8">
-                      Anda terdeteksi keluar dari mode layar penuh atau berpindah aplikasi. 
-                      Untuk melanjutkan ujian, silakan kembali ke mode aman.
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-2">Peringatan Keamanan!</h2>
+                  
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 my-4">
+                      <p className="text-red-800 font-bold text-lg uppercase tracking-wider">
+                          Peringatan {violationCount} dari {MAX_VIOLATIONS}
+                      </p>
+                      <p className="text-red-600 text-xs mt-1">
+                          Jika mencapai {MAX_VIOLATIONS} pelanggaran, akun anda akan logout otomatis.
+                      </p>
+                  </div>
+
+                  <p className="text-slate-500 mb-8 text-sm md:text-base">
+                      Anda terdeteksi keluar dari mode layar penuh atau berpindah tab. 
+                      Silakan kembali fokus pada ujian.
                   </p>
-                  <button 
-                    onClick={resumeExam}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition"
-                  >
-                      <RotateCcw size={20} /> Lanjutkan Ujian
-                  </button>
+                  
+                  {violationCount < MAX_VIOLATIONS ? (
+                      <button 
+                        onClick={resumeExam}
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition"
+                      >
+                          <RotateCcw size={20} /> Lanjutkan Ujian
+                      </button>
+                  ) : (
+                      <div className="w-full py-4 bg-slate-300 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
+                         <X size={20}/> Anda Didiskualifikasi
+                      </div>
+                  )}
               </div>
           </div>
       )}
@@ -281,14 +322,14 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             <Monitor size={20} />
           </div>
           <div>
-            <h1 className="font-bold text-slate-800 text-sm md:text-lg leading-tight tracking-tight">Computer Based Test</h1>
+            <h1 className="font-bold text-slate-800 text-sm md:text-lg leading-tight tracking-tight">CBT System</h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3 md:gap-4">
-          <div className="hidden md:flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-            <Clock size={18} className="text-indigo-600" />
-            <span className={`font-mono font-bold ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-slate-200 shadow-sm">
+            <Clock size={16} className="text-indigo-600" />
+            <span className={`font-mono font-bold text-sm md:text-base ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>
               {formatTime(timeLeft)}
             </span>
           </div>
@@ -309,11 +350,11 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 w-full">
-          <div className="max-w-[95%] md:max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 min-h-[600px] flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6 pb-24 w-full">
+          <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 min-h-[600px] flex flex-col overflow-hidden">
             
             {/* Question Toolbar */}
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
               <div className="flex items-center gap-3">
                 <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded">
                   SOAL NO. {currentIdx + 1}
@@ -333,29 +374,30 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             </div>
 
             {/* Question Content */}
-            <div className={`p-8 flex-1 ${getFontSizeClass()} text-slate-700 leading-relaxed`}>
-              <div className={`flex flex-col gap-8 ${currentQ.gambar ? 'lg:grid lg:grid-cols-2 lg:gap-10' : ''}`}>
+            <div className={`p-4 md:p-8 flex-1 ${getFontSizeClass()} text-slate-700 leading-relaxed overflow-x-hidden`}>
+              <div className={`flex flex-col gap-6 md:gap-8 ${currentQ.gambar ? 'lg:grid lg:grid-cols-2 lg:gap-10' : ''}`}>
                 {currentQ.gambar && (
-                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[300px]">
-                        <img src={currentQ.gambar} alt="Soal" className="max-w-full h-auto rounded-lg shadow-sm max-h-[500px] object-contain" />
+                    <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px]">
+                        <img src={currentQ.gambar} alt="Soal" className="max-w-full h-auto rounded-lg shadow-sm max-h-[400px] md:max-h-[500px] object-contain" />
+                        <p className="text-[10px] text-slate-400 mt-2 italic text-center">Bisa di-zoom dengan mencubit layar</p>
                     </div>
                 )}
                 
-                <div className="flex flex-col gap-8">
-                    <div className="font-medium whitespace-pre-wrap leading-relaxed text-justify">
+                <div className="flex flex-col gap-6 md:gap-8 w-full">
+                    <div className="font-medium whitespace-pre-wrap leading-relaxed text-justify break-words">
                         {currentQ.text_soal}
                     </div>
 
                     {/* Options Render */}
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                         {currentQ.tipe_soal === 'PG' && currentQ.options.map((opt, idx) => {
                         const isSelected = answers[currentQ.id] === opt.id;
                         return (
                             <label 
                             key={opt.id}
-                            className={`flex items-start p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 group ${isSelected ? 'border-indigo-500 bg-indigo-50/50 shadow-md transform scale-[1.01]' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
+                            className={`flex items-start p-3 md:p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 group active:scale-[0.98] ${isSelected ? 'border-indigo-500 bg-indigo-50/50 shadow-md transform scale-[1.01]' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
                             >
-                            <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center mr-5 font-bold text-sm transition ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 text-slate-400 group-hover:border-indigo-400'}`}>
+                            <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center mr-3 md:mr-5 font-bold text-sm transition ${isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 text-slate-400 group-hover:border-indigo-400'}`}>
                                 {isSelected ? <div className="w-2.5 h-2.5 bg-white rounded-full"/> : String.fromCharCode(65 + idx)}
                             </div>
                             <input 
@@ -364,7 +406,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 checked={isSelected} 
                                 onChange={() => handleAnswer(opt.id, 'PG')} 
                             />
-                            <div className={`flex-1 ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>
+                            <div className={`flex-1 break-words ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>
                                 {opt.text_jawaban}
                             </div>
                             </label>
@@ -377,9 +419,9 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                         return (
                             <label 
                             key={opt.id}
-                            className={`flex items-start p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 group ${isChecked ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
+                            className={`flex items-start p-3 md:p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 group active:scale-[0.98] ${isChecked ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
                             >
-                            <div className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center mr-5 transition ${isChecked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 group-hover:border-indigo-400'}`}>
+                            <div className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center mr-3 md:mr-5 transition ${isChecked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 group-hover:border-indigo-400'}`}>
                                 {isChecked && <Check size={14} strokeWidth={4} />}
                             </div>
                             <input 
@@ -388,7 +430,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 checked={isChecked} 
                                 onChange={() => handleAnswer(opt.id, 'PGK')} 
                             />
-                            <div className="flex-1 text-slate-700 font-medium">
+                            <div className="flex-1 text-slate-700 font-medium break-words">
                                 {opt.text_jawaban}
                             </div>
                             </label>
@@ -396,13 +438,13 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                         })}
 
                         {currentQ.tipe_soal === 'BS' && (
-                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mt-4">
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm mt-4 overflow-x-auto">
                             <table className="w-full text-sm text-left">
                             <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-xs">
                                 <tr>
-                                <th className="p-5">Pernyataan</th>
-                                <th className="p-5 w-24 text-center">Benar</th>
-                                <th className="p-5 w-24 text-center">Salah</th>
+                                <th className="p-3 md:p-5">Pernyataan</th>
+                                <th className="p-3 md:p-5 w-16 md:w-24 text-center">Benar</th>
+                                <th className="p-3 md:p-5 w-16 md:w-24 text-center">Salah</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
@@ -410,9 +452,9 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 const val = (answers[currentQ.id] as Record<string, boolean>)?.[opt.id];
                                 return (
                                     <tr key={opt.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-5 font-medium text-slate-800">{opt.text_jawaban}</td>
-                                    <td className="p-5 text-center">
-                                        <label className="cursor-pointer block h-full w-full">
+                                    <td className="p-3 md:p-5 font-medium text-slate-800 break-words min-w-[150px]">{opt.text_jawaban}</td>
+                                    <td className="p-3 md:p-5 text-center">
+                                        <label className="cursor-pointer block h-full w-full flex justify-center">
                                             <input 
                                                 type="radio" 
                                                 name={`bs-${opt.id}`}
@@ -422,8 +464,8 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                             />
                                         </label>
                                     </td>
-                                    <td className="p-5 text-center">
-                                        <label className="cursor-pointer block h-full w-full">
+                                    <td className="p-3 md:p-5 text-center">
+                                        <label className="cursor-pointer block h-full w-full flex justify-center">
                                             <input 
                                                 type="radio" 
                                                 name={`bs-${opt.id}`}
@@ -449,7 +491,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
 
         {/* Sidebar Navigation */}
         {isSidebarOpen && <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setIsSidebarOpen(false)} />}
-        <aside className={`fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+        <aside className={`fixed inset-y-0 right-0 z-50 w-[85vw] md:w-80 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
           <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <h3 className="font-bold text-slate-700 flex items-center gap-2">
               <LayoutDashboard size={18} /> Navigasi Soal
@@ -498,17 +540,17 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       </div>
 
       {/* Footer Navigation Bar */}
-      <footer className="bg-white border-t border-slate-200 p-4 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="max-w-[95%] md:max-w-7xl mx-auto flex justify-between items-center gap-2 md:gap-4">
+      <footer className="bg-white border-t border-slate-200 p-3 md:p-4 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="max-w-full md:max-w-7xl mx-auto flex justify-between items-center gap-2 md:gap-4">
           <button 
             onClick={() => setCurrentIdx(p => Math.max(0, p - 1))}
             disabled={currentIdx === 0 || isSubmitting}
-            className={`px-4 md:px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition text-sm md:text-base ${currentIdx === 0 ? 'opacity-0 cursor-default' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+            className={`px-3 md:px-5 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 transition text-sm md:text-base ${currentIdx === 0 ? 'opacity-0 cursor-default' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 active:scale-95'}`}
           >
-            <ChevronLeft size={18} /> <span className="hidden md:inline">SEBELUMNYA</span>
+            <ChevronLeft size={20} /> <span className="hidden md:inline">SEBELUMNYA</span>
           </button>
 
-          <label className="flex items-center gap-3 bg-yellow-50 px-5 py-2.5 rounded-xl border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition select-none group">
+          <label className="flex items-center gap-2 md:gap-3 bg-yellow-50 px-3 md:px-5 py-2.5 rounded-xl border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition select-none group active:scale-95">
             <input 
               type="checkbox" 
               className="w-5 h-5 accent-yellow-600 rounded cursor-pointer"
@@ -516,7 +558,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               onChange={() => setDoubtful(p => ({...p, [currentQ.id]: !p[currentQ.id]}))}
               disabled={isSubmitting}
             />
-            <span className="font-bold text-yellow-700 text-sm md:text-base group-hover:text-yellow-800">RAGU-RAGU</span>
+            <span className="font-bold text-yellow-700 text-xs md:text-base group-hover:text-yellow-800">RAGU</span>
             <Flag size={16} className={`hidden md:block ${doubtful[currentQ.id] ? 'fill-yellow-600 text-yellow-600' : 'text-yellow-400'}`} />
           </label>
 
@@ -524,10 +566,10 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             <button 
               onClick={handleFinishButton}
               disabled={isSubmitting}
-              className={`px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg transition transform hover:-translate-y-0.5 text-sm md:text-base ${isSubmitting ? 'bg-slate-400 text-white cursor-wait' : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-green-200'}`}
+              className={`px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base ${isSubmitting ? 'bg-slate-400 text-white cursor-wait' : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-green-200'}`}
             >
               {isSubmitting ? (
-                  <>Memproses... <Loader2 size={18} className="animate-spin" /></>
+                  <>Wait... <Loader2 size={18} className="animate-spin" /></>
               ) : (
                   <>SELESAI <Check size={18} /></>
               )}
@@ -536,9 +578,9 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             <button 
               onClick={() => setCurrentIdx(p => Math.min(examQuestions.length - 1, p + 1))}
               disabled={isSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition transform hover:-translate-y-0.5 text-sm md:text-base"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base"
             >
-              <span className="hidden md:inline">BERIKUTNYA</span> <ChevronRight size={18} />
+              <span className="hidden md:inline">BERIKUTNYA</span> <ChevronRight size={20} />
             </button>
           )}
         </div>

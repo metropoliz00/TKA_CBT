@@ -102,16 +102,46 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                     <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={18}/> Admin</button>
                 )}
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20"><Loader2 size={40} className="animate-spin text-indigo-600 mb-2" /><span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span></div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">No</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4">Nama Lengkap</th><th className="p-4 w-32">Role</th><th className="p-4">Sekolah</th></tr></thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {filteredUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : filteredUsers.map((u, i) => (
-                                    <tr key={i} className="hover:bg-slate-50 transition"><td className="p-4 text-center font-mono text-slate-400">{i+1}</td><td className="p-4 font-mono font-bold text-slate-700">{u.username}</td><td className="p-4 font-mono text-slate-500">{u.password}</td><td className="p-4 font-bold text-slate-700">{u.fullname}</td><td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'Admin' : 'Siswa')}</span></td><td className="p-4 text-slate-600">{u.school || '-'}</td></tr>
+                        <table className="w-full text-sm text-left whitespace-nowrap">
+                            <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
+                                <tr>
+                                    <th className="p-4 w-16 text-center">No</th>
+                                    <th className="p-4">Identitas User</th>
+                                    <th className="p-4">Password</th>
+                                    <th className="p-4 w-32 text-center">Role</th>
+                                    <th className="p-4">Asal Sekolah</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredUsers.length === 0 ? ( <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : filteredUsers.map((u, i) => (
+                                    <tr key={i} className="hover:bg-slate-50/80 transition-colors duration-200">
+                                        <td className="p-4 text-center text-slate-400 font-bold text-xs">{i+1}</td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-slate-800 text-base">{u.fullname || '-'}</span>
+                                                <span className="font-mono text-xs text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5">{u.username}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className="font-mono text-slate-400 text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100 select-all cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition">{u.password}</span>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${u.role === 'admin_pusat' ? 'bg-purple-50 text-purple-700 border-purple-200' : u.role === 'admin_sekolah' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                {u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'Admin' : 'Siswa')}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2 text-slate-600">
+                                                <School size={16} className="text-slate-400"/>
+                                                <span className="font-medium text-sm">{u.school || '-'}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ))}
                             </tbody>
                         </table>
