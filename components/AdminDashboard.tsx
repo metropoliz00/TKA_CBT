@@ -66,17 +66,19 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
 const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [importing, setImporting] = useState(false);
     const [roleFilter, setRoleFilter] = useState<'siswa' | 'admin_sekolah' | 'admin_pusat'>('siswa');
 
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getUsers();
+            setUsers(data);
+        } catch (e) { console.error(e); } finally { setLoading(false); }
+    };
+
     useEffect(() => {
-        const fetchUsers = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getUsers();
-                setUsers(data);
-            } catch (e) { console.error(e); } finally { setLoading(false); }
-        };
-        fetchUsers();
+        loadUsers();
     }, []);
 
     const filteredUsers = useMemo(() => {
@@ -93,15 +95,127 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
         });
     }, [users, roleFilter, currentUser]);
 
+    // --- USER IMPORT LOGIC ---
+    const downloadUserTemplate = () => {
+        const ws = XLSX.utils.json_to_sheet([
+            {
+                "Username": "siswa001",
+                "Password": "123",
+                "Role (siswa/admin_sekolah/admin_pusat)": "siswa",
+                "Nama Lengkap": "Budi Santoso",
+                "Jenis Kelamin (L/P)": "L",
+                "Asal Sekolah / Kelas": "XII IPA 1"
+            },
+            {
+                "Username": "proktor01",
+                "Password": "admin123",
+                "Role (siswa/admin_sekolah/admin_pusat)": "admin_sekolah",
+                "Nama Lengkap": "Pak Guru",
+                "Jenis Kelamin (L/P)": "L",
+                "Asal Sekolah / Kelas": "XII IPA 1"
+            },
+            {
+                "Username": "adminpusat",
+                "Password": "supersecret",
+                "Role (siswa/admin_sekolah/admin_pusat)": "admin_pusat",
+                "Nama Lengkap": "Administrator Pusat",
+                "Jenis Kelamin (L/P)": "L",
+                "Asal Sekolah / Kelas": "Pusat"
+            }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template_User");
+        XLSX.writeFile(wb, "Template_Data_User.xlsx");
+    };
+
+    const handleUserImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        setImporting(true);
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsName = wb.SheetNames[0];
+                const ws = wb.Sheets[wsName];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+                // Parse Data (Skip header row 0)
+                const parsedUsers: any[] = [];
+                // Columns Expected: Username, Password, Role, Fullname, Gender, School
+                // Index: 0, 1, 2, 3, 4, 5
+                for (let i = 1; i < data.length; i++) {
+                    const row: any = data[i];
+                    if (!row[0]) continue;
+                    
+                    let role = String(row[2] || 'siswa').toLowerCase();
+                    // Normalize role input
+                    if (role.includes('admin') && role.includes('sekolah')) role = 'admin_sekolah';
+                    else if (role.includes('admin') && role.includes('pusat')) role = 'admin_pusat';
+                    else if (role.includes('proktor')) role = 'admin_sekolah';
+                    else if (role !== 'admin_sekolah' && role !== 'admin_pusat') role = 'siswa';
+
+                    parsedUsers.push({
+                        username: String(row[0]),
+                        password: String(row[1] || '123456'),
+                        role: role,
+                        fullname: String(row[3] || row[0]),
+                        gender: String(row[4] || '-'),
+                        school: String(row[5] || '-')
+                    });
+                }
+
+                if (parsedUsers.length > 0) {
+                     await api.importUsers(parsedUsers);
+                     alert(`Berhasil mengimpor ${parsedUsers.length} user.`);
+                     loadUsers(); // Refresh list
+                } else {
+                    alert("Tidak ada data user yang valid dalam file.");
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Gagal membaca file Excel. Pastikan format sesuai template.");
+            } finally {
+                setImporting(false);
+                if (e.target) e.target.value = '';
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
-            <div className="flex flex-col sm:flex-row gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                <button onClick={() => setRoleFilter('siswa')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={18}/> Siswa</button>
-                <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={18}/> Proktor</button>
+            {/* Header / Filter / Actions */}
+            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <div className="flex gap-2 w-full md:w-auto">
+                    <button onClick={() => setRoleFilter('siswa')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={16}/> Siswa</button>
+                    <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={16}/> Proktor</button>
+                    {currentUser.role === 'admin_pusat' && (
+                        <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={16}/> Admin</button>
+                    )}
+                </div>
+
                 {currentUser.role === 'admin_pusat' && (
-                    <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={18}/> Admin</button>
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <button 
+                            onClick={downloadUserTemplate}
+                            className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition"
+                            title="Download Template User Excel"
+                        >
+                            <Download size={16}/> Template
+                        </button>
+                        <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition text-white ${importing ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                            {importing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                            {importing ? "Mengimpor..." : "Import Excel"}
+                            <input type="file" accept=".xlsx" onChange={handleUserImport} className="hidden" disabled={importing} />
+                        </label>
+                    </div>
                 )}
             </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20"><Loader2 size={40} className="animate-spin text-indigo-600 mb-2" /><span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span></div>
@@ -114,7 +228,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                                     <th className="p-4">Identitas User</th>
                                     <th className="p-4">Password</th>
                                     <th className="p-4 w-32 text-center">Role</th>
-                                    <th className="p-4">Asal Sekolah</th>
+                                    <th className="p-4">Asal Sekolah / Kelas</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">

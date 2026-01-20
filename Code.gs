@@ -47,7 +47,7 @@ function processAction(action, args) {
     switch (action) {
       case 'login': return loginUser(args[0], args[1]);
       case 'startExam': return startExam(args[0], args[1], args[2]);
-      case 'checkUserStatus': return checkUserStatus(args[0]); // NEW
+      case 'checkUserStatus': return checkUserStatus(args[0]); 
       case 'getSubjectList': return getSubjectList(); 
       case 'getTokenFromConfig': return getConfigValue('TOKEN', 'TOKEN');
       case 'getQuestionsFromSheet': return getQuestionsFromSheet(args[0]);
@@ -58,6 +58,7 @@ function processAction(action, args) {
       case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
+      case 'importUsers': return adminImportUsers(args[0]); // NEW IMPORT ACTION
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
@@ -133,10 +134,6 @@ function startExam(username, fullname, subject) {
 
   if (logSheet) {
     const data = logSheet.getDataRange().getValues();
-    // Scan backwards to find the last valid session for this user + subject
-    // We look for a START that doesn't have a matching FINISH *after* it.
-    // RESET action does NOT clear the Start Time if we want to support Resume, 
-    // it just kicks the user out.
     
     for (let i = data.length - 1; i >= 1; i--) {
         const rowUser = String(data[i][1]).toLowerCase();
@@ -145,8 +142,6 @@ function startExam(username, fullname, subject) {
 
         if (rowUser === String(username).toLowerCase()) {
             if (rowAction === 'FINISH' && rowDetail.includes(subject)) {
-                // Determine if they finished THIS subject. If so, they shouldn't restart (or start new)
-                // For now, simply break, meaning "New Session" or "Done"
                 break; 
             }
             if (rowAction === 'START' && rowDetail === subject) {
@@ -240,6 +235,44 @@ function getUsers() {
     });
   }
   return users;
+}
+
+// NEW: Import Users Function
+function adminImportUsers(usersList) {
+    if (!Array.isArray(usersList) || usersList.length === 0) {
+        return { success: false, message: "Data kosong" };
+    }
+
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+    if (!sheet) {
+        sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
+        // Header Default: ID, Username, Password, Role, Fullname, Gender, School, Active_Exam, Session
+        sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+    }
+
+    const lastRow = sheet.getLastRow();
+    // Prepare data rows
+    const newRows = usersList.map((u, index) => {
+        // Simple ID generation if not provided (Timestamp + Index)
+        const id = u.id || `U${new Date().getTime()}-${index}`;
+        return [
+            id,
+            u.username,
+            u.password,
+            u.role, // 'siswa', 'admin_sekolah', 'admin_pusat'
+            u.fullname,
+            u.gender || '-',
+            u.school || '-',
+            '-', // Active Exam Default
+            '-'  // Session Default
+        ];
+    });
+
+    if (newRows.length > 0) {
+        sheet.getRange(lastRow + 1, 1, newRows.length, 9).setValues(newRows);
+    }
+
+    return { success: true, message: `Berhasil mengimpor ${newRows.length} user.` };
 }
 
 function getSubjectList() {
