@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group, Menu } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group, Menu, ArrowUpDown } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
 import * as XLSX from 'xlsx';
@@ -68,6 +68,16 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     const [loading, setLoading] = useState(false);
     const [importing, setImporting] = useState(false);
     const [roleFilter, setRoleFilter] = useState<'siswa' | 'admin_sekolah' | 'admin_pusat'>('siswa');
+    
+    // New State for Sorting and Filtering
+    const [searchTerm, setSearchTerm] = useState('');
+    const [schoolFilter, setSchoolFilter] = useState('Semua');
+    const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
+
+    // New State for CRUD
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [editingUser, setEditingUser] = useState<any | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const loadUsers = async () => {
         setLoading(true);
@@ -81,19 +91,105 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
         loadUsers();
     }, []);
 
-    const filteredUsers = useMemo(() => {
-        let res = users;
+    // Get Unique Schools for Dropdown
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(users.map(u => u.school).filter(Boolean));
+        return ['Semua', ...Array.from(schools).sort()];
+    }, [users]);
+
+    const processedUsers = useMemo(() => {
+        let res = [...users];
+
+        // 1. Role Filter & Permission Check
         if (currentUser.role === 'admin_sekolah') {
             const mySchool = (currentUser.kelas_id || '').toLowerCase();
             res = res.filter(u => (u.school || '').toLowerCase() === mySchool);
+        } else {
+            // Only apply role filter tabs if not strictly limited by admin_sekolah
+            res = res.filter(u => {
+                const r = (u.role || '').toLowerCase();
+                if (roleFilter === 'admin_sekolah') return r === 'admin_sekolah';
+                if (roleFilter === 'admin_pusat') return r === 'admin_pusat' || r === 'admin';
+                return r === 'siswa' || r === '';
+            });
         }
-        return res.filter(u => {
-            const r = (u.role || '').toLowerCase();
-            if (roleFilter === 'admin_sekolah') return r === 'admin_sekolah';
-            if (roleFilter === 'admin_pusat') return r === 'admin_pusat' || r === 'admin';
-            return r === 'siswa' || r === '';
+
+        // 2. School Filter (Dropdown)
+        if (schoolFilter !== 'Semua') {
+            res = res.filter(u => u.school === schoolFilter);
+        }
+
+        // 3. Search Filter
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            res = res.filter(u => 
+                (u.username && u.username.toLowerCase().includes(lower)) ||
+                (u.fullname && u.fullname.toLowerCase().includes(lower)) ||
+                (u.school && u.school.toLowerCase().includes(lower))
+            );
+        }
+
+        // 4. Sorting
+        if (sortConfig.key) {
+            res.sort((a, b) => {
+                const aVal = a[sortConfig.key!] ? String(a[sortConfig.key!]).toLowerCase() : '';
+                const bVal = b[sortConfig.key!] ? String(b[sortConfig.key!]).toLowerCase() : '';
+                
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return res;
+    }, [users, roleFilter, currentUser, schoolFilter, searchTerm, sortConfig]);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+        setSortConfig({ key, direction });
+    };
+
+    // --- CRUD Actions ---
+    const handleAddUser = () => {
+        setEditingUser({
+            id: '',
+            username: '',
+            password: '',
+            fullname: '',
+            role: 'siswa',
+            school: currentUser.role === 'admin_sekolah' ? currentUser.kelas_id : '',
+            gender: 'L'
         });
-    }, [users, roleFilter, currentUser]);
+        setShowUserModal(true);
+    };
+
+    const handleEditUser = (user: any) => {
+        setEditingUser({ ...user });
+        setShowUserModal(true);
+    };
+
+    const handleDeleteUser = async (id: string, name: string) => {
+        if (confirm(`Yakin ingin menghapus peserta: ${name}?`)) {
+            setLoading(true);
+            try {
+                await api.deleteUser(id);
+                await loadUsers();
+            } catch (e) { console.error(e); alert("Gagal menghapus user."); }
+            finally { setLoading(false); }
+        }
+    };
+
+    const handleSaveUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            await api.saveUser(editingUser);
+            setShowUserModal(false);
+            await loadUsers();
+        } catch (e) { console.error(e); alert("Gagal menyimpan data."); }
+        finally { setIsSaving(false); }
+    };
 
     // --- USER IMPORT LOGIC ---
     const downloadUserTemplate = () => {
@@ -189,31 +285,67 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
             {/* Header / Filter / Actions */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <div className="flex gap-2 w-full md:w-auto">
-                    <button onClick={() => setRoleFilter('siswa')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={16}/> Siswa</button>
-                    <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={16}/> Proktor</button>
-                    {currentUser.role === 'admin_pusat' && (
-                        <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={16}/> Admin</button>
-                    )}
+            <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                
+                {/* Top Row: Role Filters & Import Actions */}
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <button onClick={() => setRoleFilter('siswa')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={16}/> Siswa</button>
+                        <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={16}/> Proktor</button>
+                        {currentUser.role === 'admin_pusat' && (
+                            <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={16}/> Admin</button>
+                        )}
+                    </div>
+
+                    <div className="flex gap-2 w-full md:w-auto">
+                        {currentUser.role === 'admin_pusat' && (
+                            <>
+                                <button 
+                                    onClick={downloadUserTemplate}
+                                    className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition"
+                                    title="Download Template User Excel"
+                                >
+                                    <Download size={16}/> Template
+                                </button>
+                                <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition text-white ${importing ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                                    {importing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
+                                    {importing ? "Mengimpor..." : "Import Excel"}
+                                    <input type="file" accept=".xlsx" onChange={handleUserImport} className="hidden" disabled={importing} />
+                                </label>
+                            </>
+                        )}
+                        <button onClick={handleAddUser} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-indigo-200">
+                            <Plus size={16}/> Tambah Peserta
+                        </button>
+                    </div>
                 </div>
 
-                {currentUser.role === 'admin_pusat' && (
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <button 
-                            onClick={downloadUserTemplate}
-                            className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition"
-                            title="Download Template User Excel"
-                        >
-                            <Download size={16}/> Template
-                        </button>
-                        <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition text-white ${importing ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                            {importing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                            {importing ? "Mengimpor..." : "Import Excel"}
-                            <input type="file" accept=".xlsx" onChange={handleUserImport} className="hidden" disabled={importing} />
-                        </label>
+                {/* Bottom Row: Search & School Filter */}
+                <div className="flex flex-col md:flex-row gap-4 border-t border-slate-100 pt-4">
+                    <div className="relative flex-1">
+                        <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
+                        <input 
+                            type="text" 
+                            placeholder="Cari Nama / Username / Sekolah..." 
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition" 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                )}
+                    {currentUser.role === 'admin_pusat' && (
+                        <div className="w-full md:w-64">
+                            <select 
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                value={schoolFilter}
+                                onChange={e => setSchoolFilter(e.target.value)}
+                            >
+                                {uniqueSchools.map(s => (
+                                    <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -225,14 +357,21 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                             <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
                                 <tr>
                                     <th className="p-4 w-16 text-center">No</th>
-                                    <th className="p-4">Identitas User</th>
+                                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('fullname')}>
+                                        <div className="flex items-center gap-1">Identitas User <ArrowUpDown size={12}/></div>
+                                    </th>
                                     <th className="p-4">Password</th>
-                                    <th className="p-4 w-32 text-center">Role</th>
-                                    <th className="p-4">Asal Sekolah / Kelas</th>
+                                    <th className="p-4 w-32 text-center cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('role')}>
+                                        <div className="flex items-center justify-center gap-1">Role <ArrowUpDown size={12}/></div>
+                                    </th>
+                                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('school')}>
+                                        <div className="flex items-center gap-1">Asal Sekolah / Kelas <ArrowUpDown size={12}/></div>
+                                    </th>
+                                    <th className="p-4 w-24 text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredUsers.length === 0 ? ( <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : filteredUsers.map((u, i) => (
+                                {processedUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : processedUsers.map((u, i) => (
                                     <tr key={i} className="hover:bg-slate-50/80 transition-colors duration-200">
                                         <td className="p-4 text-center text-slate-400 font-bold text-xs">{i+1}</td>
                                         <td className="p-4">
@@ -255,6 +394,12 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                                                 <span className="font-medium text-sm">{u.school || '-'}</span>
                                             </div>
                                         </td>
+                                        <td className="p-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => handleEditUser(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"><Edit size={16}/></button>
+                                                <button onClick={() => handleDeleteUser(u.id, u.fullname)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16}/></button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -262,6 +407,74 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                     </div>
                 )}
             </div>
+
+            {/* USER MODAL */}
+            {showUserModal && editingUser && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                {editingUser.id ? <Edit size={20} className="text-indigo-600"/> : <Plus size={20} className="text-indigo-600"/>} 
+                                {editingUser.id ? 'Edit Data Peserta' : 'Tambah Peserta Baru'}
+                            </h3>
+                            <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            <form id="userForm" onSubmit={handleSaveUser} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Lengkap</label>
+                                    <input required type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.fullname} onChange={e => setEditingUser({...editingUser, fullname: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Username</label>
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.username} onChange={e => setEditingUser({...editingUser, username: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
+                                        <input required type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
+                                        <select className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value})}>
+                                            <option value="siswa">Siswa</option>
+                                            <option value="admin_sekolah">Proktor (Admin Sekolah)</option>
+                                            {currentUser.role === 'admin_pusat' && <option value="admin_pusat">Admin Pusat</option>}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Kelamin</label>
+                                        <select className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.gender} onChange={e => setEditingUser({...editingUser, gender: e.target.value})}>
+                                            <option value="L">Laki-laki</option>
+                                            <option value="P">Perempuan</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Asal Sekolah / Kelas</label>
+                                    <input 
+                                        required 
+                                        type="text" 
+                                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none ${currentUser.role === 'admin_sekolah' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`} 
+                                        value={editingUser.school} 
+                                        onChange={e => setEditingUser({...editingUser, school: e.target.value})}
+                                        readOnly={currentUser.role === 'admin_sekolah'}
+                                    />
+                                    {currentUser.role === 'admin_sekolah' && <p className="text-[10px] text-slate-400 mt-1 italic">Terkunci sesuai wilayah proktor.</p>}
+                                </div>
+                            </form>
+                        </div>
+                        <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
+                            <button onClick={() => setShowUserModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition">Batal</button>
+                            <button type="submit" form="userForm" disabled={isSaving} className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition flex items-center gap-2">
+                                {isSaving ? 'Menyimpan...' : <><Save size={18}/> Simpan Data</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

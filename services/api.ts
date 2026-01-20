@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbx_mCeV7gpjMOMbevX7p9r_qLL1Ft8eLBOojBzPWBHmWLVypUA6YgGsjSi-YPXuDbG9/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyF2jlAhlLWEdBosm3tbGwrmufZAj6_3Y9D7GNfpBN2PF4W3y8VhZKpnkIIf8ZHkjRw/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -182,6 +182,16 @@ export const api = {
   // Get All Users (Admin)
   getUsers: async (): Promise<any[]> => {
       return await callBackend('getUsers');
+  },
+
+  // NEW: Save User (Create/Update)
+  saveUser: async (userData: any): Promise<{success: boolean, message: string}> => {
+      return await callBackend('saveUser', userData);
+  },
+
+  // NEW: Delete User
+  deleteUser: async (userId: string): Promise<{success: boolean, message: string}> => {
+      return await callBackend('deleteUser', userId);
   },
 
   // NEW: Import Users from Excel

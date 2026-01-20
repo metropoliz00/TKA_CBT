@@ -58,7 +58,9 @@ function processAction(action, args) {
       case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
-      case 'importUsers': return adminImportUsers(args[0]); // NEW IMPORT ACTION
+      case 'importUsers': return adminImportUsers(args[0]); 
+      case 'saveUser': return adminSaveUser(args[0]); // NEW CRUD USER
+      case 'deleteUser': return adminDeleteUser(args[0]); // NEW CRUD USER
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
@@ -237,7 +239,71 @@ function getUsers() {
   return users;
 }
 
-// NEW: Import Users Function
+// NEW: Save User (Create or Update)
+function adminSaveUser(userData) {
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+    if (!sheet) {
+        sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
+        sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    // Check if updating existing user by ID
+    if (userData.id) {
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === String(userData.id)) {
+                rowIndex = i + 1;
+                break;
+            }
+        }
+    }
+
+    // New ID generation if creating
+    const id = userData.id || `U${new Date().getTime()}`;
+    const rowValues = [
+        id,
+        userData.username,
+        userData.password,
+        userData.role,
+        userData.fullname,
+        userData.gender || '-',
+        userData.school || '-',
+        userData.active_exam || '-',
+        userData.session || '-'
+    ];
+
+    if (rowIndex > 0) {
+        // Update existing row
+        // Preserve Active_Exam and Session if not provided in update (though frontend sends current values)
+        if(!userData.active_exam) rowValues[7] = data[rowIndex-1][7];
+        if(!userData.session) rowValues[8] = data[rowIndex-1][8];
+        
+        sheet.getRange(rowIndex, 1, 1, 9).setValues([rowValues]);
+    } else {
+        // Append new row
+        sheet.appendRow(rowValues);
+    }
+
+    return { success: true, message: "User saved successfully" };
+}
+
+// NEW: Delete User
+function adminDeleteUser(userId) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+    if (!sheet) return { success: false, message: "Sheet not found" };
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(userId)) {
+            sheet.deleteRow(i + 1);
+            return { success: true, message: "User deleted" };
+        }
+    }
+    return { success: false, message: "User not found" };
+}
+
 function adminImportUsers(usersList) {
     if (!Array.isArray(usersList) || usersList.length === 0) {
         return { success: false, message: "Data kosong" };
@@ -246,25 +312,22 @@ function adminImportUsers(usersList) {
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
-        // Header Default: ID, Username, Password, Role, Fullname, Gender, School, Active_Exam, Session
         sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
     }
 
     const lastRow = sheet.getLastRow();
-    // Prepare data rows
     const newRows = usersList.map((u, index) => {
-        // Simple ID generation if not provided (Timestamp + Index)
         const id = u.id || `U${new Date().getTime()}-${index}`;
         return [
             id,
             u.username,
             u.password,
-            u.role, // 'siswa', 'admin_sekolah', 'admin_pusat'
+            u.role, 
             u.fullname,
             u.gender || '-',
             u.school || '-',
-            '-', // Active Exam Default
-            '-'  // Session Default
+            '-', 
+            '-' 
         ];
     });
 
