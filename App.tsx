@@ -444,7 +444,7 @@ function App() {
                     </div>
                 </div>
                 <footer className="absolute bottom-4 text-slate-400 text-xs font-bold tracking-wide z-10">
-                    @2026 | Dev. Team TKA CBT System
+                    @2026 | Dev. MeyGa Team TKA CBT System
                 </footer>
             </div>
         </>
@@ -539,7 +539,7 @@ function App() {
                     </div>
                 </div>
                 <footer className="bg-slate-50 border-t p-3 text-center text-xs text-gray-500">
-                    @2026 | Dev. Team TKA CBT System
+                    @2026 | Dev. MeyGa Team TKA CBT System
                 </footer>
 
                 {/* CONFIRMATION POPUP MODAL */}
