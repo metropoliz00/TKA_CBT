@@ -135,6 +135,8 @@ function loginUser(username, password) {
         const fullname = data[i][4] || dbUser;
         const gender = data[i][5] || '-';
         const school = data[i][6] || '-';
+        const active_exam = data[i][7] || '-'; // Column H: Active Exam
+        const session = data[i][8] || '-';     // Column I: Session
         
         logUserActivity(dbUser, fullname, "LOGIN", "Success");
         
@@ -145,7 +147,9 @@ function loginUser(username, password) {
               role: 'siswa', 
               fullname: fullname, 
               gender: gender, 
-              school: school 
+              school: school,
+              active_exam: active_exam,
+              session: session
           }
         };
       }

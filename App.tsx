@@ -25,17 +25,6 @@ function App() {
   // System Check State
   const [sysInfo, setSysInfo] = useState({ os: 'Unknown', device: 'Unknown', ram: 'Unknown', status: 'Checking...' });
 
-  // Extra confirm fields
-  const [confirmData, setConfirmData] = useState({
-      day: 'Hari',
-      month: 'Bulan',
-      year: 'Tahun'
-  });
-
-  const renderDays = () => Array.from({length:31}, (_,i) => <option key={i} value={i+1}>{i+1}</option>);
-  const renderYears = () => Array.from({length:30}, (_,i) => <option key={i} value={2015-i}>{2015-i}</option>);
-  const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-
   // Helper to trigger fullscreen
   const enterFullscreen = async () => {
       const el = document.documentElement;
@@ -134,9 +123,24 @@ function App() {
                 setView('admin');
             } else {
                 // Fetch available exams/subjects
-                const exams = await api.getExams();
-                setExamList(exams);
-                if (exams.length > 0) setSelectedExamId(exams[0].id);
+                const allExams = await api.getExams();
+                let filteredExams = allExams;
+
+                // Logic: Filter exams based on student's assigned active_exam
+                if (user.active_exam && user.active_exam !== '-' && user.active_exam !== '') {
+                    filteredExams = allExams.filter(e => e.nama_ujian === user.active_exam);
+                } else {
+                    // If no exam assigned, show empty list (Strict Mode)
+                    filteredExams = [];
+                }
+
+                setExamList(filteredExams);
+                if (filteredExams.length > 0) {
+                    setSelectedExamId(filteredExams[0].id);
+                } else {
+                    setSelectedExamId('');
+                }
+                
                 setView('confirm');
             }
         } else {
@@ -258,7 +262,6 @@ function App() {
     setLoginForm({ username: '', password: '' });
     setInputToken('');
     setErrorMsg('');
-    setConfirmData({ day: 'Hari', month: 'Bulan', year: 'Tahun' });
     setQuestions([]);
     setShowPassword(false);
     setShowConfirmModal(false);
@@ -451,14 +454,20 @@ function App() {
                                 <label className="text-xs font-bold text-slate-400 uppercase">Mata Ujian</label>
                                 {examList.length > 0 ? (
                                     <select 
-                                        className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-blue-700 font-bold outline-none focus:ring-2 focus:ring-blue-100" 
+                                        className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-blue-700 font-bold outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" 
                                         value={selectedExamId} 
                                         onChange={e=>setSelectedExamId(e.target.value)}
+                                        disabled={examList.length === 1}
                                     >
                                         {examList.map(s=><option key={s.id} value={s.id}>{s.nama_ujian}</option>)}
                                     </select>
                                 ) : (
-                                    <div className="p-2.5 bg-red-50 border border-red-200 text-red-500 rounded-lg text-sm">Tidak ada ujian aktif</div>
+                                    <div className="p-2.5 bg-red-50 border border-red-200 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2">
+                                        <AlertCircle size={16}/>
+                                        {currentUser?.active_exam && currentUser.active_exam !== '-' 
+                                            ? `Ujian "${currentUser.active_exam}" belum aktif/tersedia.` 
+                                            : "Belum ada ujian yang diaktifkan untuk Anda."}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -475,11 +484,9 @@ function App() {
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 uppercase">Tanggal Lahir</label>
-                                <div className="flex space-x-2">
-                                    <select className="w-1/3 p-3 border-2 border-gray-200 rounded-lg bg-white focus:border-blue-500 outline-none" value={confirmData.day} onChange={e=>setConfirmData({...confirmData, day:e.target.value})}><option>Hari</option>{renderDays()}</select>
-                                    <select className="w-1/3 p-3 border-2 border-gray-200 rounded-lg bg-white focus:border-blue-500 outline-none" value={confirmData.month} onChange={e=>setConfirmData({...confirmData, month:e.target.value})}><option>Bulan</option>{months.map((m,i)=><option key={i} value={m}>{m}</option>)}</select>
-                                    <select className="w-1/3 p-3 border-2 border-gray-200 rounded-lg bg-white focus:border-blue-500 outline-none" value={confirmData.year} onChange={e=>setConfirmData({...confirmData, year:e.target.value})}><option>Tahun</option>{renderYears()}</select>
+                                <label className="text-xs font-bold text-slate-400 uppercase">Sesi Ujian</label>
+                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium">
+                                    {currentUser?.session || '-'}
                                 </div>
                             </div>
                         </div>
@@ -497,7 +504,7 @@ function App() {
                             />
                             {errorMsg && <p className="text-center text-red-500 mt-2 font-medium">{errorMsg}</p>}
                         </div>
-                        <button onClick={handleVerifyToken} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center">
+                        <button onClick={handleVerifyToken} disabled={loading || examList.length === 0} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center ${examList.length === 0 ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}>
                             {loading ? <div className="loader border-white w-5 h-5 border-2"></div> : "SUBMIT"}
                         </button>
                     </div>
