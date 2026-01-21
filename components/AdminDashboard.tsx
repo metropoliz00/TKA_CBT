@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group, Menu, ArrowUpDown } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group, Menu, ArrowUpDown, CalendarClock } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
 import * as XLSX from 'xlsx';
@@ -479,6 +479,139 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     );
 };
 
+// --- NEW COMPONENT: ATUR SESI (VIEW SESSION) ---
+const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
+    const [filterSession, setFilterSession] = useState('Sesi 1');
+    const [filterSchool, setFilterSchool] = useState('Semua');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredStudents = useMemo(() => {
+        let res = students;
+        
+        // 1. Role Filter
+        if (currentUser.role === 'admin_sekolah') {
+            const mySchool = (currentUser.kelas_id || '').toLowerCase();
+            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
+        } else if (filterSchool !== 'Semua') {
+            res = res.filter(s => s.school === filterSchool);
+        }
+
+        // 2. Session Filter
+        res = res.filter(s => (s.session || '') === filterSession);
+
+        // 3. Search Filter
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            res = res.filter(s => s.fullname.toLowerCase().includes(lower) || s.username.toLowerCase().includes(lower));
+        }
+        
+        return res;
+    }, [students, currentUser, filterSchool, filterSession, searchTerm]);
+
+    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
+    
+    // Simple Export function for attendance
+    const handleExportAbsensi = () => {
+        const data = filteredStudents.map((s, i) => ({
+            No: i + 1,
+            Username: s.username,
+            "Nama Peserta": s.fullname,
+            "L/P": s.gender,
+            Sekolah: s.school,
+            Mapel: s.active_exam,
+            Sesi: s.session,
+            TTD: ''
+        }));
+        exportToExcel(data, `Absensi_${filterSession}_${filterSchool !== 'Semua' ? filterSchool : 'Semua'}`, `Sesi ${filterSession}`);
+    };
+
+    return (
+        <div className="space-y-6 fade-in">
+             <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <CalendarClock className="text-indigo-600" /> Daftar Peserta per Sesi
+                        </h3>
+                        <p className="text-slate-500 text-xs mt-1">Lihat siswa berdasarkan sesi yang telah diatur di menu Kelompok Tes.</p>
+                    </div>
+                    <button onClick={handleExportAbsensi} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                        <FileText size={16}/> Download Absensi
+                    </button>
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                     <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Sesi</label>
+                        <select className="w-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg font-bold text-indigo-700" value={filterSession} onChange={e=>setFilterSession(e.target.value)}>
+                            {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                     </div>
+                     {currentUser.role === 'admin_pusat' && (
+                         <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sekolah</label>
+                            <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
+                                {schools.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                         </div>
+                     )}
+                     <div className="md:col-span-2">
+                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cari Peserta</label>
+                         <div className="relative">
+                            <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
+                            <input type="text" placeholder="Cari Siswa..." className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+
+             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+                    <span className="font-bold text-slate-700 text-sm">Peserta Terdaftar di {filterSession}</span>
+                    <span className="bg-white px-3 py-1 rounded border border-slate-200 text-xs font-bold text-slate-500">Total: {filteredStudents.length}</span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-white text-slate-500 font-bold uppercase text-xs border-b">
+                            <tr>
+                                <th className="p-4 w-16 text-center">No</th>
+                                <th className="p-4">Identitas Siswa</th>
+                                <th className="p-4">Sekolah / Kelas</th>
+                                <th className="p-4">Mapel Ujian</th>
+                                <th className="p-4 text-center">Sesi</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {filteredStudents.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada peserta di sesi ini.</td></tr> : filteredStudents.map((s,i) => {
+                                return (
+                                    <tr key={i} className="hover:bg-slate-50 transition">
+                                        <td className="p-4 text-center text-slate-400 font-bold">{i+1}</td>
+                                        <td className="p-4">
+                                            <div className="font-bold text-slate-700">{s.fullname}</div>
+                                            <div className="text-xs text-slate-400 font-mono">{s.username} • {s.gender}</div>
+                                        </td>
+                                        <td className="p-4 text-slate-600">{s.school}</td>
+                                        <td className="p-4">
+                                            {s.active_exam && s.active_exam !== '-' ? (
+                                                <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-bold">{s.active_exam}</span>
+                                            ) : (
+                                                <span className="text-slate-400 italic text-xs">Belum diatur</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">{s.session}</span>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+        </div>
+    )
+};
+
 // --- NEW COMPONENT: STATUS TES (MONITORING & RESET) ---
 const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
     const [filterSchool, setFilterSchool] = useState('Semua');
@@ -573,6 +706,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     const [selectedExam, setSelectedExam] = useState('');
     const [exams, setExams] = useState<string[]>([]);
     const [session, setSession] = useState('Sesi 1');
+    const [filterSchool, setFilterSchool] = useState('Semua'); // NEW: School Filter State
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
 
@@ -586,13 +720,26 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
         loadExams();
     }, []);
 
+    // NEW: Unique Schools for dropdown
+    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
+
     const filteredStudents = useMemo(() => {
+        let res = students;
+
+        // 1. School Filter Logic
         if (currentUser.role === 'admin_sekolah') {
             const mySchool = (currentUser.kelas_id || '').toLowerCase();
-            return students.filter(s => (s.school || '').toLowerCase() === mySchool);
+            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
+        } else if (filterSchool !== 'Semua') {
+            res = res.filter(s => s.school === filterSchool);
         }
-        return students;
-    }, [students, currentUser]);
+
+        // 2. Session Filter Logic (New Logic Requested)
+        // Show only students belonging to the selected session
+        res = res.filter(s => s.session === session);
+
+        return res;
+    }, [students, currentUser, filterSchool, session]);
 
     const toggleUser = (username: string) => {
         const newSet = new Set(selectedUsers);
@@ -612,7 +759,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
         setLoading(true);
         try {
             await api.assignTestGroup(Array.from(selectedUsers), selectedExam, session);
-            alert(`Berhasil mengaktifkan ujian ${selectedExam} untuk ${selectedUsers.size} siswa.`);
+            alert(`Berhasil mengaktifkan ujian ${selectedExam} untuk ${selectedUsers.size} siswa pada ${session}.`);
             setSelectedUsers(new Set());
             refreshData(); // Refresh data to show active status
         } catch(e) { console.error(e); alert("Gagal menyimpan."); }
@@ -623,7 +770,8 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
         <div className="space-y-6 fade-in">
             <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
                 <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Atur Kelompok Ujian</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Ujian / Mapel</label>
                         <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
@@ -632,10 +780,19 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Sesi</label>
-                        <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={session} onChange={e=>setSession(e.target.value)}>
+                        <select className="w-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg font-bold text-indigo-700" value={session} onChange={e=>setSession(e.target.value)}>
                             {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
+                    {/* NEW: School Filter Dropdown for Admin Pusat */}
+                    {currentUser.role === 'admin_pusat' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sekolah</label>
+                            <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
+                                {schools.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                    )}
                     <div className="flex items-end">
                         <button onClick={handleAssign} disabled={loading} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
                             {loading ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : "Aktifkan Peserta"}
@@ -645,11 +802,13 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
 
                 <div className="border rounded-xl overflow-hidden max-h-[500px] flex flex-col">
                     <div className="bg-slate-50 p-3 border-b font-bold text-slate-500 text-sm flex justify-between items-center">
-                        <span>Daftar Siswa ({filteredStudents.length})</span>
+                        <span>Daftar Siswa {session} ({filteredStudents.length})</span>
                         <button onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedUsers.size === filteredStudents.length ? "Hapus Semua" : "Pilih Semua"}</button>
                     </div>
                     <div className="overflow-y-auto p-2 space-y-1">
-                        {filteredStudents.map(s => {
+                        {filteredStudents.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400 italic">Tidak ada siswa terdaftar di {session} {filterSchool !== 'Semua' ? `(${filterSchool})` : ''}.<br/>Silakan atur sesi di menu Daftar Peserta atau import data.</div>
+                        ) : filteredStudents.map(s => {
                             const isActive = s.active_exam && s.active_exam !== '-' && s.active_exam !== '';
                             return (
                                 <label key={s.username} className={`flex items-center p-3 rounded-lg border cursor-pointer transition ${selectedUsers.has(s.username) ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent'}`}>
@@ -658,8 +817,15 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
                                         <div className="font-bold text-slate-700 text-sm">{s.fullname}</div>
                                         <div className="text-xs text-slate-400 font-mono">{s.username} • {s.school}</div>
                                     </div>
-                                    <div className={`text-[10px] font-bold px-2 py-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                                        {isActive ? `AKTIF: ${s.active_exam}` : 'TIDAK AKTIF'}
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                                            {isActive ? `AKTIF: ${s.active_exam}` : 'TIDAK AKTIF'}
+                                        </div>
+                                        {s.session && s.session !== '-' && (
+                                            <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                                {s.session}
+                                            </div>
+                                        )}
                                     </div>
                                 </label>
                             );
@@ -1072,7 +1238,7 @@ const BankSoalTab = () => {
 const SchoolIcon = ({ size, className }: { size: number, className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>;
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi'>('overview');
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
   const [dashboardData, setDashboardData] = useState<any>({ 
       students: [], 
@@ -1175,6 +1341,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         case 'data_user': return "Daftar Peserta";
         case 'status_tes': return "Status Tes & Reset Login";
         case 'kelompok_tes': return "Kelompok Tes (Assignment)";
+        case 'atur_sesi': return "Atur Sesi & Absensi";
         case 'rilis_token': return "Rilis Token";
         default: return "Dashboard";
     }
@@ -1611,6 +1778,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           
           <button onClick={() => { setActiveTab('status_tes'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'status_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Monitor size={20} /> Status Tes</button>
           <button onClick={() => { setActiveTab('kelompok_tes'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'kelompok_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Group size={20} /> Kelompok Tes</button>
+          <button onClick={() => { setActiveTab('atur_sesi'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'atur_sesi' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Clock size={20} /> Atur Sesi</button>
           
           {(user.role === 'admin_pusat' || user.role === 'admin_sekolah') && (
             <button onClick={() => { setActiveTab('data_user'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><List size={20} /> Daftar Peserta</button>
@@ -1670,6 +1838,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           {activeTab === 'overview' && <OverviewTab />}
           {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
           {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
+          {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} />}
           {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
           {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
           {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
