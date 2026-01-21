@@ -569,7 +569,7 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
 };
 
 // --- NEW COMPONENT: KELOMPOK TES (ASSIGN GROUP) ---
-const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
+const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
     const [selectedExam, setSelectedExam] = useState('');
     const [exams, setExams] = useState<string[]>([]);
     const [session, setSession] = useState('Sesi 1');
@@ -614,6 +614,7 @@ const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students
             await api.assignTestGroup(Array.from(selectedUsers), selectedExam, session);
             alert(`Berhasil mengaktifkan ujian ${selectedExam} untuk ${selectedUsers.size} siswa.`);
             setSelectedUsers(new Set());
+            refreshData(); // Refresh data to show active status
         } catch(e) { console.error(e); alert("Gagal menyimpan."); }
         finally { setLoading(false); }
     };
@@ -648,16 +649,21 @@ const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students
                         <button onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedUsers.size === filteredStudents.length ? "Hapus Semua" : "Pilih Semua"}</button>
                     </div>
                     <div className="overflow-y-auto p-2 space-y-1">
-                        {filteredStudents.map(s => (
-                            <label key={s.username} className={`flex items-center p-3 rounded-lg border cursor-pointer transition ${selectedUsers.has(s.username) ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent'}`}>
-                                <input type="checkbox" className="w-5 h-5 accent-indigo-600 rounded mr-3" checked={selectedUsers.has(s.username)} onChange={()=>toggleUser(s.username)} />
-                                <div className="flex-1">
-                                    <div className="font-bold text-slate-700 text-sm">{s.fullname}</div>
-                                    <div className="text-xs text-slate-400 font-mono">{s.username} • {s.school}</div>
-                                </div>
-                                <div className="text-xs font-bold text-slate-400">{s.active_exam || '-'}</div>
-                            </label>
-                        ))}
+                        {filteredStudents.map(s => {
+                            const isActive = s.active_exam && s.active_exam !== '-' && s.active_exam !== '';
+                            return (
+                                <label key={s.username} className={`flex items-center p-3 rounded-lg border cursor-pointer transition ${selectedUsers.has(s.username) ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent'}`}>
+                                    <input type="checkbox" className="w-5 h-5 accent-indigo-600 rounded mr-3" checked={selectedUsers.has(s.username)} onChange={()=>toggleUser(s.username)} />
+                                    <div className="flex-1">
+                                        <div className="font-bold text-slate-700 text-sm">{s.fullname}</div>
+                                        <div className="text-xs text-slate-400 font-mono">{s.username} • {s.school}</div>
+                                    </div>
+                                    <div className={`text-[10px] font-bold px-2 py-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                                        {isActive ? `AKTIF: ${s.active_exam}` : 'TIDAK AKTIF'}
+                                    </div>
+                                </label>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -1663,7 +1669,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
           {activeTab === 'overview' && <OverviewTab />}
           {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
-          {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} />}
+          {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
           {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
           {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
           {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
