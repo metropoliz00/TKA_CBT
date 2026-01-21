@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCog, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Monitor, List, Group, Menu, ArrowUpDown, CalendarClock } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
 import * as XLSX from 'xlsx';
@@ -61,6 +61,48 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
         </div>
     );
 };
+
+// --- SKELETON LOADER COMPONENT ---
+const DashboardSkeleton = () => (
+    <div className="space-y-6 fade-in w-full">
+        {/* Top Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-32 flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+                    <div className="w-1/2 h-4 bg-slate-100 rounded-md"></div>
+                    <div className="flex justify-between items-end">
+                        <div className="w-1/3 h-8 bg-slate-200 rounded-md"></div>
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl"></div>
+                    </div>
+                </div>
+            ))}
+        </div>
+        
+        {/* Main Content Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="w-40 h-40 rounded-full border-8 border-slate-100 mb-6"></div>
+                <div className="w-3/4 h-4 bg-slate-100 rounded-md mb-2"></div>
+                <div className="w-1/2 h-4 bg-slate-100 rounded-md"></div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96 col-span-2 relative overflow-hidden">
+                <div className="w-1/4 h-6 bg-slate-200 rounded-md mb-6"></div>
+                <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="flex gap-4 items-center">
+                             <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0"></div>
+                             <div className="flex-1 space-y-2">
+                                 <div className="w-1/3 h-3 bg-slate-100 rounded"></div>
+                                 <div className="w-1/4 h-2 bg-slate-50 rounded"></div>
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+);
 
 // --- DATA USER COMPONENT (RENAMED TO DAFTAR PESERTA) ---
 const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
@@ -1760,8 +1802,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     );
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><div className="loader border-indigo-500"></div></div>;
-
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
       
@@ -1833,24 +1873,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={fetchData} disabled={isRefreshing} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative disabled:opacity-70 disabled:cursor-wait">
-                <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />
+              <button onClick={fetchData} disabled={isRefreshing || loading} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative disabled:opacity-70 disabled:cursor-wait">
+                <RefreshCw size={20} className={isRefreshing || loading ? "animate-spin" : ""} />
               </button>
               <div className="bg-white p-2 rounded-full border border-slate-200 shadow-sm hidden md:block"><Settings size={20} className="text-slate-400" /></div>
               <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">{user.username.charAt(0).toUpperCase()}</div>
             </div>
           </div>
 
-          {activeTab === 'overview' && <OverviewTab />}
-          {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
-          {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
-          {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} />}
-          {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
-          {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
-          {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
-          {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}
-          {activeTab === 'ranking' && user.role === 'admin_pusat' && <RankingTab />}
-          {activeTab === 'analisis' && user.role === 'admin_pusat' && <AnalisisTab />}
+          {loading ? (
+             <DashboardSkeleton />
+          ) : (
+             <>
+                {activeTab === 'overview' && <OverviewTab />}
+                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
+                {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
+                {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} />}
+                {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
+                {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
+                {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
+                {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}
+                {activeTab === 'ranking' && user.role === 'admin_pusat' && <RankingTab />}
+                {activeTab === 'analisis' && user.role === 'admin_pusat' && <AnalisisTab />}
+             </>
+          )}
         </div>
       </main>
     </div>

@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzS6OdDY7ZQmTivgl6g9S2U84cXHsCCx5Xatd40fmWlr5qU_vea-nZUx5TDoeZ_NKY/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbwBcSnz_jZc9F-n8eGtRpX0e14rdvDp5g4Ilc8ovaIujolly7E121fCMcNvrxyUKYIp/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -213,19 +213,10 @@ export const api = {
 
   // Submit Exam
   submitExam: async (payload: { user: User, subject: string, answers: any, startTime: number }) => {
-      const endTime = Date.now();
-      const startStr = new Date(payload.startTime).toLocaleTimeString();
-      const endStr = new Date(endTime).toLocaleTimeString();
-      
-      // Calculate duration formatted as HH:mm:ss for backend storage
-      const diff = Math.max(0, endTime - payload.startTime);
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      const durationStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-
       const scoreInfo = { total: 0, answered: Object.keys(payload.answers).length };
 
+      // We send payload.startTime (which originated from the server).
+      // The Backend will calculate End Time (Realtime) - StartTime (Payload) = Duration.
       return await callBackend(
           'submitAnswers', 
           payload.user.username, 
@@ -234,9 +225,7 @@ export const api = {
           payload.subject, 
           payload.answers, 
           scoreInfo, 
-          startStr, 
-          endStr, 
-          durationStr
+          payload.startTime
       );
   },
   

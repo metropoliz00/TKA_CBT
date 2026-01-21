@@ -56,12 +56,13 @@ function processAction(action, args) {
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
       case 'importQuestions': return adminImportQuestions(args[0], args[1]); 
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
-      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+      // UPDATED: submitAnswers now expects 7 arguments (startTime as last)
+      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
       case 'importUsers': return adminImportUsers(args[0]); 
-      case 'saveUser': return adminSaveUser(args[0]); // UPDATED CRUD USER
-      case 'deleteUser': return adminDeleteUser(args[0]); // UPDATED CRUD USER
+      case 'saveUser': return adminSaveUser(args[0]); 
+      case 'deleteUser': return adminDeleteUser(args[0]); 
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
@@ -594,13 +595,31 @@ function adminDeleteQuestion(sheetName, id) {
   return { success: false };
 }
 
-function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startStr, endStr, durationStr) {
+function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const timestamp = new Date();
+  // Server-side current time (Realtime Finish)
+  const now = new Date(); 
+  const timeZone = "Asia/Jakarta"; 
+  
   answers = answers || {};
 
   const qSheet = ss.getSheetByName(subject);
   if (!qSheet) return { success: false, message: "Mapel tidak ditemukan" };
+  
+  // Calculate Duration Logic (Realtime Server)
+  // startTimeEpoch passed from client, but it originated from server startExam
+  const startDt = new Date(Number(startTimeEpoch));
+  const diff = Math.max(0, now.getTime() - startDt.getTime());
+  
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  const durationStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  
+  // Create readable strings for spreadsheet
+  const timestamp = now;
+  // NOTE: We don't rely on client string formats anymore to ensure consistency
+  // startStr/endStr aren't columns in all sheets, mainly durationStr is used
   
   const qData = qSheet.getDataRange().getValues();
   
