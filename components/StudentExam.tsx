@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
 import { api } from '../services/api';
 
@@ -23,6 +23,170 @@ function shuffleArray<T>(array: T[]): T[] {
     return newArr;
 }
 
+// --- IMAGE VIEWER COMPONENT (ZOOM & PAN) ---
+const ImageViewer = ({ src, onClose }: { src: string; onClose: () => void }) => {
+    const [scale, setScale] = useState(1);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    
+    // Refs for touch gesture handling
+    const lastTouchDistance = useRef<number | null>(null);
+    const imageRef = useRef<HTMLImageElement>(null);
+
+    // Zoom Handlers
+    const handleZoomIn = () => setScale(s => Math.min(s + 0.5, 5)); // Max 5x
+    const handleZoomOut = () => {
+        setScale(s => {
+            const newScale = Math.max(s - 0.5, 1);
+            if (newScale === 1) setPosition({ x: 0, y: 0 }); // Reset pos if unzoomed
+            return newScale;
+        });
+    };
+    const handleReset = () => {
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+    };
+
+    // Mouse Pan Handlers
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (scale > 1) {
+            setIsDragging(true);
+            setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+        }
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (isDragging && scale > 1) {
+            e.preventDefault();
+            setPosition({
+                x: e.clientX - dragStart.x,
+                y: e.clientY - dragStart.y
+            });
+        }
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    // Wheel Zoom
+    const handleWheel = (e: React.WheelEvent) => {
+        e.stopPropagation(); // Prevent page scroll
+        if (e.deltaY < 0) handleZoomIn();
+        else handleZoomOut();
+    };
+
+    // Touch Handlers (Pinch & Pan)
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 1 && scale > 1) {
+            // Pan Start
+            setIsDragging(true);
+            setDragStart({ 
+                x: e.touches[0].clientX - position.x, 
+                y: e.touches[0].clientY - position.y 
+            });
+        } else if (e.touches.length === 2) {
+            // Pinch Start
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            lastTouchDistance.current = dist;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (e.touches.length === 1 && isDragging && scale > 1) {
+            // Pan Move
+            setPosition({
+                x: e.touches[0].clientX - dragStart.x,
+                y: e.touches[0].clientY - dragStart.y
+            });
+        } else if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+            // Pinch Move
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const delta = dist - lastTouchDistance.current;
+            
+            // Adjust sensitivity
+            const zoomFactor = delta * 0.01; 
+            
+            setScale(s => Math.min(Math.max(1, s + zoomFactor), 5));
+            lastTouchDistance.current = dist;
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+        lastTouchDistance.current = null;
+        // Snap back if scale < 1 (bounce back logic simplified)
+        if (scale < 1) setScale(1);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col justify-center items-center backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+            {/* Toolbar */}
+            <div className="absolute top-0 inset-x-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
+                <div className="text-white text-sm font-bold flex items-center gap-2">
+                    <Maximize size={18} /> Mode Perbesar
+                </div>
+                <button onClick={onClose} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition">
+                    <X size={24} />
+                </button>
+            </div>
+
+            {/* Image Container */}
+            <div 
+                className="w-full h-full flex items-center justify-center overflow-hidden cursor-move touch-none"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
+                <img 
+                    ref={imageRef}
+                    src={src} 
+                    alt="Zoomed Question" 
+                    className="max-w-full max-h-full object-contain transition-transform duration-75 ease-out select-none"
+                    style={{ 
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                        cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+                    }}
+                    draggable={false}
+                />
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-2xl">
+                <button onClick={handleZoomOut} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition active:scale-95 disabled:opacity-50" disabled={scale <= 1}>
+                    <ZoomOut size={24} />
+                </button>
+                <div className="text-white font-mono font-bold w-12 text-center text-sm">
+                    {Math.round(scale * 100)}%
+                </div>
+                <button onClick={handleZoomIn} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition active:scale-95 disabled:opacity-50" disabled={scale >= 5}>
+                    <ZoomIn size={24} />
+                </button>
+                <div className="w-px h-8 bg-white/20 mx-1"></div>
+                <button onClick={handleReset} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition active:scale-95" title="Reset">
+                    <RotateCcw size={24} />
+                </button>
+            </div>
+            
+            {/* Helper Text */}
+            <div className="absolute bottom-20 text-white/50 text-xs font-medium pointer-events-none select-none">
+                Gunakan cubit (pinch) atau scroll untuk zoom, geser untuk melihat detail.
+            </div>
+        </div>
+    );
+};
+
+
 const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName, username, startTime, onFinish, onExit }) => {
   // State to hold shuffled questions
   const [examQuestions, setExamQuestions] = useState<QuestionWithOptions[]>([]);
@@ -35,6 +199,9 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmFinish, setShowConfirmFinish] = useState(false);
+  
+  // Image Zoom State
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   
   // LOCKDOWN & VIOLATION STATE
   const [isLocked, setIsLocked] = useState(true);
@@ -281,6 +448,11 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   return (
     <div className="flex flex-col h-screen bg-slate-100 font-sans overflow-hidden select-none touch-manipulation">
       
+      {/* IMAGE VIEWER MODAL */}
+      {zoomedImage && (
+          <ImageViewer src={zoomedImage} onClose={() => setZoomedImage(null)} />
+      )}
+
       {/* SECURITY OVERLAY */}
       {!isLocked && (
           <div className="fixed inset-0 z-[100] bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
@@ -381,10 +553,30 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             {/* Question Content */}
             <div className={`p-4 md:p-8 flex-1 ${getFontSizeClass()} text-slate-700 leading-relaxed overflow-x-hidden`}>
               <div className={`flex flex-col gap-6 md:gap-8 ${currentQ.gambar ? 'lg:grid lg:grid-cols-2 lg:gap-10' : ''}`}>
+                
+                {/* Image Section (Updated with Zoom Trigger) */}
                 {currentQ.gambar && (
-                    <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px]">
-                        <img src={currentQ.gambar} alt="Soal" className="max-w-full h-auto rounded-lg shadow-sm max-h-[400px] md:max-h-[500px] object-contain" />
-                        <p className="text-[10px] text-slate-400 mt-2 italic text-center">Bisa di-zoom dengan mencubit layar</p>
+                    <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] relative group overflow-hidden">
+                        <div 
+                            className="relative cursor-zoom-in w-full h-full flex items-center justify-center"
+                            onClick={() => setZoomedImage(currentQ.gambar!)}
+                        >
+                            <img 
+                                src={currentQ.gambar} 
+                                alt="Soal" 
+                                className="max-w-full h-auto rounded-lg shadow-sm max-h-[400px] md:max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-[1.02]" 
+                            />
+                            
+                            {/* Visual Notification/Overlay */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center rounded-lg">
+                                <div className="bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0">
+                                    <Maximize size={14} /> Klik untuk memperbesar
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2 italic text-center flex items-center gap-1">
+                            <ZoomIn size={12}/> Klik gambar untuk mode zoom & pan
+                        </p>
                     </div>
                 )}
                 

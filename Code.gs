@@ -605,7 +605,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const qData = qSheet.getDataRange().getValues();
   
   let totalScore = 0;
-  let maxScore = 0;
   let correctCount = 0;
   let wrongCount = 0;
   
@@ -621,8 +620,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     const qType = row[2];
     const keyRaw = String(row[8] || "").toUpperCase().trim();
     const weight = row[9] ? Number(row[9]) : 10;
-    
-    maxScore += weight;
     
     let isCorrect = false;
     const userAns = answers[qId];
@@ -677,7 +674,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   while(itemAnalysisRow.length < 50) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 50) rawAnswersRow.push("");
 
-  const finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+  const finalScore = totalScore;
 
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {
