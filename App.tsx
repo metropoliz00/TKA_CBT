@@ -405,7 +405,12 @@ function App() {
                         )}
 
                         <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center mt-4">
-                            {loading ? <div className="loader border-white w-5 h-5 text-white"></div> : "MASUK SEKARANG"}
+                            {loading ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="loader border-white w-5 h-5 border-2"></div>
+                                    <span>Memproses...</span>
+                                </div>
+                            ) : "MASUK SEKARANG"}
                         </button>
                     </form>
                 </div>
@@ -493,7 +498,7 @@ function App() {
                             {errorMsg && <p className="text-center text-red-500 mt-2 font-medium">{errorMsg}</p>}
                         </div>
                         <button onClick={handleVerifyToken} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center">
-                            {loading ? <div className="loader border-white w-5 h-5"></div> : "SUBMIT"}
+                            {loading ? <div className="loader border-white w-5 h-5 border-2"></div> : "SUBMIT"}
                         </button>
                     </div>
                 </div>
@@ -548,7 +553,7 @@ function App() {
                                 disabled={loading}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-full shadow-lg shadow-blue-200 transition-all mt-8 flex justify-center items-center"
                             >
-                                {loading ? <div className="loader border-white w-5 h-5 text-white"></div> : "Mulai"}
+                                {loading ? <div className="loader border-white w-5 h-5 border-2 text-white"></div> : "Mulai"}
                             </button>
                         </div>
                     </div>

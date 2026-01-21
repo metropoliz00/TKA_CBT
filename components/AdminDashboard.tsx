@@ -469,7 +469,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                         <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
                             <button onClick={() => setShowUserModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition">Batal</button>
                             <button type="submit" form="userForm" disabled={isSaving} className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition flex items-center gap-2">
-                                {isSaving ? 'Menyimpan...' : <><Save size={18}/> Simpan Data</>}
+                                {isSaving ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : <><Save size={18}/> Simpan Data</>}
                             </button>
                         </div>
                     </div>
@@ -636,8 +636,8 @@ const KelompokTesTab = ({ currentUser, students }: { currentUser: User, students
                         </select>
                     </div>
                     <div className="flex items-end">
-                        <button onClick={handleAssign} disabled={loading} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
-                            {loading ? "Menyimpan..." : "Aktifkan Peserta"}
+                        <button onClick={handleAssign} disabled={loading} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                            {loading ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : "Aktifkan Peserta"}
                         </button>
                     </div>
                 </div>
@@ -1053,7 +1053,7 @@ const BankSoalTab = () => {
                         <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
                             <button onClick={() => setModalOpen(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition">Batal</button>
                             <button type="submit" form="qForm" disabled={loadingData} className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition flex items-center gap-2">
-                                {loadingData ? 'Menyimpan...' : <><Save size={18}/> Simpan Data</>}
+                                {loadingData ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : <><Save size={18}/> Simpan Data</>}
                             </button>
                         </div>
                      </div>
