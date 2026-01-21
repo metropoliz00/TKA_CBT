@@ -217,7 +217,8 @@ export const api = {
       const startStr = new Date(payload.startTime).toLocaleTimeString();
       const endStr = new Date(endTime).toLocaleTimeString();
       
-      const diff = endTime - payload.startTime;
+      // Calculate duration formatted as HH:mm:ss for backend storage
+      const diff = Math.max(0, endTime - payload.startTime);
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);

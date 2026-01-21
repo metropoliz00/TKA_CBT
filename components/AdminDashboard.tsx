@@ -285,7 +285,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
             {/* Header / Filter / Actions */}
-            <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+            <div className="flex flex-col gap-4 bg-white/95 backdrop-blur-sm p-4 rounded-xl border border-slate-100 shadow-sm glass-panel">
                 
                 {/* Top Row: Role Filters & Import Actions */}
                 <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
@@ -350,7 +350,13 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20"><Loader2 size={40} className="animate-spin text-indigo-600 mb-2" /><span className="text-sm font-bold text-slate-400 animate-pulse">Memuat Data User...</span></div>
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <div className="relative">
+                            <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
+                            <div className="w-12 h-12 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin absolute inset-0"></div>
+                        </div>
+                        <span className="text-sm font-bold text-slate-400 mt-4 animate-pulse">Memuat Data User...</span>
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left whitespace-nowrap">
@@ -372,7 +378,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {processedUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : processedUsers.map((u, i) => (
-                                    <tr key={i} className="hover:bg-slate-50/80 transition-colors duration-200">
+                                    <tr key={i} className="hover:bg-slate-50/80 transition-colors duration-200 group">
                                         <td className="p-4 text-center text-slate-400 font-bold text-xs">{i+1}</td>
                                         <td className="p-4">
                                             <div className="flex flex-col">
@@ -395,7 +401,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                                             </div>
                                         </td>
                                         <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center gap-2">
+                                            <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => handleEditUser(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"><Edit size={16}/></button>
                                                 <button onClick={() => handleDeleteUser(u.id, u.fullname)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16}/></button>
                                             </div>
@@ -411,7 +417,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
             {/* USER MODAL */}
             {showUserModal && editingUser && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                                 {editingUser.id ? <Edit size={20} className="text-indigo-600"/> : <Plus size={20} className="text-indigo-600"/>} 

@@ -212,6 +212,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
   
   // INITIALIZE TIMER based on exam.durasi (Admin Input)
+  // Logic: Timer starts running when startTime is passed (Start Exam clicked)
   const [timeLeft, setTimeLeft] = useState(() => {
     const now = Date.now();
     // Calculate elapsed time since start
@@ -607,7 +608,8 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
 
             {/* Question Content */}
             <div className={`p-4 md:p-8 flex-1 ${getFontSizeClass()} text-slate-700 leading-relaxed overflow-x-hidden`}>
-              <div className={`flex flex-col gap-6 md:gap-8 ${currentQ.gambar ? 'lg:grid lg:grid-cols-2 lg:gap-10' : ''}`}>
+              {/* LAYOUT LOGIC: If image exists, use Grid. If not, use single Full Width Flex Container */}
+              <div className={currentQ.gambar ? "grid grid-cols-1 lg:grid-cols-2 gap-8 items-start" : "w-full flex flex-col gap-6"}>
                 
                 {/* Image Section (Updated with Zoom Trigger) */}
                 {currentQ.gambar && (
@@ -635,6 +637,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                     </div>
                 )}
                 
+                {/* Question Text & Options Container */}
                 <div className="flex flex-col gap-6 md:gap-8 w-full">
                     <div className="font-medium whitespace-pre-wrap leading-relaxed text-justify break-words">
                         {currentQ.text_soal}
@@ -843,15 +846,15 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       {/* Confirmation Modal */}
       {showConfirmFinish && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-all">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-all border border-slate-100">
                   <div className="p-6 text-center">
-                      <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-yellow-50">
                           <AlertTriangle size={32} />
                       </div>
                       <h3 className="text-xl font-bold text-slate-800 mb-2">Selesaikan Ujian?</h3>
                       <p className="text-slate-500 mb-6 text-sm leading-relaxed">
-                          Pastikan anda telah memeriksa kembali semua jawaban.<br/>
-                          Jawaban akan dikirim ke server dan <b>tidak dapat diubah</b> kembali.
+                          Anda akan mengakhiri sesi untuk <span className="font-bold text-slate-800">{userFullName}</span>.<br/>
+                          Jawaban akan dikirim permanen.
                       </p>
                       
                       <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100 text-left text-sm space-y-2">
