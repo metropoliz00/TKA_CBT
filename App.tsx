@@ -405,7 +405,7 @@ function App() {
                         )}
 
                         <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transform hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center mt-4">
-                            {loading ? <div className="loader border-white w-5 h-5"></div> : "MASUK SEKARANG"}
+                            {loading ? <div className="loader border-white w-5 h-5 text-white"></div> : "MASUK SEKARANG"}
                         </button>
                     </form>
                 </div>
@@ -548,7 +548,7 @@ function App() {
                                 disabled={loading}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-full shadow-lg shadow-blue-200 transition-all mt-8 flex justify-center items-center"
                             >
-                                {loading ? <Loader2 size={20} className="animate-spin" /> : "Mulai"}
+                                {loading ? <div className="loader border-white w-5 h-5 text-white"></div> : "Mulai"}
                             </button>
                         </div>
                     </div>
@@ -600,7 +600,15 @@ function App() {
     );
   }
 
-  return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
+  // Global Loading State (Animated)
+  return (
+    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 font-sans">
+        <div className="relative">
+            <div className="loader border-indigo-600 w-12 h-12 border-4 text-indigo-600"></div>
+        </div>
+        <p className="text-slate-400 font-medium animate-pulse text-sm tracking-wider">MEMUAT SISTEM...</p>
+    </div>
+  );
 }
 
 export default App;

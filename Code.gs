@@ -3,7 +3,8 @@
   CONFIGURATION
   Pastikan nama Sheet (Tab) di Google Spreadsheet sesuai dengan variabel di bawah ini.
 */
-const SHEET_USERS = "Users";      
+const SHEET_USERS = "Users"; // Khusus Siswa
+const SHEET_ADMINS = "Admins"; // Khusus Admin (Pusat & Sekolah)
 const SHEET_CONFIG = "Config";    
 const SHEET_RESULTS = "Nilai";    
 const SHEET_REKAP = "Rekap_Analisis"; 
@@ -11,7 +12,7 @@ const SHEET_JAWABAN = "Jawaban";
 const SHEET_RANKING = "Rangking";     
 const SHEET_LOGS = "Logs";            
 
-const SYSTEM_SHEETS = [SHEET_USERS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS];
+const SYSTEM_SHEETS = [SHEET_USERS, SHEET_ADMINS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS];
 
 /* ENTRY POINT: doPost */
 function doPost(e) {
@@ -59,8 +60,8 @@ function processAction(action, args) {
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
       case 'importUsers': return adminImportUsers(args[0]); 
-      case 'saveUser': return adminSaveUser(args[0]); // NEW CRUD USER
-      case 'deleteUser': return adminDeleteUser(args[0]); // NEW CRUD USER
+      case 'saveUser': return adminSaveUser(args[0]); // UPDATED CRUD USER
+      case 'deleteUser': return adminDeleteUser(args[0]); // UPDATED CRUD USER
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
@@ -91,39 +92,66 @@ function logUserActivity(username, fullname, action, details) {
 // --- LOGIC ---
 
 function loginUser(username, password) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
-  if (!sheet) return { success: false, message: "Database Users tidak ditemukan" };
-  
-  const data = sheet.getDataRange().getDisplayValues();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const inputUser = String(username).trim().toLowerCase();
   const inputPass = String(password).trim();
 
-  for (let i = 1; i < data.length; i++) {
-    if (!data[i][1]) continue;
-    const dbUser = String(data[i][1]).trim().toLowerCase();
-    const dbPass = String(data[i][2]).trim();
+  // 1. Check Admins Sheet First
+  const adminSheet = ss.getSheetByName(SHEET_ADMINS);
+  if (adminSheet) {
+    const data = adminSheet.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+        if (!data[i][1]) continue;
+        const dbUser = String(data[i][1]).trim().toLowerCase();
+        const dbPass = String(data[i][2]).trim();
 
-    if (dbUser === inputUser && dbPass === inputPass) {
-      let roleRaw = String(data[i][3]).trim().toLowerCase();
-      let finalRole = (roleRaw === 'admin' || roleRaw.includes('admin')) ? (roleRaw === 'admin_sekolah' ? 'admin_sekolah' : 'admin_pusat') : 'siswa';
-      const fullname = data[i][4] || dbUser;
-      const gender = data[i][5] || '-';
-      const school = data[i][6] || '-';
-      
-      if (finalRole === 'siswa') logUserActivity(dbUser, fullname, "LOGIN", "Success");
-      
-      return {
-        success: true,
-        user: { 
-            username: data[i][1], 
-            role: finalRole, 
-            fullname: fullname, 
-            gender: gender, 
-            school: school 
+        if (dbUser === inputUser && dbPass === inputPass) {
+             const role = data[i][3];
+             return {
+                success: true,
+                user: { 
+                    username: data[i][1], 
+                    role: role, 
+                    fullname: data[i][4], 
+                    gender: data[i][5] || '-', 
+                    school: data[i][6] || '-' 
+                }
+             };
         }
-      };
     }
   }
+
+  // 2. Check Students (Users) Sheet
+  const userSheet = ss.getSheetByName(SHEET_USERS);
+  if (userSheet) {
+    const data = userSheet.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+      if (!data[i][1]) continue;
+      const dbUser = String(data[i][1]).trim().toLowerCase();
+      const dbPass = String(data[i][2]).trim();
+
+      if (dbUser === inputUser && dbPass === inputPass) {
+        // Students are always 'siswa' even if column says otherwise (security)
+        const fullname = data[i][4] || dbUser;
+        const gender = data[i][5] || '-';
+        const school = data[i][6] || '-';
+        
+        logUserActivity(dbUser, fullname, "LOGIN", "Success");
+        
+        return {
+          success: true,
+          user: { 
+              username: data[i][1], 
+              role: 'siswa', 
+              fullname: fullname, 
+              gender: gender, 
+              school: school 
+          }
+        };
+      }
+    }
+  }
+  
   return { success: false, message: "Username/Password salah" };
 }
 
@@ -188,6 +216,7 @@ function checkUserStatus(username) {
 }
 
 function assignTestGroup(usernames, examId, session) {
+  // Only for Students in SHEET_USERS
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
@@ -218,39 +247,91 @@ function resetLogin(username) {
 }
 
 function getUsers() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
-  if (!sheet) return [];
-  const data = sheet.getDataRange().getDisplayValues();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const users = [];
-  for (let i = 1; i < data.length; i++) {
-    if (!data[i][1]) continue;
-    users.push({
-      id: data[i][0] || `U${i}`,
-      username: data[i][1],
-      password: data[i][2],
-      role: data[i][3],
-      fullname: data[i][4],
-      gender: data[i][5],
-      school: data[i][6],
-      active_exam: data[i][7] || '-', 
-      session: data[i][8] || '-'      
-    });
+
+  // 1. Fetch Students
+  const uSheet = ss.getSheetByName(SHEET_USERS);
+  if (uSheet) {
+      const data = uSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < data.length; i++) {
+        if (!data[i][1]) continue;
+        users.push({
+          id: data[i][0] || `U${i}`,
+          username: data[i][1],
+          password: data[i][2],
+          role: 'siswa',
+          fullname: data[i][4],
+          gender: data[i][5],
+          school: data[i][6],
+          active_exam: data[i][7] || '-', 
+          session: data[i][8] || '-'      
+        });
+      }
   }
+
+  // 2. Fetch Admins
+  const aSheet = ss.getSheetByName(SHEET_ADMINS);
+  if (aSheet) {
+      const data = aSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < data.length; i++) {
+        if (!data[i][1]) continue;
+        users.push({
+          id: data[i][0] || `A${i}`,
+          username: data[i][1],
+          password: data[i][2],
+          role: data[i][3], // admin_pusat or admin_sekolah
+          fullname: data[i][4],
+          gender: data[i][5],
+          school: data[i][6],
+          active_exam: '-', 
+          session: '-'      
+        });
+      }
+  }
+
   return users;
+}
+
+// Helper to remove row by ID from a specific sheet
+function removeUserFromSheet(sheetName, userId) {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    if (!sheet) return false;
+    const data = sheet.getDataRange().getValues();
+    for(let i=1; i<data.length; i++) {
+        if(String(data[i][0]) === String(userId)) {
+            sheet.deleteRow(i+1);
+            return true;
+        }
+    }
+    return false;
 }
 
 // NEW: Save User (Create or Update)
 function adminSaveUser(userData) {
-    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+    const isStudent = (userData.role === 'siswa');
+    const targetSheetName = isStudent ? SHEET_USERS : SHEET_ADMINS;
+    const otherSheetName = isStudent ? SHEET_ADMINS : SHEET_USERS;
+
+    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(targetSheetName);
     if (!sheet) {
-        sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
-        sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+        sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(targetSheetName);
+        if (isStudent) {
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+        } else {
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School"]);
+        }
+    }
+
+    // Check if ID exists in the OTHER sheet (meaning role changed), delete it there
+    if (userData.id) {
+        removeUserFromSheet(otherSheetName, userData.id);
     }
 
     const data = sheet.getDataRange().getValues();
     let rowIndex = -1;
 
-    // Check if updating existing user by ID
+    // Check if updating existing user in TARGET sheet
     if (userData.id) {
         for (let i = 1; i < data.length; i++) {
             if (String(data[i][0]) === String(userData.id)) {
@@ -261,26 +342,46 @@ function adminSaveUser(userData) {
     }
 
     // New ID generation if creating
-    const id = userData.id || `U${new Date().getTime()}`;
-    const rowValues = [
-        id,
-        userData.username,
-        userData.password,
-        userData.role,
-        userData.fullname,
-        userData.gender || '-',
-        userData.school || '-',
-        userData.active_exam || '-',
-        userData.session || '-'
-    ];
+    const id = userData.id || (isStudent ? 'U' : 'A') + new Date().getTime();
+    
+    let rowValues = [];
+    if (isStudent) {
+        rowValues = [
+            id,
+            userData.username,
+            userData.password,
+            'siswa',
+            userData.fullname,
+            userData.gender || '-',
+            userData.school || '-',
+            userData.active_exam || '-',
+            userData.session || '-'
+        ];
+    } else {
+        // Admin
+        rowValues = [
+            id,
+            userData.username,
+            userData.password,
+            userData.role,
+            userData.fullname,
+            userData.gender || '-',
+            userData.school || '-'
+        ];
+    }
 
     if (rowIndex > 0) {
         // Update existing row
-        // Preserve Active_Exam and Session if not provided in update (though frontend sends current values)
-        if(!userData.active_exam) rowValues[7] = data[rowIndex-1][7];
-        if(!userData.session) rowValues[8] = data[rowIndex-1][8];
+        // Preserve existing fields if not provided/modified (mostly relevant for Students active_exam/session)
+        if (isStudent) {
+             // If we are strictly saving profile, keep active_exam/session from DB if frontend sent empty/default
+             // Frontend sends current values if available, so overwriting is usually fine.
+             // But let's be safe:
+             if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
+             if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
+        }
         
-        sheet.getRange(rowIndex, 1, 1, 9).setValues([rowValues]);
+        sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
         // Append new row
         sheet.appendRow(rowValues);
@@ -291,16 +392,11 @@ function adminSaveUser(userData) {
 
 // NEW: Delete User
 function adminDeleteUser(userId) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
-    if (!sheet) return { success: false, message: "Sheet not found" };
-
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0]) === String(userId)) {
-            sheet.deleteRow(i + 1);
-            return { success: true, message: "User deleted" };
-        }
-    }
+    // Try delete from Users
+    if (removeUserFromSheet(SHEET_USERS, userId)) return { success: true, message: "Student deleted" };
+    // Try delete from Admins
+    if (removeUserFromSheet(SHEET_ADMINS, userId)) return { success: true, message: "Admin deleted" };
+    
     return { success: false, message: "User not found" };
 }
 
@@ -309,33 +405,45 @@ function adminImportUsers(usersList) {
         return { success: false, message: "Data kosong" };
     }
 
-    let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
-    if (!sheet) {
-        sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
-        sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
-    }
+    const students = [];
+    const admins = [];
 
-    const lastRow = sheet.getLastRow();
-    const newRows = usersList.map((u, index) => {
-        const id = u.id || `U${new Date().getTime()}-${index}`;
-        return [
-            id,
-            u.username,
-            u.password,
-            u.role, 
-            u.fullname,
-            u.gender || '-',
-            u.school || '-',
-            '-', 
-            '-' 
-        ];
+    usersList.forEach((u, index) => {
+        const isStudent = (u.role === 'siswa');
+        const id = u.id || (isStudent ? 'U' : 'A') + new Date().getTime() + '-' + index;
+        
+        if (isStudent) {
+            students.push([
+                id, u.username, u.password, 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-'
+            ]);
+        } else {
+            admins.push([
+                id, u.username, u.password, u.role, u.fullname, u.gender || '-', u.school || '-'
+            ]);
+        }
     });
 
-    if (newRows.length > 0) {
-        sheet.getRange(lastRow + 1, 1, newRows.length, 9).setValues(newRows);
+    // Save Students
+    if (students.length > 0) {
+        let sSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+        if (!sSheet) {
+            sSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
+            sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+        }
+        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 9).setValues(students);
     }
 
-    return { success: true, message: `Berhasil mengimpor ${newRows.length} user.` };
+    // Save Admins
+    if (admins.length > 0) {
+        let aSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ADMINS);
+        if (!aSheet) {
+            aSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_ADMINS);
+            aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School"]);
+        }
+        aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 7).setValues(admins);
+    }
+
+    return { success: true, message: `Berhasil mengimpor ${students.length} siswa dan ${admins.length} admin.` };
 }
 
 function getSubjectList() {

@@ -33,14 +33,16 @@
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
       
+      /* Modern Spinner */
       .loader {
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #4f46e5;
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
-        animation: spin 1s linear infinite;
+        border-style: solid;
+        animation: spin 0.8s linear infinite;
+        /* Allow Tailwind border colors to override */
+        border-color: currentColor; 
+        border-right-color: transparent !important;
       }
+      
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       .fade-in { animation: fadeIn 0.4s ease-out forwards; }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

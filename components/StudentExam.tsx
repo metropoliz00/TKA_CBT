@@ -202,7 +202,12 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
 
   // Wait until shuffling is done
   if (examQuestions.length === 0) {
-      return <div className="h-screen flex items-center justify-center bg-slate-100"><div className="loader border-indigo-500"></div></div>;
+      return (
+        <div className="h-screen flex flex-col items-center justify-center bg-slate-100 gap-4">
+            <div className="loader border-indigo-600 w-10 h-10 border-4 text-indigo-600"></div>
+            <p className="text-slate-400 font-bold text-sm">Menyiapkan Soal...</p>
+        </div>
+      );
   }
 
   const currentQ = examQuestions[currentIdx];
@@ -569,7 +574,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               className={`px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base ${isSubmitting ? 'bg-slate-400 text-white cursor-wait' : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-green-200'}`}
             >
               {isSubmitting ? (
-                  <>Wait... <Loader2 size={18} className="animate-spin" /></>
+                  <>Wait... <div className="loader border-white w-4 h-4 border-2"></div></>
               ) : (
                   <>SELESAI <Check size={18} /></>
               )}
