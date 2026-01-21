@@ -612,8 +612,10 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const itemAnalysisRow = [];   
   const rawAnswersRow = [];     
 
+  // We loop starting from row 1 (header is 0)
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
+    // Skip empty rows
     if (String(row[0]) === "") continue;
 
     const qId = String(row[0]);
@@ -659,6 +661,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         ansStr = "-";
     }
 
+    // Scoring Logic
     if (isCorrect) {
         totalScore += weight;
         correctCount++;
@@ -666,16 +669,28 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         wrongCount++;
     }
 
-    itemAnalysis[qId] = isCorrect ? 1 : 0;
-    if (itemAnalysisRow.length < 50) itemAnalysisRow.push(isCorrect ? 1 : 0);
-    if (rawAnswersRow.length < 50) rawAnswersRow.push(ansStr);
+    // Analysis Logic (Strictly Number 1 or 0)
+    const scoreVal = isCorrect ? 1 : 0;
+    itemAnalysis[qId] = scoreVal;
+    
+    // Ensure we push strictly numbers to avoid weird formatting in sheets
+    if (itemAnalysisRow.length < 100) { // Limit to 100 Questions
+        itemAnalysisRow.push(scoreVal); 
+    }
+    
+    if (rawAnswersRow.length < 100) {
+        rawAnswersRow.push(ansStr);
+    }
   }
 
-  while(itemAnalysisRow.length < 50) itemAnalysisRow.push("");
-  while(rawAnswersRow.length < 50) rawAnswersRow.push("");
+  // Fill remaining slots with empty string or 0 to align columns in spreadsheet
+  // We use empty string to not clutter the view for unused columns
+  while(itemAnalysisRow.length < 100) itemAnalysisRow.push("");
+  while(rawAnswersRow.length < 100) rawAnswersRow.push("");
 
   const finalScore = totalScore;
 
+  // --- WRITE TO SHEET_RESULTS (Nilai) ---
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {
       shNilai = ss.insertSheet(SHEET_RESULTS);
@@ -683,24 +698,31 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   }
   shNilai.appendRow([timestamp, username, fullname, school, subject, finalScore, JSON.stringify(itemAnalysis), durationStr]);
   
+  // --- WRITE TO SHEET_REKAP (Rekap_Analisis) ---
   let shRekap = ss.getSheetByName(SHEET_REKAP);
   if (!shRekap) {
       shRekap = ss.insertSheet(SHEET_REKAP);
       const h = ["Waktu Selesai", "Nama Peserta", "Asal Sekolah", "Mapel", "Durasi", "Benar", "Salah", "Nilai", "Detail Penilaian"];
-      for(let k=1; k<=50; k++) h.push(`Q${k}`);
+      for(let k=1; k<=100; k++) h.push(`Q${k}`);
       shRekap.appendRow(h);
   }
-  shRekap.appendRow([timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, JSON.stringify(itemAnalysis), ...itemAnalysisRow]);
+  
+  const rekapRow = [timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, JSON.stringify(itemAnalysis)];
+  // Combine arrays: Metadata + Item Analysis (0/1)
+  shRekap.appendRow(rekapRow.concat(itemAnalysisRow));
 
+  // --- WRITE TO SHEET_JAWABAN (Raw Answers) ---
   let shJawab = ss.getSheetByName(SHEET_JAWABAN);
   if (!shJawab) {
       shJawab = ss.insertSheet(SHEET_JAWABAN);
       const h = ["Waktu Selesai", "Nama Peserta", "Asal Sekolah", "Mapel", "Nilai"];
-      for(let k=1; k<=50; k++) h.push(`Q${k}`);
+      for(let k=1; k<=100; k++) h.push(`Q${k}`);
       shJawab.appendRow(h);
   }
-  shJawab.appendRow([timestamp, fullname, school, subject, finalScore, ...rawAnswersRow]);
+  const jawabRow = [timestamp, fullname, school, subject, finalScore];
+  shJawab.appendRow(jawabRow.concat(rawAnswersRow));
   
+  // --- WRITE TO SHEET_RANKING (Ranking) ---
   let shRank = ss.getSheetByName(SHEET_RANKING);
   if (!shRank) {
       shRank = ss.insertSheet(SHEET_RANKING);

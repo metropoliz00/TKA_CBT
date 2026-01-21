@@ -23,6 +23,22 @@ function shuffleArray<T>(array: T[]): T[] {
     return newArr;
 }
 
+// Utility to detect if string is an image URL
+const isImageOption = (text: string) => {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    // Check standard extensions
+    if (/\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(trimmed)) return true;
+    // Check Data URI
+    if (trimmed.startsWith('data:image')) return true;
+    // Check Google Drive View Links or other common image hosting without extension
+    if (trimmed.startsWith('http') && (trimmed.includes('drive.google.com') || trimmed.includes('images.unsplash.com') || trimmed.includes('imgur.com'))) {
+        // Loose check for known domains, mostly valid
+        return true;
+    }
+    return false;
+};
+
 // --- IMAGE VIEWER COMPONENT (ZOOM & PAN) ---
 const ImageViewer = ({ src, onClose }: { src: string; onClose: () => void }) => {
     const [scale, setScale] = useState(1);
@@ -194,7 +210,18 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, UserAnswerValue>>({});
   const [doubtful, setDoubtful] = useState<Record<string, boolean>>({});
-  const [timeLeft, setTimeLeft] = useState(exam.durasi * 60);
+  
+  // INITIALIZE TIMER based on exam.durasi (Admin Input)
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const now = Date.now();
+    // Calculate elapsed time since start
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    // Total duration in seconds (durasi is in minutes)
+    const totalDurationSeconds = exam.durasi * 60;
+    // Remaining time
+    return Math.max(0, totalDurationSeconds - elapsedSeconds);
+  });
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -241,22 +268,27 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       }
   }, [answers, doubtful, storageKey]);
 
-  // Timer Logic (Absolute Time based)
+  // TIMER LOGIC - Runs every second
   useEffect(() => {
-    const timer = setInterval(() => {
+    if (timeLeft <= 0) return;
+
+    const intervalId = setInterval(() => {
       const now = Date.now();
       const elapsedSeconds = Math.floor((now - startTime) / 1000);
-      const remaining = (exam.durasi * 60) - elapsedSeconds;
+      const totalSeconds = exam.durasi * 60;
+      const remaining = totalSeconds - elapsedSeconds;
       
       if (remaining <= 0) {
-        clearInterval(timer);
+        clearInterval(intervalId);
         setTimeLeft(0);
+        // Auto-submit when time is up
         executeFinish();
       } else {
         setTimeLeft(remaining);
       }
     }, 1000);
-    return () => clearInterval(timer);
+
+    return () => clearInterval(intervalId);
   }, [startTime, exam.durasi]);
 
   // POLLING: Check for Remote Reset (Kick)
@@ -365,6 +397,29 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
           else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
       } catch(e) { console.error(e); }
       setIsLocked(true);
+  };
+
+  const renderOptionContent = (text: string) => {
+    if (isImageOption(text)) {
+        return (
+            <div className="relative group inline-block my-2">
+                <img
+                    src={text.trim()}
+                    alt="Opsi Jawaban"
+                    className="max-h-40 w-auto rounded-lg border border-slate-200 object-contain bg-white transition-transform hover:scale-[1.02] cursor-zoom-in"
+                    onClick={(e) => {
+                        e.preventDefault(); // Prevent selection when zooming
+                        e.stopPropagation();
+                        setZoomedImage(text.trim());
+                    }}
+                />
+                 <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize size={12} />
+                </div>
+            </div>
+        );
+    }
+    return <span>{text}</span>;
   };
 
   // Wait until shuffling is done
@@ -604,7 +659,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 onChange={() => handleAnswer(opt.id, 'PG')} 
                             />
                             <div className={`flex-1 break-words ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>
-                                {opt.text_jawaban}
+                                {renderOptionContent(opt.text_jawaban)}
                             </div>
                             </label>
                         );
@@ -628,7 +683,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 onChange={() => handleAnswer(opt.id, 'PGK')} 
                             />
                             <div className="flex-1 text-slate-700 font-medium break-words">
-                                {opt.text_jawaban}
+                                {renderOptionContent(opt.text_jawaban)}
                             </div>
                             </label>
                         );
@@ -649,7 +704,9 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 const val = (answers[currentQ.id] as Record<string, boolean>)?.[opt.id];
                                 return (
                                     <tr key={opt.id} className="hover:bg-slate-50 transition">
-                                    <td className="p-3 md:p-5 font-medium text-slate-800 break-words min-w-[150px]">{opt.text_jawaban}</td>
+                                    <td className="p-3 md:p-5 font-medium text-slate-800 break-words min-w-[150px]">
+                                        {renderOptionContent(opt.text_jawaban)}
+                                    </td>
                                     <td className="p-3 md:p-5 text-center">
                                         <label className="cursor-pointer block h-full w-full flex justify-center">
                                             <input 
