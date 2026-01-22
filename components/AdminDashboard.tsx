@@ -105,7 +105,7 @@ const DashboardSkeleton = () => (
 );
 
 // --- DATA USER COMPONENT (RENAMED TO DAFTAR PESERTA) ---
-const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
+const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, onDataChange: () => void }) => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [importing, setImporting] = useState(false);
@@ -217,6 +217,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
             try {
                 await api.deleteUser(id);
                 await loadUsers();
+                onDataChange();
             } catch (e) { console.error(e); alert("Gagal menghapus user."); }
             finally { setLoading(false); }
         }
@@ -229,6 +230,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
             await api.saveUser(editingUser);
             setShowUserModal(false);
             await loadUsers();
+            onDataChange();
         } catch (e) { console.error(e); alert("Gagal menyimpan data."); }
         finally { setIsSaving(false); }
     };
@@ -309,6 +311,7 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                      await api.importUsers(parsedUsers);
                      alert(`Berhasil mengimpor ${parsedUsers.length} user.`);
                      loadUsers(); // Refresh list
+                     onDataChange();
                 } else {
                     alert("Tidak ada data user yang valid dalam file.");
                 }
@@ -512,6 +515,21 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
                                     />
                                     {currentUser.role === 'admin_sekolah' && <p className="text-[10px] text-slate-400 mt-1 italic">Terkunci sesuai wilayah proktor.</p>}
                                 </div>
+                                
+                                {editingUser.role === 'siswa' && (
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                                         <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sesi Ujian</label>
+                                            <select className="w-full p-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.session || 'Sesi 1'} onChange={e => setEditingUser({...editingUser, session: e.target.value})}>
+                                                <option value="-">-</option>
+                                                <option value="Sesi 1">Sesi 1</option>
+                                                <option value="Sesi 2">Sesi 2</option>
+                                                <option value="Sesi 3">Sesi 3</option>
+                                                <option value="Sesi 4">Sesi 4</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
                             </form>
                         </div>
                         <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
@@ -528,10 +546,14 @@ const DaftarPesertaTab = ({ currentUser }: { currentUser: User }) => {
 };
 
 // --- NEW COMPONENT: ATUR SESI (VIEW SESSION) ---
-const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
-    const [filterSession, setFilterSession] = useState('Sesi 1');
+const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { currentUser: User, students: any[], refreshData: () => void, isLoading: boolean }) => {
+    const [filterSession, setFilterSession] = useState('Semua');
     const [filterSchool, setFilterSchool] = useState('Semua');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // NEW: State for pending session changes
+    const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
+    const [isSaving, setIsSaving] = useState(false);
 
     const filteredStudents = useMemo(() => {
         let res = students;
@@ -544,8 +566,10 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
             res = res.filter(s => s.school === filterSchool);
         }
 
-        // 2. Session Filter
-        res = res.filter(s => (s.session || '') === filterSession);
+        // 2. Session Filter (Modified to allow "Semua")
+        if (filterSession !== 'Semua') {
+            res = res.filter(s => (s.session || '') === filterSession);
+        }
 
         // 3. Search Filter
         if (searchTerm) {
@@ -558,6 +582,31 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
 
     const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
     
+    const handleSessionChange = (username: string, newSession: string) => {
+        setPendingChanges(prev => ({
+            ...prev,
+            [username]: newSession
+        }));
+    };
+
+    const handleSaveChanges = async () => {
+        const changes = Object.entries(pendingChanges).map(([username, session]) => ({ username, session }));
+        if (changes.length === 0) return;
+
+        setIsSaving(true);
+        try {
+            await api.updateUserSessions(changes);
+            setPendingChanges({});
+            refreshData(); // Refresh data to show updates
+            alert(`Berhasil menyimpan perubahan sesi untuk ${changes.length} siswa.`);
+        } catch (e) {
+            console.error(e);
+            alert("Gagal menyimpan perubahan.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     // Simple Export function for attendance
     const handleExportAbsensi = () => {
         const data = filteredStudents.map((s, i) => ({
@@ -573,25 +622,30 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
         exportToExcel(data, `Absensi_${filterSession}_${filterSchool !== 'Semua' ? filterSchool : 'Semua'}`, `Sesi ${filterSession}`);
     };
 
+    const hasPendingChanges = Object.keys(pendingChanges).length > 0;
+
     return (
         <div className="space-y-6 fade-in">
              <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
                  <div className="flex justify-between items-center mb-6 pb-4 border-b">
                     <div>
                         <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                            <CalendarClock className="text-indigo-600" /> Daftar Peserta per Sesi
+                            <CalendarClock className="text-indigo-600" /> Atur Sesi & Absensi
                         </h3>
-                        <p className="text-slate-500 text-xs mt-1">Lihat siswa berdasarkan sesi yang telah diatur di menu Kelompok Tes.</p>
+                        <p className="text-slate-500 text-xs mt-1">Ubah sesi siswa dan download daftar hadir.</p>
                     </div>
-                    <button onClick={handleExportAbsensi} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
-                        <FileText size={16}/> Download Absensi
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={handleExportAbsensi} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                            <FileText size={16}/> Download Absensi
+                        </button>
+                    </div>
                  </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                      <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Sesi</label>
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sesi</label>
                         <select className="w-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg font-bold text-indigo-700" value={filterSession} onChange={e=>setFilterSession(e.target.value)}>
+                            <option value="Semua">Semua Sesi</option>
                             {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
                         </select>
                      </div>
@@ -613,6 +667,26 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
                  </div>
              </div>
 
+             {/* Action Bar for Saving Changes */}
+             {hasPendingChanges && (
+                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex justify-between items-center animate-in slide-in-from-top-2">
+                     <div className="flex items-center gap-3 text-amber-800">
+                         <div className="bg-amber-200 p-2 rounded-lg"><AlertCircle size={20}/></div>
+                         <div>
+                             <span className="font-bold">Ada Perubahan Belum Disimpan</span>
+                             <p className="text-xs text-amber-700">Anda telah mengubah sesi untuk {Object.keys(pendingChanges).length} siswa.</p>
+                         </div>
+                     </div>
+                     <div className="flex gap-2">
+                         <button onClick={() => setPendingChanges({})} className="px-4 py-2 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold transition">Batal</button>
+                         <button onClick={handleSaveChanges} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-bold shadow-lg shadow-amber-200 transition flex items-center gap-2">
+                             {isSaving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
+                             Simpan Perubahan
+                         </button>
+                     </div>
+                 </div>
+             )}
+
              <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
                     <span className="font-bold text-slate-700 text-sm">Peserta Terdaftar di {filterSession}</span>
@@ -626,13 +700,16 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
                                 <th className="p-4">Identitas Siswa</th>
                                 <th className="p-4">Sekolah / Kelas</th>
                                 <th className="p-4">Mapel Ujian</th>
-                                <th className="p-4 text-center">Sesi</th>
+                                <th className="p-4 text-center w-40">Ubah Sesi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {filteredStudents.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada peserta di sesi ini.</td></tr> : filteredStudents.map((s,i) => {
+                                const currentSession = pendingChanges[s.username] || s.session || 'Sesi 1';
+                                const isChanged = pendingChanges[s.username] !== undefined;
+
                                 return (
-                                    <tr key={i} className="hover:bg-slate-50 transition">
+                                    <tr key={i} className={`hover:bg-slate-50 transition ${isChanged ? 'bg-amber-50/50' : ''}`}>
                                         <td className="p-4 text-center text-slate-400 font-bold">{i+1}</td>
                                         <td className="p-4">
                                             <div className="font-bold text-slate-700">{s.fullname}</div>
@@ -647,7 +724,17 @@ const AturSesiTab = ({ currentUser, students }: { currentUser: User, students: a
                                             )}
                                         </td>
                                         <td className="p-4 text-center">
-                                            <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">{s.session}</span>
+                                            <select 
+                                                className={`w-full p-2 border rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100 ${isChanged ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 text-slate-700'}`}
+                                                value={currentSession}
+                                                onChange={(e) => handleSessionChange(s.username, e.target.value)}
+                                            >
+                                                <option value="-">-</option>
+                                                <option value="Sesi 1">Sesi 1</option>
+                                                <option value="Sesi 2">Sesi 2</option>
+                                                <option value="Sesi 3">Sesi 3</option>
+                                                <option value="Sesi 4">Sesi 4</option>
+                                            </select>
                                         </td>
                                     </tr>
                                 )
@@ -1888,8 +1975,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'overview' && <OverviewTab />}
                 {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
                 {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
-                {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} />}
-                {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} />}
+                {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
+                {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
                 {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
                 {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}

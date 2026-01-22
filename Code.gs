@@ -66,6 +66,7 @@ function processAction(action, args) {
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
+      case 'updateUserSessions': return updateUserSessions(args[0]); // NEW
       case 'resetLogin': return resetLogin(args[0]);
       default: return { error: "Action not found: " + action };
     }
@@ -242,6 +243,30 @@ function assignTestGroup(usernames, examId, session) {
     }
   }
   
+  return { success: true };
+}
+
+// NEW: Update Sessions for multiple users (Direct Edit from Atur Sesi)
+function updateUserSessions(updates) {
+  // updates is array of { username: '...', session: '...' }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+  if (!sheet) return { success: false, message: "Sheet Users not found" };
+  
+  const data = sheet.getDataRange().getValues();
+  // Ensure header exists
+  if (data[0].length < 9) sheet.getRange(1, 9).setValue("Session");
+
+  const updateMap = new Map();
+  updates.forEach(u => updateMap.set(String(u.username).toLowerCase(), u.session));
+
+  for (let i = 1; i < data.length; i++) {
+    const dbUser = String(data[i][1]).toLowerCase();
+    if (updateMap.has(dbUser)) {
+        const newSession = updateMap.get(dbUser);
+        // Column I is index 9 (1-based)
+        sheet.getRange(i + 1, 9).setValue(newSession); 
+    }
+  }
   return { success: true };
 }
 

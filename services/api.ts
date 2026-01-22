@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbwBcSnz_jZc9F-n8eGtRpX0e14rdvDp5g4Ilc8ovaIujolly7E121fCMcNvrxyUKYIp/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbw0yXefYz6GVA9k4lwmyD6rk5ivSdcqg0rNbPxbRBjenZS9huqfRmgJgTOTvRM-uAQC/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -204,6 +204,11 @@ export const api = {
   // NEW: Assign Test Group (Kelompok Tes)
   assignTestGroup: async (usernames: string[], examId: string, session: string): Promise<{success: boolean}> => {
       return await callBackend('assignTestGroup', usernames, examId, session);
+  },
+
+  // NEW: Update User Sessions Batch
+  updateUserSessions: async (updates: {username: string, session: string}[]): Promise<{success: boolean}> => {
+      return await callBackend('updateUserSessions', updates);
   },
 
   // NEW: Reset Login
