@@ -1,3 +1,4 @@
+
 // 1. Tabel Users
 export interface User {
   id: string;
@@ -19,6 +20,7 @@ export interface Exam {
   durasi: number; // in minutes
   token_akses: string;
   is_active: boolean;
+  max_questions?: number; // New Field: Limit questions
 }
 
 // 3. Tabel Questions (Bank Soal)

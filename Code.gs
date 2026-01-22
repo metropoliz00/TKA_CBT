@@ -56,7 +56,6 @@ function processAction(action, args) {
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
       case 'importQuestions': return adminImportQuestions(args[0], args[1]); 
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
-      // UPDATED: submitAnswers now expects 7 arguments (startTime as last)
       case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
@@ -66,7 +65,7 @@ function processAction(action, args) {
       case 'saveToken': return saveConfig('TOKEN', args[0]);
       case 'saveConfig': return saveConfig(args[0], args[1]); 
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
-      case 'updateUserSessions': return updateUserSessions(args[0]); // NEW
+      case 'updateUserSessions': return updateUserSessions(args[0]); 
       case 'resetLogin': return resetLogin(args[0]);
       default: return { error: "Action not found: " + action };
     }
@@ -74,6 +73,17 @@ function processAction(action, args) {
 
 function responseJSON(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- HELPER: Force Text for Leading Zeros ---
+function toSheetValue(val) {
+  if (val === null || val === undefined) return "";
+  const str = String(val);
+  // If it starts with 0 and is numeric and length > 1, prepend ' to force text in Google Sheets
+  if (str.length > 1 && str.startsWith('0') && /^\d+$/.test(str)) {
+    return "'" + str;
+  }
+  return val;
 }
 
 // --- LOGGING ---
@@ -101,7 +111,6 @@ function loginUser(username, password) {
   // 1. Check Admins Sheet First
   const adminSheet = ss.getSheetByName(SHEET_ADMINS);
   if (adminSheet) {
-    // Use getDisplayValues to treat everything as string (preserves '0123')
     const data = adminSheet.getDataRange().getDisplayValues();
     for (let i = 1; i < data.length; i++) {
         if (!data[i][1]) continue;
@@ -134,12 +143,11 @@ function loginUser(username, password) {
       const dbPass = String(data[i][2]).trim();
 
       if (dbUser === inputUser && dbPass === inputPass) {
-        // Students are always 'siswa' even if column says otherwise (security)
         const fullname = data[i][4] || dbUser;
         const gender = data[i][5] || '-';
         const school = data[i][6] || '-';
-        const active_exam = data[i][7] || '-'; // Column H: Active Exam
-        const session = data[i][8] || '-';     // Column I: Session
+        const active_exam = data[i][7] || '-';
+        const session = data[i][8] || '-';
         
         logUserActivity(dbUser, fullname, "LOGIN", "Success");
         
@@ -162,27 +170,25 @@ function loginUser(username, password) {
   return { success: false, message: "Username/Password salah" };
 }
 
-// UPDATED: Start Exam with Resume Logic
 function startExam(username, fullname, subject) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let logSheet = ss.getSheetByName(SHEET_LOGS);
-  let startTime = new Date().getTime(); // Default to now
+  let startTime = new Date().getTime(); 
   let isResuming = false;
 
   if (logSheet) {
-    const data = logSheet.getDataRange().getValues(); // Values okay for dates
+    const data = logSheet.getDataRange().getValues(); 
     
     for (let i = data.length - 1; i >= 1; i--) {
         const rowUser = String(data[i][1]).toLowerCase();
         const rowAction = String(data[i][3]).toUpperCase();
-        const rowDetail = String(data[i][4]); // Subject usually here
+        const rowDetail = String(data[i][4]); 
 
         if (rowUser === String(username).toLowerCase()) {
             if (rowAction === 'FINISH' && rowDetail.includes(subject)) {
                 break; 
             }
             if (rowAction === 'START' && rowDetail === subject) {
-                // Found an active start for this subject
                 startTime = new Date(data[i][0]).getTime();
                 isResuming = true;
                 break;
@@ -191,20 +197,17 @@ function startExam(username, fullname, subject) {
     }
   }
 
-  // Always log the "Attempt" to start/resume
   logUserActivity(username, fullname, isResuming ? "RESUME" : "START", subject);
 
   return { success: true, startTime: startTime, isResuming: isResuming };
 }
 
-// NEW: Check User Status (For Force Logout)
 function checkUserStatus(username) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const logSheet = ss.getSheetByName(SHEET_LOGS);
     if (!logSheet) return { status: 'OK' };
 
     const data = logSheet.getDataRange().getValues();
-    // Scan backwards to find the LAST action for this user
     for (let i = data.length - 1; i >= 1; i--) {
         const rowUser = String(data[i][1]).toLowerCase();
         if (rowUser === String(username).toLowerCase()) {
@@ -215,7 +218,6 @@ function checkUserStatus(username) {
             if (action === 'FINISH') {
                 return { status: 'FINISHED' };
             }
-            // If START, LOGIN, RESUME -> OK
             return { status: 'OK' };
         }
     }
@@ -223,11 +225,9 @@ function checkUserStatus(username) {
 }
 
 function assignTestGroup(usernames, examId, session) {
-  // Only for Students in SHEET_USERS
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
-  // Use getDisplayValues to handle usernames like "001" correctly
   const data = sheet.getDataRange().getDisplayValues();
   if (data[0].length < 9) {
      sheet.getRange(1, 8).setValue("Active_Exam");
@@ -248,15 +248,11 @@ function assignTestGroup(usernames, examId, session) {
   return { success: true };
 }
 
-// NEW: Update Sessions for multiple users (Direct Edit from Atur Sesi)
 function updateUserSessions(updates) {
-  // updates is array of { username: '...', session: '...' }
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
-  // Use getDisplayValues to match usernames correctly
   const data = sheet.getDataRange().getDisplayValues();
-  // Ensure header exists
   if (data[0].length < 9) sheet.getRange(1, 9).setValue("Session");
 
   const updateMap = new Map();
@@ -266,7 +262,6 @@ function updateUserSessions(updates) {
     const dbUser = String(data[i][1]).toLowerCase();
     if (updateMap.has(dbUser)) {
         const newSession = updateMap.get(dbUser);
-        // Column I is index 9 (1-based)
         sheet.getRange(i + 1, 9).setValue(newSession); 
     }
   }
@@ -274,7 +269,6 @@ function updateUserSessions(updates) {
 }
 
 function resetLogin(username) {
-  // Just logs a RESET. The frontend polls for this and the dashboard interprets it as Offline.
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
   return { success: true };
 }
@@ -283,10 +277,8 @@ function getUsers() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const users = [];
 
-  // 1. Fetch Students
   const uSheet = ss.getSheetByName(SHEET_USERS);
   if (uSheet) {
-      // Use getDisplayValues to ensure IDs/Usernames starting with 0 are preserved
       const data = uSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < data.length; i++) {
         if (!data[i][1]) continue;
@@ -304,7 +296,6 @@ function getUsers() {
       }
   }
 
-  // 2. Fetch Admins
   const aSheet = ss.getSheetByName(SHEET_ADMINS);
   if (aSheet) {
       const data = aSheet.getDataRange().getDisplayValues();
@@ -314,7 +305,7 @@ function getUsers() {
           id: data[i][0] || `A${i}`,
           username: data[i][1],
           password: data[i][2],
-          role: data[i][3], // admin_pusat or admin_sekolah
+          role: data[i][3], 
           fullname: data[i][4],
           gender: data[i][5],
           school: data[i][6],
@@ -327,11 +318,10 @@ function getUsers() {
   return users;
 }
 
-// Helper to remove row by ID from a specific sheet
 function removeUserFromSheet(sheetName, userId) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) return false;
-    const data = sheet.getDataRange().getDisplayValues(); // Use display values for string ID match
+    const data = sheet.getDataRange().getDisplayValues();
     for(let i=1; i<data.length; i++) {
         if(String(data[i][0]) === String(userId)) {
             sheet.deleteRow(i+1);
@@ -341,7 +331,6 @@ function removeUserFromSheet(sheetName, userId) {
     return false;
 }
 
-// NEW: Save User (Create or Update)
 function adminSaveUser(userData) {
     const isStudent = (userData.role === 'siswa');
     const targetSheetName = isStudent ? SHEET_USERS : SHEET_ADMINS;
@@ -357,16 +346,13 @@ function adminSaveUser(userData) {
         }
     }
 
-    // Check if ID exists in the OTHER sheet (meaning role changed), delete it there
     if (userData.id) {
         removeUserFromSheet(otherSheetName, userData.id);
     }
 
-    // Use getDisplayValues to ensure precise ID matching (e.g. "007")
     const data = sheet.getDataRange().getDisplayValues();
     let rowIndex = -1;
 
-    // Check if updating existing user in TARGET sheet
     if (userData.id) {
         for (let i = 1; i < data.length; i++) {
             if (String(data[i][0]) === String(userData.id)) {
@@ -376,15 +362,14 @@ function adminSaveUser(userData) {
         }
     }
 
-    // New ID generation if creating
     const id = userData.id || (isStudent ? 'U' : 'A') + new Date().getTime();
     
     let rowValues = [];
     if (isStudent) {
         rowValues = [
-            id,
-            userData.username,
-            userData.password,
+            toSheetValue(id),
+            toSheetValue(userData.username),
+            toSheetValue(userData.password),
             'siswa',
             userData.fullname,
             userData.gender || '-',
@@ -393,11 +378,10 @@ function adminSaveUser(userData) {
             userData.session || '-'
         ];
     } else {
-        // Admin
         rowValues = [
-            id,
-            userData.username,
-            userData.password,
+            toSheetValue(id),
+            toSheetValue(userData.username),
+            toSheetValue(userData.password),
             userData.role,
             userData.fullname,
             userData.gender || '-',
@@ -406,32 +390,22 @@ function adminSaveUser(userData) {
     }
 
     if (rowIndex > 0) {
-        // Update existing row
-        // Preserve existing fields if not provided/modified (mostly relevant for Students active_exam/session)
         if (isStudent) {
-             // If we are strictly saving profile, keep active_exam/session from DB if frontend sent empty/default
-             // Frontend sends current values if available, so overwriting is usually fine.
-             // But let's be safe:
              if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
              if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
         }
         
         sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
-        // Append new row
         sheet.appendRow(rowValues);
     }
 
     return { success: true, message: "User saved successfully" };
 }
 
-// NEW: Delete User
 function adminDeleteUser(userId) {
-    // Try delete from Users
     if (removeUserFromSheet(SHEET_USERS, userId)) return { success: true, message: "Student deleted" };
-    // Try delete from Admins
     if (removeUserFromSheet(SHEET_ADMINS, userId)) return { success: true, message: "Admin deleted" };
-    
     return { success: false, message: "User not found" };
 }
 
@@ -449,16 +423,15 @@ function adminImportUsers(usersList) {
         
         if (isStudent) {
             students.push([
-                id, u.username, u.password, 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-'
+                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-'
             ]);
         } else {
             admins.push([
-                id, u.username, u.password, u.role, u.fullname, u.gender || '-', u.school || '-'
+                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-'
             ]);
         }
     });
 
-    // Save Students
     if (students.length > 0) {
         let sSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
         if (!sSheet) {
@@ -468,7 +441,6 @@ function adminImportUsers(usersList) {
         sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 9).setValues(students);
     }
 
-    // Save Admins
     if (admins.length > 0) {
         let aSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ADMINS);
         if (!aSheet) {
@@ -485,13 +457,13 @@ function getSubjectList() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
   const subjects = sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n));
   const duration = getConfigValue('DURATION', 60);
-  return { subjects: subjects, duration: Number(duration) };
+  const maxQuestions = getConfigValue('MAX_QUESTIONS', 0); // Default 0 means all
+  return { subjects: subjects, duration: Number(duration), maxQuestions: Number(maxQuestions) };
 }
 
 function getConfigValue(key, defaultValue) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
   if (!sheet) return defaultValue;
-  // Use getDisplayValues to capture string values correctly
   const data = sheet.getDataRange().getDisplayValues();
   for(let i=0; i<data.length; i++) {
     if(String(data[i][0]).toUpperCase() === key.toUpperCase()) return data[i][1];
@@ -505,7 +477,6 @@ function saveConfig(key, value) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CONFIG);
     sheet.appendRow(["Key", "Value"]);
   }
-  // Use getDisplayValues to find existing keys correctly
   const data = sheet.getDataRange().getDisplayValues();
   let found = false;
   for(let i=0; i<data.length; i++) {
@@ -523,7 +494,6 @@ function getQuestionsFromSheet(subject) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(subject);
   if (!sheet) return [];
   
-  // Changed to getDisplayValues to preserve "01" as string instead of 1
   const data = sheet.getDataRange().getDisplayValues();
   const questions = [];
   
@@ -579,13 +549,12 @@ function adminSaveQuestion(sheetName, qData) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
     sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"]);
   }
-  // Use getDisplayValues to ensure ID check works for "001"
   const data = sheet.getDataRange().getDisplayValues();
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(qData.id)) { rowIndex = i + 1; break; }
   }
-  const rowVals = [qData.id, qData.text_soal, qData.tipe_soal, qData.gambar||"", qData.opsi_a||"", qData.opsi_b||"", qData.opsi_c||"", qData.opsi_d||"", qData.kunci_jawaban, qData.bobot];
+  const rowVals = [toSheetValue(qData.id), qData.text_soal, qData.tipe_soal, qData.gambar||"", qData.opsi_a||"", qData.opsi_b||"", qData.opsi_c||"", qData.opsi_d||"", qData.kunci_jawaban, qData.bobot];
   
   if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, 10).setValues([rowVals]);
   else sheet.appendRow(rowVals);
@@ -605,7 +574,7 @@ function adminImportQuestions(sheetName, questionsList) {
   }
 
   const newRows = questionsList.map(q => [
-      q.id, q.text_soal, q.tipe_soal || 'PG', q.gambar || '',
+      toSheetValue(q.id), q.text_soal, q.tipe_soal || 'PG', q.gambar || '',
       q.opsi_a || '', q.opsi_b || '', q.opsi_c || '', q.opsi_d || '',
       q.kunci_jawaban || '', q.bobot || 10
   ]);
@@ -619,7 +588,6 @@ function adminImportQuestions(sheetName, questionsList) {
 function adminDeleteQuestion(sheetName, id) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return { success: false };
-  // Use getDisplayValues to match ID string
   const data = sheet.getDataRange().getDisplayValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(id)) {
@@ -632,7 +600,6 @@ function adminDeleteQuestion(sheetName, id) {
 
 function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // Server-side current time (Realtime Finish)
   const now = new Date(); 
   const timeZone = "Asia/Jakarta"; 
   
@@ -641,8 +608,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const qSheet = ss.getSheetByName(subject);
   if (!qSheet) return { success: false, message: "Mapel tidak ditemukan" };
   
-  // Calculate Duration Logic (Realtime Server)
-  // startTimeEpoch passed from client, but it originated from server startExam
   const startDt = new Date(Number(startTimeEpoch));
   const diff = Math.max(0, now.getTime() - startDt.getTime());
   
@@ -651,12 +616,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const s = Math.floor((diff % 60000) / 1000);
   const durationStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
   
-  // Create readable strings for spreadsheet
   const timestamp = now;
-  // NOTE: We don't rely on client string formats anymore to ensure consistency
-  // startStr/endStr aren't columns in all sheets, mainly durationStr is used
-  
-  // Use getDisplayValues to correctly read keys like "01" or "02" without conversion to number
   const qData = qSheet.getDataRange().getDisplayValues();
   
   let totalScore = 0;
@@ -667,16 +627,13 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const itemAnalysisRow = [];   
   const rawAnswersRow = [];     
 
-  // We loop starting from row 1 (header is 0)
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
-    // Skip empty rows
     if (String(row[0]) === "") continue;
 
     const qId = String(row[0]);
     const qType = row[2];
     const keyRaw = String(row[8] || "").toUpperCase().trim();
-    // Use Number() for weight explicitly since getDisplayValues returns string
     const weight = row[9] ? Number(row[9]) : 10;
     
     let isCorrect = false;
@@ -717,7 +674,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         ansStr = "-";
     }
 
-    // Scoring Logic
     if (isCorrect) {
         totalScore += weight;
         correctCount++;
@@ -725,12 +681,10 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         wrongCount++;
     }
 
-    // Analysis Logic (Strictly Number 1 or 0)
     const scoreVal = isCorrect ? 1 : 0;
     itemAnalysis[qId] = scoreVal;
     
-    // Ensure we push strictly numbers to avoid weird formatting in sheets
-    if (itemAnalysisRow.length < 100) { // Limit to 100 Questions
+    if (itemAnalysisRow.length < 100) { 
         itemAnalysisRow.push(scoreVal); 
     }
     
@@ -739,14 +693,11 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     }
   }
 
-  // Fill remaining slots with empty string or 0 to align columns in spreadsheet
-  // We use empty string to not clutter the view for unused columns
   while(itemAnalysisRow.length < 100) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 100) rawAnswersRow.push("");
 
   const finalScore = totalScore;
 
-  // --- WRITE TO SHEET_RESULTS (Nilai) ---
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {
       shNilai = ss.insertSheet(SHEET_RESULTS);
@@ -754,7 +705,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   }
   shNilai.appendRow([timestamp, username, fullname, school, subject, finalScore, JSON.stringify(itemAnalysis), durationStr]);
   
-  // --- WRITE TO SHEET_REKAP (Rekap_Analisis) ---
   let shRekap = ss.getSheetByName(SHEET_REKAP);
   if (!shRekap) {
       shRekap = ss.insertSheet(SHEET_REKAP);
@@ -764,10 +714,8 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   }
   
   const rekapRow = [timestamp, fullname, school, subject, durationStr, correctCount, wrongCount, finalScore, JSON.stringify(itemAnalysis)];
-  // Combine arrays: Metadata + Item Analysis (0/1)
   shRekap.appendRow(rekapRow.concat(itemAnalysisRow));
 
-  // --- WRITE TO SHEET_JAWABAN (Raw Answers) ---
   let shJawab = ss.getSheetByName(SHEET_JAWABAN);
   if (!shJawab) {
       shJawab = ss.insertSheet(SHEET_JAWABAN);
@@ -778,7 +726,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const jawabRow = [timestamp, fullname, school, subject, finalScore];
   shJawab.appendRow(jawabRow.concat(rawAnswersRow));
   
-  // --- WRITE TO SHEET_RANKING (Ranking) ---
   let shRank = ss.getSheetByName(SHEET_RANKING);
   if (!shRank) {
       shRank = ss.insertSheet(SHEET_RANKING);
@@ -894,6 +841,7 @@ function getDashboardData() {
 
   const token = getConfigValue('TOKEN', 'TOKEN');
   const duration = getConfigValue('DURATION', 60);
+  const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
 
   return { 
     students, 
@@ -901,6 +849,7 @@ function getDashboardData() {
     totalUsers, 
     token: token, 
     duration: duration,
+    maxQuestions: maxQuestions,
     statusCounts: counts, 
     activityFeed: feed, 
     allUsers: Object.values(users)

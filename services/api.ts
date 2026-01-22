@@ -1,7 +1,8 @@
+
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzFHzBpAAR0LJKealkuFTAocYw6B1eSqx0pBZHqK7Uny3Nb5uC38jjduV8l7VgsnpzJ/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbwWF9h8d-JjX5PoZoydf-VfAkKX1s4h8wEg6WHso-tzBPFozK9lIF_Axi1PJmduxbdn/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -98,6 +99,7 @@ export const api = {
     const response: any = await callBackend('getSubjectList');
     let subjects: string[] = [];
     let duration = 60;
+    let maxQuestions = 0;
 
     // Handle legacy (array only) vs new response { subjects, duration }
     if (Array.isArray(response)) {
@@ -105,6 +107,7 @@ export const api = {
     } else if (response && response.subjects) {
         subjects = response.subjects;
         duration = response.duration || 60;
+        maxQuestions = response.maxQuestions || 0;
     }
 
     if (subjects.length > 0) {
@@ -114,7 +117,8 @@ export const api = {
             waktu_mulai: new Date().toISOString(),
             durasi: Number(duration),
             token_akses: 'TOKEN', 
-            is_active: true
+            is_active: true,
+            max_questions: Number(maxQuestions)
         }));
     }
     return [];
@@ -133,6 +137,11 @@ export const api = {
   // Save Duration
   saveDuration: async (minutes: number): Promise<{success: boolean}> => {
       return await callBackend('saveConfig', 'DURATION', minutes);
+  },
+
+  // NEW: Save Max Questions
+  saveMaxQuestions: async (amount: number): Promise<{success: boolean}> => {
+      return await callBackend('saveConfig', 'MAX_QUESTIONS', amount);
   },
 
   // Get Questions from Sheet (Formatted for Exam)

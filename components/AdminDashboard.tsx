@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow } from '../types';
 import * as XLSX from 'xlsx';
@@ -62,918 +62,332 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
     );
 };
 
-// --- SKELETON LOADER COMPONENT ---
+// --- RESTORED COMPONENTS ---
+
 const DashboardSkeleton = () => (
-    <div className="space-y-6 fade-in w-full">
-        {/* Top Cards Skeleton */}
+    <div className="animate-pulse space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-32 flex flex-col justify-between relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
-                    <div className="w-1/2 h-4 bg-slate-100 rounded-md"></div>
-                    <div className="flex justify-between items-end">
-                        <div className="w-1/3 h-8 bg-slate-200 rounded-md"></div>
-                        <div className="w-10 h-10 bg-slate-100 rounded-xl"></div>
-                    </div>
-                </div>
-            ))}
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>)}
         </div>
-        
-        {/* Main Content Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="w-40 h-40 rounded-full border-8 border-slate-100 mb-6"></div>
-                <div className="w-3/4 h-4 bg-slate-100 rounded-md mb-2"></div>
-                <div className="w-1/2 h-4 bg-slate-100 rounded-md"></div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96 col-span-2 relative overflow-hidden">
-                <div className="w-1/4 h-6 bg-slate-200 rounded-md mb-6"></div>
-                <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="flex gap-4 items-center">
-                             <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0"></div>
-                             <div className="flex-1 space-y-2">
-                                 <div className="w-1/3 h-3 bg-slate-100 rounded"></div>
-                                 <div className="w-1/4 h-2 bg-slate-50 rounded"></div>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <div className="h-64 bg-slate-200 rounded-2xl"></div>
+            <div className="h-64 bg-slate-200 rounded-2xl col-span-2"></div>
         </div>
     </div>
 );
 
-// --- DATA USER COMPONENT (RENAMED TO DAFTAR PESERTA) ---
-const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, onDataChange: () => void }) => {
-    const [users, setUsers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [importing, setImporting] = useState(false);
-    const [roleFilter, setRoleFilter] = useState<'siswa' | 'admin_sekolah' | 'admin_pusat'>('siswa');
-    
-    // New State for Sorting and Filtering
+const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [schoolFilter, setSchoolFilter] = useState('Semua');
-    const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
+    const [resetting, setResetting] = useState<string | null>(null);
 
-    // New State for CRUD
-    const [showUserModal, setShowUserModal] = useState(false);
-    const [editingUser, setEditingUser] = useState<any | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-
-    const loadUsers = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getUsers();
-            setUsers(data);
-        } catch (e) { console.error(e); } finally { setLoading(false); }
-    };
-
-    useEffect(() => {
-        loadUsers();
-    }, []);
-
-    // Get Unique Schools for Dropdown
-    const uniqueSchools = useMemo(() => {
-        const schools = new Set(users.map(u => u.school).filter(Boolean));
-        return ['Semua', ...Array.from(schools).sort()];
-    }, [users]);
-
-    const processedUsers = useMemo(() => {
-        let res = [...users];
-
-        // 1. Role Filter & Permission Check
-        if (currentUser.role === 'admin_sekolah') {
-            const mySchool = (currentUser.kelas_id || '').toLowerCase();
-            res = res.filter(u => (u.school || '').toLowerCase() === mySchool);
-        } else {
-            // Only apply role filter tabs if not strictly limited by admin_sekolah
-            res = res.filter(u => {
-                const r = (u.role || '').toLowerCase();
-                if (roleFilter === 'admin_sekolah') return r === 'admin_sekolah';
-                if (roleFilter === 'admin_pusat') return r === 'admin_pusat' || r === 'admin';
-                return r === 'siswa' || r === '';
-            });
-        }
-
-        // 2. School Filter (Dropdown)
-        if (schoolFilter !== 'Semua') {
-            res = res.filter(u => u.school === schoolFilter);
-        }
-
-        // 3. Search Filter
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            res = res.filter(u => 
-                (u.username && u.username.toLowerCase().includes(lower)) ||
-                (u.fullname && u.fullname.toLowerCase().includes(lower)) ||
-                (u.school && u.school.toLowerCase().includes(lower))
-            );
-        }
-
-        // 4. Sorting
-        if (sortConfig.key) {
-            res.sort((a, b) => {
-                const aVal = a[sortConfig.key!] ? String(a[sortConfig.key!]).toLowerCase() : '';
-                const bVal = b[sortConfig.key!] ? String(b[sortConfig.key!]).toLowerCase() : '';
-                
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-
-        return res;
-    }, [users, roleFilter, currentUser, schoolFilter, searchTerm, sortConfig]);
-
-    const handleSort = (key: string) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-        setSortConfig({ key, direction });
-    };
-
-    // --- CRUD Actions ---
-    const handleAddUser = () => {
-        setEditingUser({
-            id: '',
-            username: '',
-            password: '',
-            fullname: '',
-            role: 'siswa',
-            school: currentUser.role === 'admin_sekolah' ? currentUser.kelas_id : '',
-            gender: 'L'
+    const filtered = useMemo(() => {
+        return students.filter(s => {
+            const matchName = s.fullname.toLowerCase().includes(searchTerm.toLowerCase()) || s.username.toLowerCase().includes(searchTerm.toLowerCase());
+            if (currentUser.role === 'admin_sekolah') {
+                return matchName && (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase();
+            }
+            return matchName;
         });
-        setShowUserModal(true);
-    };
+    }, [students, searchTerm, currentUser]);
 
-    const handleEditUser = (user: any) => {
-        setEditingUser({ ...user });
-        setShowUserModal(true);
-    };
-
-    const handleDeleteUser = async (id: string, name: string) => {
-        if (confirm(`Yakin ingin menghapus peserta: ${name}?`)) {
-            setLoading(true);
-            try {
-                await api.deleteUser(id);
-                await loadUsers();
-                onDataChange();
-            } catch (e) { console.error(e); alert("Gagal menghapus user."); }
-            finally { setLoading(false); }
-        }
-    };
-
-    const handleSaveUser = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
+    const handleReset = async (username: string) => {
+        if(!confirm(`Reset login untuk ${username}?`)) return;
+        setResetting(username);
         try {
-            await api.saveUser(editingUser);
-            setShowUserModal(false);
-            await loadUsers();
-            onDataChange();
-        } catch (e) { console.error(e); alert("Gagal menyimpan data."); }
-        finally { setIsSaving(false); }
-    };
-
-    // --- USER IMPORT LOGIC ---
-    const downloadUserTemplate = () => {
-        const ws = XLSX.utils.json_to_sheet([
-            {
-                "Username": "siswa001",
-                "Password": "123",
-                "Role (siswa/admin_sekolah/admin_pusat)": "siswa",
-                "Nama Lengkap": "Budi Santoso",
-                "Jenis Kelamin (L/P)": "L",
-                "Asal Sekolah / Kelas": "XII IPA 1"
-            },
-            {
-                "Username": "proktor01",
-                "Password": "admin123",
-                "Role (siswa/admin_sekolah/admin_pusat)": "admin_sekolah",
-                "Nama Lengkap": "Pak Guru",
-                "Jenis Kelamin (L/P)": "L",
-                "Asal Sekolah / Kelas": "XII IPA 1"
-            },
-            {
-                "Username": "adminpusat",
-                "Password": "supersecret",
-                "Role (siswa/admin_sekolah/admin_pusat)": "admin_pusat",
-                "Nama Lengkap": "Administrator Pusat",
-                "Jenis Kelamin (L/P)": "L",
-                "Asal Sekolah / Kelas": "Pusat"
-            }
-        ]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Template_User");
-        XLSX.writeFile(wb, "Template_Data_User.xlsx");
-    };
-
-    const handleUserImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        setImporting(true);
-        const file = e.target.files[0];
-        const reader = new FileReader();
-
-        reader.onload = async (evt) => {
-            try {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
-                const wsName = wb.SheetNames[0];
-                const ws = wb.Sheets[wsName];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-                // Parse Data (Skip header row 0)
-                const parsedUsers: any[] = [];
-                // Columns Expected: Username, Password, Role, Fullname, Gender, School
-                // Index: 0, 1, 2, 3, 4, 5
-                for (let i = 1; i < data.length; i++) {
-                    const row: any = data[i];
-                    if (!row[0]) continue;
-                    
-                    let role = String(row[2] || 'siswa').toLowerCase();
-                    // Normalize role input
-                    if (role.includes('admin') && role.includes('sekolah')) role = 'admin_sekolah';
-                    else if (role.includes('admin') && role.includes('pusat')) role = 'admin_pusat';
-                    else if (role.includes('proktor')) role = 'admin_sekolah';
-                    else if (role !== 'admin_sekolah' && role !== 'admin_pusat') role = 'siswa';
-
-                    parsedUsers.push({
-                        username: String(row[0]),
-                        password: String(row[1] || '123456'),
-                        role: role,
-                        fullname: String(row[3] || row[0]),
-                        gender: String(row[4] || '-'),
-                        school: String(row[5] || '-')
-                    });
-                }
-
-                if (parsedUsers.length > 0) {
-                     await api.importUsers(parsedUsers);
-                     alert(`Berhasil mengimpor ${parsedUsers.length} user.`);
-                     loadUsers(); // Refresh list
-                     onDataChange();
-                } else {
-                    alert("Tidak ada data user yang valid dalam file.");
-                }
-
-            } catch (err) {
-                console.error(err);
-                alert("Gagal membaca file Excel. Pastikan format sesuai template.");
-            } finally {
-                setImporting(false);
-                if (e.target) e.target.value = '';
-            }
-        };
-        reader.readAsBinaryString(file);
-    };
+            await api.resetLogin(username);
+            alert(`Login ${username} berhasil di-reset.`);
+        } catch(e) {
+            console.error(e);
+            alert("Gagal reset login.");
+        } finally {
+            setResetting(null);
+        }
+    }
 
     return (
-        <div className="space-y-6 fade-in max-w-full mx-auto">
-            {/* Header / Filter / Actions */}
-            <div className="flex flex-col gap-4 bg-white/95 backdrop-blur-sm p-4 rounded-xl border border-slate-100 shadow-sm glass-panel">
-                
-                {/* Top Row: Role Filters & Import Actions */}
-                <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <button onClick={() => setRoleFilter('siswa')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'siswa' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={16}/> Siswa</button>
-                        <button onClick={() => setRoleFilter('admin_sekolah')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_sekolah' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><UserCheck size={16}/> Proktor</button>
-                        {currentUser.role === 'admin_pusat' && (
-                            <button onClick={() => setRoleFilter('admin_pusat')} className={`flex-1 md:flex-none py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition text-sm ${roleFilter === 'admin_pusat' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}><Shield size={16}/> Admin</button>
-                        )}
-                    </div>
-
-                    <div className="flex gap-2 w-full md:w-auto">
-                        {currentUser.role === 'admin_pusat' && (
-                            <>
-                                <button 
-                                    onClick={downloadUserTemplate}
-                                    className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition"
-                                    title="Download Template User Excel"
-                                >
-                                    <Download size={16}/> Template
-                                </button>
-                                <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition text-white ${importing ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                                    {importing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}
-                                    {importing ? "Mengimpor..." : "Import Excel"}
-                                    <input type="file" accept=".xlsx" onChange={handleUserImport} className="hidden" disabled={importing} />
-                                </label>
-                            </>
-                        )}
-                        <button onClick={handleAddUser} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-indigo-200">
-                            <Plus size={16}/> Tambah Peserta
-                        </button>
-                    </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in">
+             <div className="p-5 border-b border-slate-100 flex justify-between items-center gap-4">
+                <h3 className="font-bold text-slate-700 flex items-center gap-2"><Monitor size={20}/> Status Peserta</h3>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Cari Peserta..." 
+                        className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
+             </div>
+             <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                        <tr>
+                            <th className="p-4">Peserta</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Ujian Aktif</th>
+                            <th className="p-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {filtered.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400">Tidak ada data.</td></tr> : filtered.map((s, i) => (
+                            <tr key={i} className="hover:bg-slate-50">
+                                <td className="p-4">
+                                    <div className="font-bold text-slate-700">{s.fullname}</div>
+                                    <div className="text-xs text-slate-400">{s.username} • {s.school}</div>
+                                </td>
+                                <td className="p-4">
+                                    {s.is_login ? 
+                                        <span className="bg-emerald-100 text-emerald-600 px-2 py-1 rounded text-xs font-bold">Online</span> : 
+                                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded text-xs font-bold">Offline</span>
+                                    }
+                                </td>
+                                <td className="p-4 text-slate-600">{s.active_exam || '-'}</td>
+                                <td className="p-4 text-center">
+                                    <button onClick={() => handleReset(s.username)} disabled={!!resetting} className="bg-amber-50 text-amber-600 px-3 py-1 rounded text-xs font-bold hover:bg-amber-100 transition">
+                                        {resetting === s.username ? "Processing..." : "Reset Login"}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             </div>
+        </div>
+    )
+};
 
-                {/* Bottom Row: Search & School Filter */}
-                <div className="flex flex-col md:flex-row gap-4 border-t border-slate-100 pt-4">
-                    <div className="relative flex-1">
-                        <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
-                        <input 
-                            type="text" 
-                            placeholder="Cari Nama / Username / Sekolah..." 
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition" 
-                            value={searchTerm} 
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    {currentUser.role === 'admin_pusat' && (
-                        <div className="w-full md:w-64">
-                            <select 
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none"
-                                value={schoolFilter}
-                                onChange={e => setSchoolFilter(e.target.value)}
-                            >
-                                {uniqueSchools.map(s => (
-                                    <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
-            </div>
+const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, onDataChange: () => void }) => {
+    // Basic Implementation to list users
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    
+    useEffect(() => {
+        const load = async () => {
+            setLoading(true);
+            try {
+                const data = await api.getUsers();
+                setUsers(data);
+            } catch(e) { console.error(e); }
+            finally { setLoading(false); }
+        };
+        load();
+    }, []);
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20">
-                        <div className="relative">
-                            <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
-                            <div className="w-12 h-12 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin absolute inset-0"></div>
-                        </div>
-                        <span className="text-sm font-bold text-slate-400 mt-4 animate-pulse">Memuat Data User...</span>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead className="bg-slate-50/50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
-                                <tr>
-                                    <th className="p-4 w-16 text-center">No</th>
-                                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('fullname')}>
-                                        <div className="flex items-center gap-1">Identitas User <ArrowUpDown size={12}/></div>
-                                    </th>
-                                    <th className="p-4">Password</th>
-                                    <th className="p-4 w-32 text-center cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('role')}>
-                                        <div className="flex items-center justify-center gap-1">Role <ArrowUpDown size={12}/></div>
-                                    </th>
-                                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort('school')}>
-                                        <div className="flex items-center gap-1">Asal Sekolah / Kelas <ArrowUpDown size={12}/></div>
-                                    </th>
-                                    <th className="p-4 w-24 text-center">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {processedUsers.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Tidak ada data user.</td></tr> ) : processedUsers.map((u, i) => (
-                                    <tr key={i} className="hover:bg-slate-50/80 transition-colors duration-200 group">
-                                        <td className="p-4 text-center text-slate-400 font-bold text-xs">{i+1}</td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-slate-800 text-base">{u.fullname || '-'}</span>
-                                                <span className="font-mono text-xs text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-0.5">{u.username}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="font-mono text-slate-400 text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100 select-all cursor-pointer hover:bg-slate-100 hover:text-slate-600 transition">{u.password}</span>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${u.role === 'admin_pusat' ? 'bg-purple-50 text-purple-700 border-purple-200' : u.role === 'admin_sekolah' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                                {u.role === 'admin_sekolah' ? 'Proktor' : (u.role === 'admin_pusat' ? 'Admin' : 'Siswa')}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-2 text-slate-600">
-                                                <School size={16} className="text-slate-400"/>
-                                                <span className="font-medium text-sm">{u.school || '-'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEditUser(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"><Edit size={16}/></button>
-                                                <button onClick={() => handleDeleteUser(u.id, u.fullname)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16}/></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+    const handleDelete = async (username: string) => {
+        if(!confirm("Hapus user ini?")) return;
+        await api.deleteUser(username);
+        setUsers(prev => prev.filter(u => u.username !== username));
+        onDataChange();
+    };
 
-            {/* USER MODAL */}
-            {showUserModal && editingUser && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                                {editingUser.id ? <Edit size={20} className="text-indigo-600"/> : <Plus size={20} className="text-indigo-600"/>} 
-                                {editingUser.id ? 'Edit Data Peserta' : 'Tambah Peserta Baru'}
-                            </h3>
-                            <button onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto">
-                            <form id="userForm" onSubmit={handleSaveUser} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Lengkap</label>
-                                    <input required type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.fullname} onChange={e => setEditingUser({...editingUser, fullname: e.target.value})} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Username</label>
-                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.username} onChange={e => setEditingUser({...editingUser, username: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
-                                        <input required type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
-                                        <select className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value})}>
-                                            <option value="siswa">Siswa</option>
-                                            <option value="admin_sekolah">Proktor (Admin Sekolah)</option>
-                                            {currentUser.role === 'admin_pusat' && <option value="admin_pusat">Admin Pusat</option>}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Kelamin</label>
-                                        <select className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.gender} onChange={e => setEditingUser({...editingUser, gender: e.target.value})}>
-                                            <option value="L">Laki-laki</option>
-                                            <option value="P">Perempuan</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Asal Sekolah / Kelas</label>
-                                    <input 
-                                        required 
-                                        type="text" 
-                                        className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none ${currentUser.role === 'admin_sekolah' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`} 
-                                        value={editingUser.school} 
-                                        onChange={e => setEditingUser({...editingUser, school: e.target.value})}
-                                        readOnly={currentUser.role === 'admin_sekolah'}
-                                    />
-                                    {currentUser.role === 'admin_sekolah' && <p className="text-[10px] text-slate-400 mt-1 italic">Terkunci sesuai wilayah proktor.</p>}
-                                </div>
-                                
-                                {editingUser.role === 'siswa' && (
-                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                                         <div>
-                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sesi Ujian</label>
-                                            <select className="w-full p-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={editingUser.session || 'Sesi 1'} onChange={e => setEditingUser({...editingUser, session: e.target.value})}>
-                                                <option value="-">-</option>
-                                                <option value="Sesi 1">Sesi 1</option>
-                                                <option value="Sesi 2">Sesi 2</option>
-                                                <option value="Sesi 3">Sesi 3</option>
-                                                <option value="Sesi 4">Sesi 4</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-                            </form>
-                        </div>
-                        <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
-                            <button onClick={() => setShowUserModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition">Batal</button>
-                            <button type="submit" form="userForm" disabled={isSaving} className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition flex items-center gap-2">
-                                {isSaving ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : <><Save size={18}/> Simpan Data</>}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+    if(loading) return <DashboardSkeleton />;
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in">
+             <div className="flex justify-between mb-4">
+                 <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Users size={20}/> Daftar Peserta</h3>
+             </div>
+             <div className="overflow-x-auto">
+                 <table className="w-full text-sm text-left">
+                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+                         <tr>
+                             <th className="p-3">Username</th>
+                             <th className="p-3">Nama</th>
+                             <th className="p-3">Role</th>
+                             <th className="p-3">Kelas</th>
+                             <th className="p-3 text-center">Aksi</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                         {users.map(u => (
+                             <tr key={u.username} className="hover:bg-slate-50">
+                                 <td className="p-3 font-mono font-bold text-slate-600">{u.username}</td>
+                                 <td className="p-3 text-slate-700">{u.fullname}</td>
+                                 <td className="p-3 text-xs uppercase">{u.role}</td>
+                                 <td className="p-3 text-slate-600">{u.school}</td>
+                                 <td className="p-3 text-center">
+                                     <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
+                                 </td>
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+             </div>
         </div>
     );
 };
 
-// --- NEW COMPONENT: ATUR SESI (VIEW SESSION) ---
 const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { currentUser: User, students: any[], refreshData: () => void, isLoading: boolean }) => {
-    const [filterSession, setFilterSession] = useState('Semua');
-    const [filterSchool, setFilterSchool] = useState('Semua');
-    const [searchTerm, setSearchTerm] = useState('');
-    
-    // NEW: State for pending session changes
-    const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
+    // Simplified Sesi Management
+    const [selectedSession, setSelectedSession] = useState('Sesi 1');
+    const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
 
-    const filteredStudents = useMemo(() => {
-        let res = students;
-        
-        // 1. Role Filter
+    const filtered = useMemo(() => {
         if (currentUser.role === 'admin_sekolah') {
-            const mySchool = (currentUser.kelas_id || '').toLowerCase();
-            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
-        } else if (filterSchool !== 'Semua') {
-            res = res.filter(s => s.school === filterSchool);
+             return students.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
         }
+        return students;
+    }, [students, currentUser]);
 
-        // 2. Session Filter (Modified to allow "Semua")
-        if (filterSession !== 'Semua') {
-            res = res.filter(s => (s.session || '') === filterSession);
-        }
-
-        // 3. Search Filter
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            res = res.filter(s => s.fullname.toLowerCase().includes(lower) || s.username.toLowerCase().includes(lower));
-        }
-        
-        return res;
-    }, [students, currentUser, filterSchool, filterSession, searchTerm]);
-
-    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
-    
-    const handleSessionChange = (username: string, newSession: string) => {
-        setPendingChanges(prev => ({
-            ...prev,
-            [username]: newSession
-        }));
-    };
-
-    const handleSaveChanges = async () => {
-        const changes = Object.entries(pendingChanges).map(([username, session]) => ({ username, session }));
-        if (changes.length === 0) return;
-
-        setIsSaving(true);
-        try {
-            await api.updateUserSessions(changes);
-            setPendingChanges({});
-            refreshData(); // Refresh data to show updates
-            alert(`Berhasil menyimpan perubahan sesi untuk ${changes.length} siswa.`);
-        } catch (e) {
-            console.error(e);
-            alert("Gagal menyimpan perubahan.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    // Simple Export function for attendance
-    const handleExportAbsensi = () => {
-        const data = filteredStudents.map((s, i) => ({
-            No: i + 1,
-            Username: s.username,
-            "Nama Peserta": s.fullname,
-            "L/P": s.gender,
-            Sekolah: s.school,
-            Mapel: s.active_exam,
-            Sesi: s.session,
-            TTD: ''
-        }));
-        exportToExcel(data, `Absensi_${filterSession}_${filterSchool !== 'Semua' ? filterSchool : 'Semua'}`, `Sesi ${filterSession}`);
-    };
-
-    const hasPendingChanges = Object.keys(pendingChanges).length > 0;
-
-    return (
-        <div className="space-y-6 fade-in">
-             <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
-                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                    <div>
-                        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                            <CalendarClock className="text-indigo-600" /> Atur Sesi & Absensi
-                        </h3>
-                        <p className="text-slate-500 text-xs mt-1">Ubah sesi siswa dan download daftar hadir.</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={handleExportAbsensi} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
-                            <FileText size={16}/> Download Absensi
-                        </button>
-                    </div>
-                 </div>
-                 
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                     <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sesi</label>
-                        <select className="w-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg font-bold text-indigo-700" value={filterSession} onChange={e=>setFilterSession(e.target.value)}>
-                            <option value="Semua">Semua Sesi</option>
-                            {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
-                        </select>
-                     </div>
-                     {currentUser.role === 'admin_pusat' && (
-                         <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sekolah</label>
-                            <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
-                                {schools.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                         </div>
-                     )}
-                     <div className="md:col-span-2">
-                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cari Peserta</label>
-                         <div className="relative">
-                            <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
-                            <input type="text" placeholder="Cari Siswa..." className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
-                         </div>
-                     </div>
-                 </div>
-             </div>
-
-             {/* Action Bar for Saving Changes */}
-             {hasPendingChanges && (
-                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex justify-between items-center animate-in slide-in-from-top-2">
-                     <div className="flex items-center gap-3 text-amber-800">
-                         <div className="bg-amber-200 p-2 rounded-lg"><AlertCircle size={20}/></div>
-                         <div>
-                             <span className="font-bold">Ada Perubahan Belum Disimpan</span>
-                             <p className="text-xs text-amber-700">Anda telah mengubah sesi untuk {Object.keys(pendingChanges).length} siswa.</p>
-                         </div>
-                     </div>
-                     <div className="flex gap-2">
-                         <button onClick={() => setPendingChanges({})} className="px-4 py-2 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold transition">Batal</button>
-                         <button onClick={handleSaveChanges} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg text-sm font-bold shadow-lg shadow-amber-200 transition flex items-center gap-2">
-                             {isSaving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}
-                             Simpan Perubahan
-                         </button>
-                     </div>
-                 </div>
-             )}
-
-             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
-                    <span className="font-bold text-slate-700 text-sm">Peserta Terdaftar di {filterSession}</span>
-                    <span className="bg-white px-3 py-1 rounded border border-slate-200 text-xs font-bold text-slate-500">Total: {filteredStudents.length}</span>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-white text-slate-500 font-bold uppercase text-xs border-b">
-                            <tr>
-                                <th className="p-4 w-16 text-center">No</th>
-                                <th className="p-4">Identitas Siswa</th>
-                                <th className="p-4">Sekolah / Kelas</th>
-                                <th className="p-4">Mapel Ujian</th>
-                                <th className="p-4 text-center w-40">Ubah Sesi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {filteredStudents.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada peserta di sesi ini.</td></tr> : filteredStudents.map((s,i) => {
-                                const currentSession = pendingChanges[s.username] || s.session || 'Sesi 1';
-                                const isChanged = pendingChanges[s.username] !== undefined;
-
-                                return (
-                                    <tr key={i} className={`hover:bg-slate-50 transition ${isChanged ? 'bg-amber-50/50' : ''}`}>
-                                        <td className="p-4 text-center text-slate-400 font-bold">{i+1}</td>
-                                        <td className="p-4">
-                                            <div className="font-bold text-slate-700">{s.fullname}</div>
-                                            <div className="text-xs text-slate-400 font-mono">{s.username} • {s.gender}</div>
-                                        </td>
-                                        <td className="p-4 text-slate-600">{s.school}</td>
-                                        <td className="p-4">
-                                            {s.active_exam && s.active_exam !== '-' ? (
-                                                <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-bold">{s.active_exam}</span>
-                                            ) : (
-                                                <span className="text-slate-400 italic text-xs">Belum diatur</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <select 
-                                                className={`w-full p-2 border rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100 ${isChanged ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 text-slate-700'}`}
-                                                value={currentSession}
-                                                onChange={(e) => handleSessionChange(s.username, e.target.value)}
-                                            >
-                                                <option value="-">-</option>
-                                                <option value="Sesi 1">Sesi 1</option>
-                                                <option value="Sesi 2">Sesi 2</option>
-                                                <option value="Sesi 3">Sesi 3</option>
-                                                <option value="Sesi 4">Sesi 4</option>
-                                            </select>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-             </div>
-        </div>
-    )
-};
-
-// --- NEW COMPONENT: STATUS TES (MONITORING & RESET) ---
-const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
-    const [filterSchool, setFilterSchool] = useState('Semua');
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const filteredStudents = useMemo(() => {
-        let res = students;
-        if (currentUser.role === 'admin_sekolah') {
-            const mySchool = (currentUser.kelas_id || '').toLowerCase();
-            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
-        } else if (filterSchool !== 'Semua') {
-            res = res.filter(s => s.school === filterSchool);
-        }
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            res = res.filter(s => s.fullname.toLowerCase().includes(lower) || s.username.toLowerCase().includes(lower));
-        }
-        return res;
-    }, [students, currentUser, filterSchool, searchTerm]);
-
-    const handleReset = async (username: string) => {
-        if(confirm(`Reset login untuk user ${username}? Status akan kembali ke OFFLINE.`)) {
-            await api.resetLogin(username);
-            alert("Berhasil reset. Harap refresh data dashboard.");
-        }
-    };
-
-    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
-
-    return (
-        <div className="space-y-6 fade-in">
-             <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm justify-between items-center">
-                 <div className="flex gap-4 w-full md:w-auto">
-                     {currentUser.role === 'admin_pusat' && (
-                         <select className="p-2 border rounded-lg text-sm font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
-                             {schools.map(s=><option key={s} value={s}>{s}</option>)}
-                         </select>
-                     )}
-                     <div className="relative w-full md:w-64">
-                         <Search size={18} className="absolute left-3 top-2.5 text-slate-400"/>
-                         <input type="text" placeholder="Cari Siswa..." className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
-                     </div>
-                 </div>
-                 <div className="text-sm font-bold text-slate-500">Total: {filteredStudents.length} Peserta</div>
-             </div>
-
-             <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
-                            <tr>
-                                <th className="p-4">Username</th>
-                                <th className="p-4">Nama Lengkap</th>
-                                <th className="p-4">Sekolah</th>
-                                <th className="p-4">Mapel Aktif</th>
-                                <th className="p-4 text-center">Status</th>
-                                <th className="p-4 text-center">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {filteredStudents.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Tidak ada data.</td></tr> : filteredStudents.map((s,i) => {
-                                let badgeClass = "bg-slate-100 text-slate-500";
-                                if(s.status === 'LOGGED_IN') badgeClass = "bg-yellow-100 text-yellow-700";
-                                if(s.status === 'WORKING') badgeClass = "bg-blue-100 text-blue-700";
-                                if(s.status === 'FINISHED') badgeClass = "bg-emerald-100 text-emerald-700";
-                                
-                                return (
-                                    <tr key={i} className="hover:bg-slate-50">
-                                        <td className="p-4 font-mono text-slate-600 font-bold">{s.username}</td>
-                                        <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
-                                        <td className="p-4 text-slate-600">{s.school}</td>
-                                        <td className="p-4 text-slate-500 text-xs">{s.active_exam || '-'}</td>
-                                        <td className="p-4 text-center"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${badgeClass}`}>{s.status.replace('_', ' ')}</span></td>
-                                        <td className="p-4 text-center">
-                                            <button onClick={()=>handleReset(s.username)} className="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg font-bold hover:bg-rose-100 transition flex items-center gap-1 mx-auto">
-                                                <RefreshCw size={12}/> Reset Login
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-             </div>
-        </div>
-    )
-};
-
-// --- NEW COMPONENT: KELOMPOK TES (ASSIGN GROUP) ---
-const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
-    const [selectedExam, setSelectedExam] = useState('');
-    const [exams, setExams] = useState<string[]>([]);
-    const [session, setSession] = useState('Sesi 1');
-    const [filterSchool, setFilterSchool] = useState('Semua'); // NEW: School Filter State
-    const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        const loadExams = async () => {
-             const list = await api.getExams();
-             const names = list.map(e=>e.nama_ujian);
-             setExams(names);
-             if(names.length>0) setSelectedExam(names[0]);
-        };
-        loadExams();
-    }, []);
-
-    // NEW: Unique Schools for dropdown
-    const schools = useMemo(() => ['Semua', ...Array.from(new Set(students.map(s => s.school).filter(Boolean)))], [students]);
-
-    const filteredStudents = useMemo(() => {
-        let res = students;
-
-        // 1. School Filter Logic
-        if (currentUser.role === 'admin_sekolah') {
-            const mySchool = (currentUser.kelas_id || '').toLowerCase();
-            res = res.filter(s => (s.school || '').toLowerCase() === mySchool);
-        } else if (filterSchool !== 'Semua') {
-            res = res.filter(s => s.school === filterSchool);
-        }
-
-        // 2. Session Filter Logic (New Logic Requested)
-        // Show only students belonging to the selected session
-        res = res.filter(s => s.session === session);
-
-        return res;
-    }, [students, currentUser, filterSchool, session]);
-
-    const toggleUser = (username: string) => {
+    const handleToggle = (username: string) => {
         const newSet = new Set(selectedUsers);
-        if(newSet.has(username)) newSet.delete(username);
+        if (newSet.has(username)) newSet.delete(username);
         else newSet.add(username);
         setSelectedUsers(newSet);
     };
 
-    const toggleAll = () => {
-        if(selectedUsers.size === filteredStudents.length) setSelectedUsers(new Set());
-        else setSelectedUsers(new Set(filteredStudents.map(s=>s.username)));
-    };
-
-    const handleAssign = async () => {
+    const handleSave = async () => {
         if(selectedUsers.size === 0) return alert("Pilih minimal satu siswa.");
-        if(!selectedExam) return alert("Pilih Mapel Ujian.");
-        setLoading(true);
+        setIsSaving(true);
+        // Explicitly cast u to string to prevent type errors
+        const updates = Array.from(selectedUsers).map(u => ({ username: String(u), session: selectedSession }));
         try {
-            await api.assignTestGroup(Array.from(selectedUsers), selectedExam, session);
-            alert(`Berhasil mengaktifkan ujian ${selectedExam} untuk ${selectedUsers.size} siswa pada ${session}.`);
+            await api.updateUserSessions(updates);
+            refreshData();
             setSelectedUsers(new Set());
-            refreshData(); // Refresh data to show active status
-        } catch(e) { console.error(e); alert("Gagal menyimpan."); }
-        finally { setLoading(false); }
+            alert("Sesi berhasil disimpan.");
+        } catch(e) { alert("Gagal menyimpan."); }
+        finally { setIsSaving(false); }
     };
 
     return (
-        <div className="space-y-6 fade-in">
-            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
-                <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Atur Kelompok Ujian</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Ujian / Mapel</label>
-                        <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
-                            {exams.map(e=><option key={e} value={e}>{e}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Sesi</label>
-                        <select className="w-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg font-bold text-indigo-700" value={session} onChange={e=>setSession(e.target.value)}>
-                            {["Sesi 1", "Sesi 2", "Sesi 3", "Sesi 4"].map(s=><option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                    {/* NEW: School Filter Dropdown for Admin Pusat */}
-                    {currentUser.role === 'admin_pusat' && (
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Filter Sekolah</label>
-                            <select className="w-full p-2.5 border rounded-lg font-bold text-slate-700" value={filterSchool} onChange={e=>setFilterSchool(e.target.value)}>
-                                {schools.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                    )}
-                    <div className="flex items-end">
-                        <button onClick={handleAssign} disabled={loading} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
-                            {loading ? <><div className="loader w-4 h-4 border-2"></div> Menyimpan...</> : "Aktifkan Peserta"}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="border rounded-xl overflow-hidden max-h-[500px] flex flex-col">
-                    <div className="bg-slate-50 p-3 border-b font-bold text-slate-500 text-sm flex justify-between items-center">
-                        <span>Daftar Siswa {session} ({filteredStudents.length})</span>
-                        <button onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedUsers.size === filteredStudents.length ? "Hapus Semua" : "Pilih Semua"}</button>
-                    </div>
-                    <div className="overflow-y-auto p-2 space-y-1">
-                        {filteredStudents.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400 italic">Tidak ada siswa terdaftar di {session} {filterSchool !== 'Semua' ? `(${filterSchool})` : ''}.<br/>Silakan atur sesi di menu Daftar Peserta atau import data.</div>
-                        ) : filteredStudents.map(s => {
-                            const isActive = s.active_exam && s.active_exam !== '-' && s.active_exam !== '';
-                            return (
-                                <label key={s.username} className={`flex items-center p-3 rounded-lg border cursor-pointer transition ${selectedUsers.has(s.username) ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent'}`}>
-                                    <input type="checkbox" className="w-5 h-5 accent-indigo-600 rounded mr-3" checked={selectedUsers.has(s.username)} onChange={()=>toggleUser(s.username)} />
-                                    <div className="flex-1">
-                                        <div className="font-bold text-slate-700 text-sm">{s.fullname}</div>
-                                        <div className="text-xs text-slate-400 font-mono">{s.username} • {s.school}</div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <div className={`text-[10px] font-bold px-2 py-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                                            {isActive ? `AKTIF: ${s.active_exam}` : 'TIDAK AKTIF'}
-                                        </div>
-                                        {s.session && s.session !== '-' && (
-                                            <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                                                {s.session}
-                                            </div>
-                                        )}
-                                    </div>
-                                </label>
-                            );
-                        })}
-                    </div>
-                </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 fade-in">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={20}/> Atur Sesi Ujian</h3>
+            <div className="flex gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
+                <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
+                    <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
+                </select>
+                <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
+                    {isSaving ? "Menyimpan..." : "Simpan Sesi"}
+                </button>
+            </div>
+            <div className="max-h-[500px] overflow-y-auto border rounded-lg">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-100 text-slate-600 font-bold">
+                        <tr>
+                            <th className="p-3 w-10"><input type="checkbox" onChange={e => {
+                                if(e.target.checked) setSelectedUsers(new Set(filtered.map(s=>s.username)));
+                                else setSelectedUsers(new Set());
+                            }}/></th>
+                            <th className="p-3">Nama</th>
+                            <th className="p-3">Sesi Saat Ini</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filtered.map(s => (
+                            <tr key={s.username} className="border-b">
+                                <td className="p-3"><input type="checkbox" checked={selectedUsers.has(s.username)} onChange={() => handleToggle(s.username)} /></td>
+                                <td className="p-3">{s.fullname} <span className="text-slate-400 text-xs">({s.username})</span></td>
+                                <td className="p-3 font-mono">{s.session || '-'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
-    )
+    );
+};
+
+const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
+    const [selectedExam, setSelectedExam] = useState('');
+    const [exams, setExams] = useState<any[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        api.getExams().then(setExams);
+    }, []);
+
+    const filtered = useMemo(() => {
+        if (currentUser.role === 'admin_sekolah') {
+             return students.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
+        }
+        return students;
+    }, [students, currentUser]);
+
+    const handleSave = async () => {
+        if(!selectedExam) return alert("Pilih ujian dulu.");
+        if(selectedUsers.size === 0) return alert("Pilih siswa.");
+        setIsSaving(true);
+        try {
+            await api.assignTestGroup(Array.from(selectedUsers).map(String), selectedExam, ''); 
+            refreshData();
+            setSelectedUsers(new Set());
+            alert("Kelompok tes berhasil diset.");
+        } catch(e) { alert("Gagal."); }
+        finally { setIsSaving(false); }
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 fade-in">
+             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Group size={20}/> Kelompok Tes (Set Ujian Aktif)</h3>
+             <div className="flex gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
+                <select className="p-2 border rounded min-w-[200px]" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
+                    <option value="">-- Pilih Ujian --</option>
+                    {exams.map(e => <option key={e.id} value={e.nama_ujian}>{e.nama_ujian}</option>)}
+                </select>
+                <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
+                    {isSaving ? "Menyimpan..." : "Aktifkan Ujian"}
+                </button>
+            </div>
+             <div className="max-h-[500px] overflow-y-auto border rounded-lg">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-100 text-slate-600 font-bold">
+                        <tr>
+                            <th className="p-3 w-10"><input type="checkbox" onChange={e => {
+                                if(e.target.checked) setSelectedUsers(new Set(filtered.map(s=>s.username)));
+                                else setSelectedUsers(new Set());
+                            }}/></th>
+                            <th className="p-3">Nama</th>
+                            <th className="p-3">Ujian Aktif Saat Ini</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filtered.map(s => (
+                            <tr key={s.username} className="border-b">
+                                <td className="p-3"><input type="checkbox" checked={selectedUsers.has(s.username)} onChange={() => {
+                                    const newSet = new Set(selectedUsers);
+                                    if (newSet.has(s.username)) newSet.delete(s.username);
+                                    else newSet.add(s.username);
+                                    setSelectedUsers(newSet);
+                                }} /></td>
+                                <td className="p-3">{s.fullname} <span className="text-slate-400 text-xs">({s.username})</span></td>
+                                <td className="p-3 font-mono text-blue-600">{s.active_exam || '-'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 };
 
 // --- NEW COMPONENT: RILIS TOKEN ---
-const RilisTokenTab = ({ token, duration, refreshData, isRefreshing }: { token: string, duration: number, refreshData: () => void, isRefreshing: boolean }) => {
+const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshing }: { token: string, duration: number, maxQuestions: number, refreshData: () => void, isRefreshing: boolean }) => {
+    // Local state for Max Questions input
+    const [localMaxQ, setLocalMaxQ] = useState(maxQuestions);
+    const [isSavingQ, setIsSavingQ] = useState(false);
+
+    useEffect(() => {
+        setLocalMaxQ(maxQuestions);
+    }, [maxQuestions]);
+
+    const handleSaveMaxQ = async () => {
+        setIsSavingQ(true);
+        try {
+            await api.saveMaxQuestions(Number(localMaxQ));
+            refreshData();
+            alert("Jumlah soal berhasil disimpan.");
+        } catch (e) {
+            console.error(e);
+            alert("Gagal menyimpan.");
+        } finally {
+            setIsSavingQ(false);
+        }
+    };
+
     return (
         <div className="flex flex-col items-center justify-center py-10 fade-in">
             <div className="bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 text-center max-w-lg w-full">
@@ -999,6 +413,36 @@ const RilisTokenTab = ({ token, duration, refreshData, isRefreshing }: { token: 
                      </div>
                 </div>
 
+                {/* MAX QUESTIONS SETTING */}
+                <div className="bg-white border border-slate-200 p-4 rounded-xl mb-6 text-left shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                            <Layers size={14}/> Jumlah Soal Tampil
+                        </label>
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">0 = Semua Soal</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <input 
+                            type="number" 
+                            className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none text-center"
+                            value={localMaxQ}
+                            onChange={(e) => setLocalMaxQ(Number(e.target.value))}
+                            placeholder="0"
+                            min="0"
+                        />
+                        <button 
+                            onClick={handleSaveMaxQ} 
+                            disabled={isSavingQ || localMaxQ == maxQuestions}
+                            className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg text-xs hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
+                        >
+                            {isSavingQ ? <Loader2 size={14} className="animate-spin"/> : "Simpan"}
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 italic">
+                        Jika diset ke angka tertentu (misal 40), siswa hanya akan mengerjakan 40 soal secara acak dari total soal yang ada.
+                    </p>
+                </div>
+
                 <button onClick={refreshData} disabled={isRefreshing} className={`w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 ${isRefreshing ? 'opacity-75 cursor-wait' : ''}`}>
                     <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} /> 
                     {isRefreshing ? "Memuat Data..." : "Refresh Data"}
@@ -1009,6 +453,7 @@ const RilisTokenTab = ({ token, duration, refreshData, isRefreshing }: { token: 
 }
 
 const BankSoalTab = () => {
+    // ... (Content of BankSoalTab same as previous)
     const [subjects, setSubjects] = useState<string[]>([]);
     const [selectedSubject, setSelectedSubject] = useState('');
     const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -1132,7 +577,8 @@ const BankSoalTab = () => {
                 const wb = XLSX.read(bstr, { type: 'binary' });
                 const wsName = wb.SheetNames[0];
                 const ws = wb.Sheets[wsName];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                // Use raw: false to ensure numbers with leading zeros (e.g., "01") are treated as text "01"
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
                 
                 // Parse Data (Skip header row 0)
                 const parsedQuestions: QuestionRow[] = [];
@@ -1370,8 +816,6 @@ const BankSoalTab = () => {
     );
 };
 
-const SchoolIcon = ({ size, className }: { size: number, className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>;
-
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi'>('overview');
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
@@ -1381,6 +825,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       totalUsers: 0, 
       token: 'TOKEN',
       duration: 60,
+      maxQuestions: 0, // Default 0 (All)
       statusCounts: { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 },
       activityFeed: [],
       allUsers: [] // Extended user data for Status/Group tabs
@@ -1509,7 +954,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
         {user.role === 'admin_sekolah' && (
             <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3">
-                <div className="bg-blue-200 p-2 rounded-lg"><SchoolIcon size={20}/></div>
+                <div className="bg-blue-200 p-2 rounded-lg"><School size={20}/></div>
                 <div>
                     <h3 className="font-bold text-sm uppercase tracking-wide">Mode Proktor</h3>
                     <p className="text-sm">Menampilkan data untuk: <b>{user.kelas_id}</b></p>
@@ -1552,23 +997,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     )}
                 </div>
 
-                {/* Duration Card */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center relative overflow-hidden group">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Durasi (Menit)</p>
-                    {isEditingDuration ? (
-                        <div className="flex gap-1">
-                            <input type="number" className="w-full p-1 border border-slate-300 rounded text-center font-mono font-bold text-lg" value={durationInput} onChange={e=>setDurationInput(Number(e.target.value))} />
-                            <button onClick={handleUpdateDuration} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700"><Save size={14}/></button>
-                            <button onClick={()=>{ setDurationInput(Number(dashboardData.duration)); setIsEditingDuration(false); }} className="bg-slate-200 text-slate-600 p-1 rounded hover:bg-slate-300"><X size={14}/></button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span className="text-2xl font-mono font-bold text-slate-800">{dashboardData.duration} <span className="text-xs text-slate-400">Menit</span></span>
-                            {user.role === 'admin_pusat' && (
-                                <button onClick={()=>{ setIsEditingDuration(true); }} className="text-slate-400 hover:text-indigo-500 transition"><Edit size={16}/></button>
-                            )}
-                        </div>
-                    )}
+                {/* UPDATED: Config Card (Duration & Questions) */}
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center gap-3 relative overflow-hidden">
+                    
+                    {/* Duration Row */}
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Clock size={12}/> Durasi</p>
+                        {isEditingDuration ? (
+                            <div className="flex gap-1">
+                                <input type="number" className="w-12 p-0.5 border border-slate-300 rounded text-center font-mono font-bold text-sm" value={durationInput} onChange={e=>setDurationInput(Number(e.target.value))} />
+                                <button onClick={handleUpdateDuration} className="bg-indigo-600 text-white p-0.5 rounded hover:bg-indigo-700"><Save size={12}/></button>
+                                <button onClick={()=>{ setDurationInput(Number(dashboardData.duration)); setIsEditingDuration(false); }} className="bg-slate-200 text-slate-600 p-0.5 rounded hover:bg-slate-300"><X size={12}/></button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg font-mono font-bold text-slate-800">{dashboardData.duration} <span className="text-[10px] text-slate-400 font-sans font-normal">Min</span></span>
+                                {user.role === 'admin_pusat' && (
+                                    <button onClick={()=>{ setIsEditingDuration(true); }} className="text-slate-400 hover:text-indigo-500 transition"><Edit size={12}/></button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Max Questions Row */}
+                    <div className="flex items-center justify-between pt-1">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"><Layers size={12}/> Jml. Soal</p>
+                        <span className="text-lg font-mono font-bold text-slate-800">
+                            {dashboardData.maxQuestions === 0 ? "Semua" : dashboardData.maxQuestions}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1631,7 +1088,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                                         </div>
                                         
                                         <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                            <SchoolIcon size={12} className="text-slate-400"/>
+                                            <School size={12} className="text-slate-400"/>
                                             <span className="truncate">{log.school || '-'}</span>
                                         </div>
 
@@ -1663,7 +1120,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const RekapTab = () => {
-    
+    // ... (RekapTab content stays same)
     // Helper to calculate Start Time based on End Time and Duration string (HH:mm:ss)
     const calculateStartTime = (endTimeStr: string, durationStr: string) => {
         try {
@@ -1752,6 +1209,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const RankingTab = () => {
+    // ... (RankingTab content stays same)
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const rankingData = useMemo(() => {
@@ -1814,6 +1272,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const AnalisisTab = () => {
+    // ... (AnalisisTab stays same)
     const subjects = useMemo(() => Object.keys(dashboardData.questionsMap), []);
     const [localSubject, setLocalSubject] = useState(subjects[0] || '');
     const [localSchool, setLocalSchool] = useState('Semua');
@@ -1896,6 +1355,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden fade-in" onClick={() => setIsSidebarOpen(false)}></div>}
 
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:flex ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* ... (Sidebar Header & Nav remains same) */}
         <div className="p-6 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">Management System <span className="text-indigo-600">Center</span></h1>
@@ -1977,7 +1437,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
                 {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
-                {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} refreshData={fetchData} isRefreshing={isRefreshing} />}
+                {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
                 {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}
                 {activeTab === 'ranking' && user.role === 'admin_pusat' && <RankingTab />}

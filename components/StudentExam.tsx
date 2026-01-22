@@ -272,10 +272,17 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             ...q,
             options: shuffleArray(q.options)
         }));
-        const fullyShuffled = shuffleArray(questionsWithShuffledOptions);
+        let fullyShuffled = shuffleArray(questionsWithShuffledOptions);
+
+        // 2. Limit Question Count (NEW FEATURE)
+        // If max_questions is set and > 0, slice the array after shuffling
+        if (exam.max_questions && exam.max_questions > 0) {
+            fullyShuffled = fullyShuffled.slice(0, exam.max_questions);
+        }
+
         setExamQuestions(fullyShuffled);
 
-        // 2. Load Saved Answers (Resume)
+        // 3. Load Saved Answers (Resume)
         try {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
@@ -285,7 +292,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             }
         } catch(e) { console.error("Failed to load saved answers", e); }
     }
-  }, [questions, storageKey]);
+  }, [questions, storageKey, exam.max_questions]);
 
   // Persist Answers on Change
   useEffect(() => {
@@ -594,6 +601,11 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                 <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded">
                   SOAL NO. {currentIdx + 1}
                 </span>
+                {exam.max_questions && exam.max_questions > 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold hidden sm:inline">
+                        (Total: {exam.max_questions})
+                    </span>
+                )}
               </div>
               <div className="flex gap-1 bg-white p-1 rounded-lg border border-slate-200">
                 {(['sm', 'md', 'lg'] as const).map(s => (
