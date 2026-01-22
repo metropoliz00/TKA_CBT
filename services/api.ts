@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbw0yXefYz6GVA9k4lwmyD6rk5ivSdcqg0rNbPxbRBjenZS9huqfRmgJgTOTvRM-uAQC/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzFHzBpAAR0LJKealkuFTAocYw6B1eSqx0pBZHqK7Uny3Nb5uC38jjduV8l7VgsnpzJ/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;

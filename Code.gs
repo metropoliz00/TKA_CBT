@@ -101,6 +101,7 @@ function loginUser(username, password) {
   // 1. Check Admins Sheet First
   const adminSheet = ss.getSheetByName(SHEET_ADMINS);
   if (adminSheet) {
+    // Use getDisplayValues to treat everything as string (preserves '0123')
     const data = adminSheet.getDataRange().getDisplayValues();
     for (let i = 1; i < data.length; i++) {
         if (!data[i][1]) continue;
@@ -169,7 +170,7 @@ function startExam(username, fullname, subject) {
   let isResuming = false;
 
   if (logSheet) {
-    const data = logSheet.getDataRange().getValues();
+    const data = logSheet.getDataRange().getValues(); // Values okay for dates
     
     for (let i = data.length - 1; i >= 1; i--) {
         const rowUser = String(data[i][1]).toLowerCase();
@@ -226,7 +227,8 @@ function assignTestGroup(usernames, examId, session) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to handle usernames like "001" correctly
+  const data = sheet.getDataRange().getDisplayValues();
   if (data[0].length < 9) {
      sheet.getRange(1, 8).setValue("Active_Exam");
      sheet.getRange(1, 9).setValue("Session");
@@ -252,7 +254,8 @@ function updateUserSessions(updates) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
   if (!sheet) return { success: false, message: "Sheet Users not found" };
   
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to match usernames correctly
+  const data = sheet.getDataRange().getDisplayValues();
   // Ensure header exists
   if (data[0].length < 9) sheet.getRange(1, 9).setValue("Session");
 
@@ -283,6 +286,7 @@ function getUsers() {
   // 1. Fetch Students
   const uSheet = ss.getSheetByName(SHEET_USERS);
   if (uSheet) {
+      // Use getDisplayValues to ensure IDs/Usernames starting with 0 are preserved
       const data = uSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < data.length; i++) {
         if (!data[i][1]) continue;
@@ -327,7 +331,7 @@ function getUsers() {
 function removeUserFromSheet(sheetName, userId) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) return false;
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getDataRange().getDisplayValues(); // Use display values for string ID match
     for(let i=1; i<data.length; i++) {
         if(String(data[i][0]) === String(userId)) {
             sheet.deleteRow(i+1);
@@ -358,7 +362,8 @@ function adminSaveUser(userData) {
         removeUserFromSheet(otherSheetName, userData.id);
     }
 
-    const data = sheet.getDataRange().getValues();
+    // Use getDisplayValues to ensure precise ID matching (e.g. "007")
+    const data = sheet.getDataRange().getDisplayValues();
     let rowIndex = -1;
 
     // Check if updating existing user in TARGET sheet
@@ -486,7 +491,8 @@ function getSubjectList() {
 function getConfigValue(key, defaultValue) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
   if (!sheet) return defaultValue;
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to capture string values correctly
+  const data = sheet.getDataRange().getDisplayValues();
   for(let i=0; i<data.length; i++) {
     if(String(data[i][0]).toUpperCase() === key.toUpperCase()) return data[i][1];
   }
@@ -499,7 +505,8 @@ function saveConfig(key, value) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CONFIG);
     sheet.appendRow(["Key", "Value"]);
   }
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to find existing keys correctly
+  const data = sheet.getDataRange().getDisplayValues();
   let found = false;
   for(let i=0; i<data.length; i++) {
     if(String(data[i][0]).toUpperCase() === key.toUpperCase()) {
@@ -516,7 +523,8 @@ function getQuestionsFromSheet(subject) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(subject);
   if (!sheet) return [];
   
-  const data = sheet.getDataRange().getValues();
+  // Changed to getDisplayValues to preserve "01" as string instead of 1
+  const data = sheet.getDataRange().getDisplayValues();
   const questions = [];
   
   for (let i = 1; i < data.length; i++) {
@@ -571,7 +579,8 @@ function adminSaveQuestion(sheetName, qData) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
     sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"]);
   }
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to ensure ID check works for "001"
+  const data = sheet.getDataRange().getDisplayValues();
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(qData.id)) { rowIndex = i + 1; break; }
@@ -610,7 +619,8 @@ function adminImportQuestions(sheetName, questionsList) {
 function adminDeleteQuestion(sheetName, id) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return { success: false };
-  const data = sheet.getDataRange().getValues();
+  // Use getDisplayValues to match ID string
+  const data = sheet.getDataRange().getDisplayValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(id)) {
       sheet.deleteRow(i + 1);
@@ -646,7 +656,8 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   // NOTE: We don't rely on client string formats anymore to ensure consistency
   // startStr/endStr aren't columns in all sheets, mainly durationStr is used
   
-  const qData = qSheet.getDataRange().getValues();
+  // Use getDisplayValues to correctly read keys like "01" or "02" without conversion to number
+  const qData = qSheet.getDataRange().getDisplayValues();
   
   let totalScore = 0;
   let correctCount = 0;
@@ -665,6 +676,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     const qId = String(row[0]);
     const qType = row[2];
     const keyRaw = String(row[8] || "").toUpperCase().trim();
+    // Use Number() for weight explicitly since getDisplayValues returns string
     const weight = row[9] ? Number(row[9]) : 10;
     
     let isCorrect = false;
@@ -890,7 +902,7 @@ function getDashboardData() {
     token: token, 
     duration: duration,
     statusCounts: counts, 
-    activityFeed: feed,
+    activityFeed: feed, 
     allUsers: Object.values(users)
   };
 }
