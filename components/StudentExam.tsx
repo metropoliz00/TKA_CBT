@@ -27,16 +27,41 @@ function shuffleArray<T>(array: T[]): T[] {
 const isImageOption = (text: string) => {
     if (!text || typeof text !== 'string') return false;
     const trimmed = text.trim();
-    // Check standard extensions
-    if (/\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(trimmed)) return true;
-    // Check Data URI
-    if (trimmed.startsWith('data:image')) return true;
-    // Check Google Drive View Links or other common image hosting without extension
-    if (trimmed.startsWith('http') && (trimmed.includes('drive.google.com') || trimmed.includes('images.unsplash.com') || trimmed.includes('imgur.com'))) {
-        // Loose check for known domains, mostly valid
-        return true;
+    
+    // Check if it starts with http/https or data:image AND does NOT contain spaces (to distinguish from sentences)
+    // This assumes image URLs do not have spaces (which they shouldn't if encoded correctly, or user inputs raw URL)
+    if (/\s/.test(trimmed)) return false;
+
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image');
+};
+
+// Component to Display Option Content (Image or Text)
+const OptionContent = ({ text, onZoom }: { text: string, onZoom: (src: string) => void }) => {
+    const [hasError, setHasError] = useState(false);
+    const isImg = isImageOption(text);
+
+    if (isImg && !hasError) {
+        return (
+            <div className="relative group inline-block my-2 max-w-full">
+                <img
+                    src={text.trim()}
+                    alt="Opsi Jawaban"
+                    className="max-h-40 w-auto rounded-lg border border-slate-200 object-contain bg-white transition-transform hover:scale-[1.02] cursor-zoom-in"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onZoom(text.trim());
+                    }}
+                    onError={() => setHasError(true)}
+                />
+                 <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize size={12} />
+                </div>
+            </div>
+        );
     }
-    return false;
+
+    return <span>{text}</span>;
 };
 
 // --- IMAGE VIEWER COMPONENT (ZOOM & PAN) ---
@@ -400,29 +425,6 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       setIsLocked(true);
   };
 
-  const renderOptionContent = (text: string) => {
-    if (isImageOption(text)) {
-        return (
-            <div className="relative group inline-block my-2">
-                <img
-                    src={text.trim()}
-                    alt="Opsi Jawaban"
-                    className="max-h-40 w-auto rounded-lg border border-slate-200 object-contain bg-white transition-transform hover:scale-[1.02] cursor-zoom-in"
-                    onClick={(e) => {
-                        e.preventDefault(); // Prevent selection when zooming
-                        e.stopPropagation();
-                        setZoomedImage(text.trim());
-                    }}
-                />
-                 <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Maximize size={12} />
-                </div>
-            </div>
-        );
-    }
-    return <span>{text}</span>;
-  };
-
   // Wait until shuffling is done
   if (examQuestions.length === 0) {
       return (
@@ -662,7 +664,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 onChange={() => handleAnswer(opt.id, 'PG')} 
                             />
                             <div className={`flex-1 break-words ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-700'}`}>
-                                {renderOptionContent(opt.text_jawaban)}
+                                <OptionContent text={opt.text_jawaban} onZoom={setZoomedImage} />
                             </div>
                             </label>
                         );
@@ -686,7 +688,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 onChange={() => handleAnswer(opt.id, 'PGK')} 
                             />
                             <div className="flex-1 text-slate-700 font-medium break-words">
-                                {renderOptionContent(opt.text_jawaban)}
+                                <OptionContent text={opt.text_jawaban} onZoom={setZoomedImage} />
                             </div>
                             </label>
                         );
@@ -708,7 +710,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
                                 return (
                                     <tr key={opt.id} className="hover:bg-slate-50 transition">
                                     <td className="p-3 md:p-5 font-medium text-slate-800 break-words min-w-[150px]">
-                                        {renderOptionContent(opt.text_jawaban)}
+                                        <OptionContent text={opt.text_jawaban} onZoom={setZoomedImage} />
                                     </td>
                                     <td className="p-3 md:p-5 text-center">
                                         <label className="cursor-pointer block h-full w-full flex justify-center">
