@@ -243,7 +243,7 @@ function App() {
     }
   };
 
-  const handleFinishExam = async (answers: any) => {
+  const handleFinishExam = async (answers: any, displayedQuestionCount: number) => {
     if (!currentUser || !selectedExamId) return;
     setLoading(true);
     setLoadingMessage('Menyimpan Jawaban ke Database...');
@@ -264,7 +264,8 @@ function App() {
             user: currentUser,
             subject: selectedExamId,
             answers,
-            startTime
+            startTime,
+            displayedQuestionCount // Pass the count to API
         });
         setView('result');
     } catch (err) {

@@ -9,7 +9,7 @@ interface StudentExamProps {
   userFullName: string;
   username: string; // Needed for unique local storage key
   startTime: number; // Absolute start time from server
-  onFinish: (answers: Record<string, UserAnswerValue>) => Promise<void> | void;
+  onFinish: (answers: Record<string, UserAnswerValue>, questionCount: number) => Promise<void> | void;
   onExit: () => void;
 }
 
@@ -492,7 +492,8 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
     } catch(e) {}
     
     try {
-      await onFinish(answers);
+      // PASS THE ACTUAL QUESTION COUNT THAT WAS DISPLAYED TO THE STUDENT
+      await onFinish(answers, examQuestions.length);
     } catch (error) {
       console.error("Error submitting:", error);
       setIsSubmitting(false);

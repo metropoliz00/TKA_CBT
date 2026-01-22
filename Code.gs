@@ -56,7 +56,7 @@ function processAction(action, args) {
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
       case 'importQuestions': return adminImportQuestions(args[0], args[1]); 
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
-      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
       case 'importUsers': return adminImportUsers(args[0]); 
@@ -598,7 +598,7 @@ function adminDeleteQuestion(sheetName, id) {
   return { success: false };
 }
 
-function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch) {
+function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch, displayedCount) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date(); 
   const timeZone = "Asia/Jakarta"; 
@@ -627,6 +627,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const itemAnalysisRow = [];   
   const rawAnswersRow = [];     
 
+  // Loop through Database Questions to check Correctness
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
     if (String(row[0]) === "") continue;
@@ -677,9 +678,9 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     if (isCorrect) {
         totalScore += weight;
         correctCount++;
-    } else {
-        wrongCount++;
-    }
+    } 
+    // Note: We don't increment wrongCount here if using Max Questions Limit logic
+    // We calculate wrongCount at the end based on displayedCount
 
     const scoreVal = isCorrect ? 1 : 0;
     itemAnalysis[qId] = scoreVal;
@@ -692,6 +693,18 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         rawAnswersRow.push(ansStr);
     }
   }
+
+  // Calculate Wrong Count based on Displayed Limit (if provided), otherwise total DB rows
+  if (displayedCount && Number(displayedCount) > 0) {
+      wrongCount = Number(displayedCount) - correctCount;
+  } else {
+      // Fallback: Use total questions in DB minus correct
+      // (qData.length - 1 handles header row)
+      wrongCount = (qData.length - 1) - correctCount; 
+  }
+  
+  // Ensure non-negative
+  if (wrongCount < 0) wrongCount = 0;
 
   while(itemAnalysisRow.length < 100) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 100) rawAnswersRow.push("");
