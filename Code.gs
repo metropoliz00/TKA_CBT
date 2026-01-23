@@ -631,8 +631,8 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   }
 
   // Determine Max Weight Basis
-  // If questionIds is provided (Random Subset), calculate max weight of THAT subset.
-  // Otherwise, calculate max weight of ALL questions in sheet.
+  // If questionIds is provided (Random Subset displayed to user), calculate max weight of THAT subset only.
+  // Otherwise (fallback), calculate max weight of ALL questions in sheet.
   let maxWeight = 0;
   let targetIds = [];
   
@@ -642,7 +642,11 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
       targetIds = Object.keys(questionWeights);
   }
 
+  // Create a Set for fast lookup of valid questions for this student
+  const validQuestionSet = new Set(targetIds);
+
   targetIds.forEach(id => {
+      // Add weight if the question exists in our DB (sheet)
       if (questionWeights[id] !== undefined) {
           maxWeight += questionWeights[id];
       }
@@ -656,7 +660,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const itemAnalysisRow = [];   
   const rawAnswersRow = [];     
 
-  // We iterate through ALL DB questions to construct the analysis row/log correctly in order
+  // We iterate through ALL DB questions to construct the analysis row/log correctly in order of ID
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
     if (String(row[0]) === "") continue;
@@ -704,9 +708,12 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         ansStr = "-";
     }
 
-    if (isCorrect) {
-        obtainedWeight += weight; // Sum obtained weight
-        correctCount++;
+    // Only add to score (numerator) if the question was actually assigned/displayed to the student
+    if (validQuestionSet.has(qId)) {
+        if (isCorrect) {
+            obtainedWeight += weight; // Sum obtained weight of displayed questions
+            correctCount++;
+        }
     }
 
     const scoreVal = isCorrect ? 1 : 0;
@@ -734,14 +741,10 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   while(rawAnswersRow.length < 100) rawAnswersRow.push("");
 
   // FINAL SCORE CALCULATION
-  // Formula: (Obtained Weight / Max Possible Weight) * 100
+  // Formula: (Obtained Weight / Max Possible Weight of Displayed Questions) * 100
   let finalScore = 0;
   if (maxWeight > 0) {
       finalScore = (obtainedWeight / maxWeight) * 100;
-      // Round to 2 decimal places if needed, or keeping integer usually preferred in some systems
-      // Using Math.round for standard integer scoring, or toFixed(2) for precise.
-      // Let's use Math.round(score * 100) / 100 for 2 decimals, or simple Math.round if integer required.
-      // Assuming standard academic scoring: 2 decimals often good.
       finalScore = parseFloat(finalScore.toFixed(2));
   }
 

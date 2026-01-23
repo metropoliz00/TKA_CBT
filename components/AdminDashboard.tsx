@@ -825,7 +825,7 @@ const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshin
         try {
             await api.saveMaxQuestions(Number(localMaxQ));
             refreshData();
-            alert("Jumlah soal berhasil disimpan.");
+            alert("Jumlah soal berhasil disimpan. Perhitungan nilai akan menyesuaikan jumlah ini.");
         } catch (e) {
             console.error(e);
             alert("Gagal menyimpan.");
@@ -884,8 +884,9 @@ const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshin
                             {isSavingQ ? <Loader2 size={14} className="animate-spin"/> : "Simpan"}
                         </button>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-2 italic">
-                        Jika diset ke angka tertentu (misal 40), siswa hanya akan mengerjakan 40 soal secara acak dari total soal yang ada.
+                    <p className="text-[10px] text-slate-400 mt-2 italic border-t border-slate-100 pt-2">
+                        <span className="font-bold text-slate-600">Catatan Penting:</span> Jika diset (contoh: 40), siswa mengerjakan 40 soal acak. 
+                        <br/>Nilai akhir akan dihitung berdasarkan <b>Total Bobot Soal Tampil</b> (Contoh: Skor Benar / Total Bobot 40 Soal * 100), bukan total bank soal.
                     </p>
                 </div>
 
@@ -1566,7 +1567,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const RekapTab = () => {
-    // ... (RekapTab content stays same)
+    // 1. State for Filters
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterSchool, setFilterSchool] = useState('all');
+    const [filterSubject, setFilterSubject] = useState('all');
+
+    // 2. Derive Unique Options based on available data
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(sortedStudents.map((s: any) => s.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [sortedStudents]);
+
+    const uniqueSubjects = useMemo(() => {
+        const subjects = new Set(sortedStudents.map((s: any) => s.subject).filter(Boolean));
+        return Array.from(subjects).sort();
+    }, [sortedStudents]);
+
+    // 3. Filter Data
+    const filteredRekap = useMemo(() => {
+        return sortedStudents.filter((s: any) => {
+            const matchName = s.fullname.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              s.username.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchSchool = filterSchool === 'all' || s.school === filterSchool;
+            const matchSubject = filterSubject === 'all' || s.subject === filterSubject;
+            return matchName && matchSchool && matchSubject;
+        });
+    }, [sortedStudents, searchTerm, filterSchool, filterSubject]);
+
     // Helper to calculate Start Time based on End Time and Duration string (HH:mm:ss)
     const calculateStartTime = (endTimeStr: string, durationStr: string) => {
         try {
@@ -1587,7 +1614,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     };
 
     const handleExport = () => {
-        const dataToExport = sortedStudents.map((s: any, i: number) => ({
+        // Export filtered data, not just all sorted data
+        const dataToExport = filteredRekap.map((s: any, i: number) => ({
             No: i + 1,
             Username: s.username,
             "Nama Peserta": s.fullname,
@@ -1614,28 +1642,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden fade-in max-w-full mx-auto">
             <div className="p-5 border-b border-slate-100 bg-white flex flex-col md:flex-row justify-between items-center gap-4">
                 <h3 className="font-bold text-slate-700 text-lg">Rekapitulasi Nilai Peserta</h3>
-                <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
-                    <FileText size={16}/> Export Excel
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                        <FileText size={16}/> Export Excel
+                    </button>
+                </div>
             </div>
+
+            {/* Filter Section */}
+            <div className="p-4 bg-slate-50 border-b border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Cari Nama / Username..." 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="relative">
+                    <School className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <select 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={filterSchool}
+                        onChange={(e) => setFilterSchool(e.target.value)}
+                    >
+                        <option value="all">Semua Sekolah</option>
+                        {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div className="relative">
+                    <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <select 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={filterSubject}
+                        onChange={(e) => setFilterSubject(e.target.value)}
+                    >
+                        <option value="all">Semua Mapel</option>
+                        {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                         <tr>
-                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('username')}>Username</th>
-                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('fullname')}>Nama Peserta</th>
-                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('school')}>Asal Sekolah</th>
-                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('subject')}>Mapel</th>
-                            <th className="p-4 text-center cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('score')}>Score</th>
+                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('username')}>Username <ArrowUpDown size={12} className="inline ml-1"/></th>
+                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('fullname')}>Nama Peserta <ArrowUpDown size={12} className="inline ml-1"/></th>
+                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('school')}>Asal Sekolah <ArrowUpDown size={12} className="inline ml-1"/></th>
+                            <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('subject')}>Mapel <ArrowUpDown size={12} className="inline ml-1"/></th>
+                            <th className="p-4 text-center cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('score')}>Score <ArrowUpDown size={12} className="inline ml-1"/></th>
                             <th className="p-4">Waktu Mulai</th>
                             <th className="p-4">Waktu Selesai</th>
                             <th className="p-4">Durasi</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {sortedStudents.length === 0 ? (
-                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Belum ada data rekapitulasi untuk sekolah ini.</td></tr>
-                        ) : sortedStudents.map((s: any, i: number) => (
+                        {filteredRekap.length === 0 ? (
+                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan sesuai filter.</td></tr>
+                        ) : filteredRekap.map((s: any, i: number) => (
                             <tr key={i} className="hover:bg-slate-50 transition">
                                 <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
                                 <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
@@ -1649,6 +1716,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+             <div className="p-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 text-right">
+                Menampilkan {filteredRekap.length} dari {sortedStudents.length} data
             </div>
         </div>
     );
