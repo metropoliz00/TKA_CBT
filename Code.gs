@@ -56,7 +56,7 @@ function processAction(action, args) {
       case 'saveQuestion': return adminSaveQuestion(args[0], args[1]);
       case 'importQuestions': return adminImportQuestions(args[0], args[1]); 
       case 'deleteQuestion': return adminDeleteQuestion(args[0], args[1]);
-      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+      case 'submitAnswers': return submitAnswers(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
       case 'getDashboardData': return getDashboardData();
       case 'getUsers': return getUsers(); 
       case 'importUsers': return adminImportUsers(args[0]); 
@@ -598,10 +598,9 @@ function adminDeleteQuestion(sheetName, id) {
   return { success: false };
 }
 
-function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch, displayedCount) {
+function submitAnswers(username, fullname, school, subject, answers, scoreInfo, startTimeEpoch, displayedCount, questionIds) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date(); 
-  const timeZone = "Asia/Jakarta"; 
   
   answers = answers || {};
 
@@ -619,15 +618,45 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   const timestamp = now;
   const qData = qSheet.getDataRange().getDisplayValues();
   
-  let totalScore = 0;
+  // PREPARE WEIGHTS & TYPES
+  const questionWeights = {};
+  
+  // Start from row 1 (skip header)
+  for (let i = 1; i < qData.length; i++) {
+      const row = qData[i];
+      if (String(row[0]) === "") continue;
+      const qId = String(row[0]);
+      const weight = row[9] ? Number(row[9]) : 10;
+      questionWeights[qId] = weight;
+  }
+
+  // Determine Max Weight Basis
+  // If questionIds is provided (Random Subset), calculate max weight of THAT subset.
+  // Otherwise, calculate max weight of ALL questions in sheet.
+  let maxWeight = 0;
+  let targetIds = [];
+  
+  if (questionIds && Array.isArray(questionIds) && questionIds.length > 0) {
+      targetIds = questionIds;
+  } else {
+      targetIds = Object.keys(questionWeights);
+  }
+
+  targetIds.forEach(id => {
+      if (questionWeights[id] !== undefined) {
+          maxWeight += questionWeights[id];
+      }
+  });
+
+  // EVALUATE ANSWERS
+  let obtainedWeight = 0;
   let correctCount = 0;
-  let wrongCount = 0;
   
   const itemAnalysis = {};      
   const itemAnalysisRow = [];   
   const rawAnswersRow = [];     
 
-  // Loop through Database Questions to check Correctness
+  // We iterate through ALL DB questions to construct the analysis row/log correctly in order
   for (let i = 1; i < qData.length; i++) {
     const row = qData[i];
     if (String(row[0]) === "") continue;
@@ -676,11 +705,9 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     }
 
     if (isCorrect) {
-        totalScore += weight;
+        obtainedWeight += weight; // Sum obtained weight
         correctCount++;
-    } 
-    // Note: We don't increment wrongCount here if using Max Questions Limit logic
-    // We calculate wrongCount at the end based on displayedCount
+    }
 
     const scoreVal = isCorrect ? 1 : 0;
     itemAnalysis[qId] = scoreVal;
@@ -695,21 +722,28 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   }
 
   // Calculate Wrong Count based on Displayed Limit (if provided), otherwise total DB rows
+  let wrongCount = 0;
   if (displayedCount && Number(displayedCount) > 0) {
       wrongCount = Number(displayedCount) - correctCount;
   } else {
-      // Fallback: Use total questions in DB minus correct
-      // (qData.length - 1 handles header row)
       wrongCount = (qData.length - 1) - correctCount; 
   }
-  
-  // Ensure non-negative
   if (wrongCount < 0) wrongCount = 0;
 
   while(itemAnalysisRow.length < 100) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 100) rawAnswersRow.push("");
 
-  const finalScore = totalScore;
+  // FINAL SCORE CALCULATION
+  // Formula: (Obtained Weight / Max Possible Weight) * 100
+  let finalScore = 0;
+  if (maxWeight > 0) {
+      finalScore = (obtainedWeight / maxWeight) * 100;
+      // Round to 2 decimal places if needed, or keeping integer usually preferred in some systems
+      // Using Math.round for standard integer scoring, or toFixed(2) for precise.
+      // Let's use Math.round(score * 100) / 100 for 2 decimals, or simple Math.round if integer required.
+      // Assuming standard academic scoring: 2 decimals often good.
+      finalScore = parseFloat(finalScore.toFixed(2));
+  }
 
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {

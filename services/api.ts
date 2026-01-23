@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyLL8sozN9wFRZEUhojOudcN_HLrGR7E9EnTxIsfDfMXM-xEwA-Pa4KBvxOT3szmI2-/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbz0sQhtjHpG4dj2e_HJ1J7AN-ep0FiUffkRszBNhz7LE8pxCW3YfyLmKzE57OkvwwM/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -225,7 +225,7 @@ export const api = {
   },
 
   // Submit Exam
-  submitExam: async (payload: { user: User, subject: string, answers: any, startTime: number, displayedQuestionCount?: number }) => {
+  submitExam: async (payload: { user: User, subject: string, answers: any, startTime: number, displayedQuestionCount?: number, questionIds?: string[] }) => {
       const scoreInfo = { total: 0, answered: Object.keys(payload.answers).length };
 
       // We send payload.startTime (which originated from the server).
@@ -239,7 +239,8 @@ export const api = {
           payload.answers, 
           scoreInfo, 
           payload.startTime,
-          payload.displayedQuestionCount || 0 // New Arg
+          payload.displayedQuestionCount || 0, // New Arg 8
+          payload.questionIds || [] // New Arg 9
       );
   },
   
