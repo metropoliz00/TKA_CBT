@@ -162,6 +162,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all'); // all, siswa, admin_sekolah, admin_pusat
+    const [filterSchool, setFilterSchool] = useState('all'); // NEW: School Filter
     
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -248,12 +249,23 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
         }
     };
 
+    // Extract Unique Schools for Filter
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(users.map(u => u.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [users]);
+
     // Filter Logic
     const filteredUsers = useMemo(() => {
         let res = users;
         // Role Filter
         if (filterRole !== 'all') {
             res = res.filter(u => u.role === filterRole);
+        }
+
+        // School Filter (New)
+        if (filterSchool !== 'all') {
+            res = res.filter(u => u.school === filterSchool);
         }
         
         // Search Filter
@@ -275,7 +287,21 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
         }
 
         return res;
-    }, [users, filterRole, searchTerm, currentUser]);
+    }, [users, filterRole, filterSchool, searchTerm, currentUser]);
+
+    // Export Logic
+    const handleExport = () => {
+        const dataToExport = filteredUsers.map((u, i) => ({
+            No: i + 1,
+            Username: u.username,
+            Password: u.password,
+            "Nama Lengkap": u.fullname,
+            Role: u.role,
+            "Jenis Kelamin": u.gender,
+            "Sekolah / Kelas": u.school
+        }));
+        exportToExcel(dataToExport, "Data_Pengguna", "Users");
+    };
 
     // Excel Import Logic
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -354,13 +380,16 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in space-y-6">
-             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                  <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Users size={20}/> Manajemen Pengguna</h3>
                     <p className="text-slate-400 text-xs">Tambah, edit, hapus, atau impor data pengguna.</p>
                  </div>
                  
                  <div className="flex flex-wrap gap-2">
+                    <button onClick={handleExport} className="bg-emerald-50 text-emerald-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-emerald-100 transition border border-emerald-100">
+                        <FileText size={14}/> Export Data
+                    </button>
                     {currentUser.role === 'admin_pusat' && (
                         <>
                             <button onClick={downloadTemplate} className="bg-slate-100 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-200 transition">
@@ -392,16 +421,26 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                     />
                 </div>
                 {currentUser.role === 'admin_pusat' && (
-                    <select 
-                        className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
-                        value={filterRole}
-                        onChange={e => setFilterRole(e.target.value)}
-                    >
-                        <option value="all">Semua Role</option>
-                        <option value="siswa">Siswa</option>
-                        <option value="admin_sekolah">Proktor (Admin Sekolah)</option>
-                        <option value="admin_pusat">Admin Pusat</option>
-                    </select>
+                    <>
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                            value={filterSchool}
+                            onChange={e => setFilterSchool(e.target.value)}
+                        >
+                            <option value="all">Semua Sekolah</option>
+                            {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                            value={filterRole}
+                            onChange={e => setFilterRole(e.target.value)}
+                        >
+                            <option value="all">Semua Role</option>
+                            <option value="siswa">Siswa</option>
+                            <option value="admin_sekolah">Proktor (Admin Sekolah)</option>
+                            <option value="admin_pusat">Admin Pusat</option>
+                        </select>
+                    </>
                 )}
              </div>
 
