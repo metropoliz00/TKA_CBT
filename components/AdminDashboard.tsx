@@ -158,62 +158,372 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
 };
 
 const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, onDataChange: () => void }) => {
-    // Basic Implementation to list users
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterRole, setFilterRole] = useState('all'); // all, siswa, admin_sekolah, admin_pusat
     
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    // Form State
+    const [formData, setFormData] = useState({
+        id: '',
+        username: '',
+        password: '',
+        fullname: '',
+        role: 'siswa', // siswa, admin_sekolah, admin_pusat
+        school: '',
+        gender: 'L'
+    });
+
     useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getUsers();
-                setUsers(data);
-            } catch(e) { console.error(e); }
-            finally { setLoading(false); }
-        };
-        load();
+        loadUsers();
     }, []);
 
-    const handleDelete = async (username: string) => {
-        if(!confirm("Hapus user ini?")) return;
-        await api.deleteUser(username);
-        setUsers(prev => prev.filter(u => u.username !== username));
-        onDataChange();
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getUsers();
+            setUsers(data);
+        } catch(e) { console.error(e); }
+        finally { setLoading(false); }
     };
 
-    if(loading) return <DashboardSkeleton />;
+    const handleDelete = async (username: string) => {
+        if(!confirm("Yakin ingin menghapus pengguna ini? Data yang dihapus tidak bisa dikembalikan.")) return;
+        setLoading(true);
+        try {
+            await api.deleteUser(username);
+            setUsers(prev => prev.filter(u => u.username !== username));
+            onDataChange(); // Refresh dashboard stats
+        } catch (e) {
+            alert("Gagal menghapus user.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEdit = (user: any) => {
+        setFormData({
+            id: user.id,
+            username: user.username,
+            password: user.password,
+            fullname: user.fullname,
+            role: user.role,
+            school: user.school || '',
+            gender: user.gender || 'L'
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleAdd = () => {
+        setFormData({
+            id: '',
+            username: '',
+            password: '',
+            fullname: '',
+            role: 'siswa',
+            school: currentUser.role === 'admin_sekolah' ? currentUser.kelas_id : '',
+            gender: 'L'
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            await api.saveUser(formData);
+            await loadUsers();
+            setIsModalOpen(false);
+            onDataChange();
+        } catch (e) {
+            console.error(e);
+            alert("Gagal menyimpan data.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Filter Logic
+    const filteredUsers = useMemo(() => {
+        let res = users;
+        // Role Filter
+        if (filterRole !== 'all') {
+            res = res.filter(u => u.role === filterRole);
+        }
+        
+        // Search Filter
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            res = res.filter(u => 
+                u.username.toLowerCase().includes(lower) || 
+                u.fullname.toLowerCase().includes(lower) ||
+                (u.school && u.school.toLowerCase().includes(lower))
+            );
+        }
+
+        // Proktor Restriction
+        if (currentUser.role === 'admin_sekolah') {
+            res = res.filter(u => 
+                u.role === 'siswa' && 
+                (u.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase()
+            );
+        }
+
+        return res;
+    }, [users, filterRole, searchTerm, currentUser]);
+
+    // Excel Import Logic
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        setIsImporting(true);
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsName = wb.SheetNames[0];
+                const ws = wb.Sheets[wsName];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                
+                // Expected Columns: Username, Password, Role (siswa/admin_sekolah/admin_pusat), Nama Lengkap, Jenis Kelamin (L/P), Sekolah/Kelas
+                const parsedUsers = [];
+                for (let i = 1; i < data.length; i++) {
+                    const row: any = data[i];
+                    if (!row[0]) continue; // Skip empty username
+                    
+                    parsedUsers.push({
+                        username: String(row[0]),
+                        password: String(row[1]),
+                        role: String(row[2] || 'siswa').toLowerCase(),
+                        fullname: String(row[3]),
+                        gender: String(row[4] || 'L').toUpperCase(),
+                        school: String(row[5] || '')
+                    });
+                }
+
+                if (parsedUsers.length > 0) {
+                     await api.importUsers(parsedUsers);
+                     alert(`Berhasil mengimpor ${parsedUsers.length} pengguna.`);
+                     await loadUsers();
+                     onDataChange();
+                } else {
+                    alert("Tidak ada data valid yang ditemukan.");
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Gagal membaca file Excel.");
+            } finally {
+                setIsImporting(false);
+                if (e.target) e.target.value = '';
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const downloadTemplate = () => {
+        const ws = XLSX.utils.json_to_sheet([
+            {
+                "Username": "siswa001",
+                "Password": "123",
+                "Role (siswa/admin_sekolah/admin_pusat)": "siswa",
+                "Nama Lengkap": "Ahmad Siswa",
+                "L/P": "L",
+                "Sekolah / Kelas": "X-IPA-1"
+            },
+            {
+                "Username": "proktor01",
+                "Password": "123",
+                "Role (siswa/admin_sekolah/admin_pusat)": "admin_sekolah",
+                "Nama Lengkap": "Pak Guru",
+                "L/P": "L",
+                "Sekolah / Kelas": "SMAN 1 Jakarta"
+            }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template_User");
+        XLSX.writeFile(wb, "Template_Import_User.xlsx");
+    };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in">
-             <div className="flex justify-between mb-4">
-                 <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Users size={20}/> Daftar Peserta</h3>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in space-y-6">
+             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                 <div>
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Users size={20}/> Manajemen Pengguna</h3>
+                    <p className="text-slate-400 text-xs">Tambah, edit, hapus, atau impor data pengguna.</p>
+                 </div>
+                 
+                 <div className="flex flex-wrap gap-2">
+                    {currentUser.role === 'admin_pusat' && (
+                        <>
+                            <button onClick={downloadTemplate} className="bg-slate-100 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-200 transition">
+                                <Download size={14}/> Template
+                            </button>
+                            <label className={`cursor-pointer bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-emerald-700 transition ${isImporting ? 'opacity-50 cursor-wait' : ''}`}>
+                                {isImporting ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14}/>} 
+                                {isImporting ? "Mengimpor..." : "Impor Excel"}
+                                <input type="file" accept=".xlsx" className="hidden" onChange={handleFileUpload} disabled={isImporting} />
+                            </label>
+                        </>
+                    )}
+                    <button onClick={handleAdd} className="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-indigo-700 transition">
+                        <Plus size={14}/> Tambah User
+                    </button>
+                 </div>
              </div>
-             <div className="overflow-x-auto">
+
+             {/* Filters */}
+             <div className="flex flex-col md:flex-row gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Cari Username, Nama, atau Sekolah..." 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                {currentUser.role === 'admin_pusat' && (
+                    <select 
+                        className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                        value={filterRole}
+                        onChange={e => setFilterRole(e.target.value)}
+                    >
+                        <option value="all">Semua Role</option>
+                        <option value="siswa">Siswa</option>
+                        <option value="admin_sekolah">Proktor (Admin Sekolah)</option>
+                        <option value="admin_pusat">Admin Pusat</option>
+                    </select>
+                )}
+             </div>
+
+             {/* Table */}
+             <div className="overflow-x-auto rounded-lg border border-slate-200">
                  <table className="w-full text-sm text-left">
                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                          <tr>
-                             <th className="p-3">Username</th>
-                             <th className="p-3">Nama</th>
-                             <th className="p-3">Role</th>
-                             <th className="p-3">Kelas</th>
-                             <th className="p-3 text-center">Aksi</th>
+                             <th className="p-4">Username</th>
+                             <th className="p-4">Nama Lengkap</th>
+                             <th className="p-4">Role</th>
+                             <th className="p-4">Sekolah / Kelas</th>
+                             <th className="p-4 text-center">Aksi</th>
                          </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-100">
-                         {users.map(u => (
-                             <tr key={u.username} className="hover:bg-slate-50">
-                                 <td className="p-3 font-mono font-bold text-slate-600">{u.username}</td>
-                                 <td className="p-3 text-slate-700">{u.fullname}</td>
-                                 <td className="p-3 text-xs uppercase">{u.role}</td>
-                                 <td className="p-3 text-slate-600">{u.school}</td>
-                                 <td className="p-3 text-center">
-                                     <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
-                                 </td>
-                             </tr>
-                         ))}
+                         {loading ? (
+                             <tr><td colSpan={5} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</td></tr>
+                         ) : filteredUsers.length === 0 ? (
+                             <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>
+                         ) : (
+                             filteredUsers.map(u => (
+                                 <tr key={u.id || u.username} className="hover:bg-slate-50 transition">
+                                     <td className="p-4 font-mono font-bold text-slate-600">{u.username}</td>
+                                     <td className="p-4 text-slate-700">{u.fullname}</td>
+                                     <td className="p-4">
+                                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${u.role === 'admin_pusat' ? 'bg-purple-100 text-purple-600' : u.role === 'admin_sekolah' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
+                                             {u.role === 'admin_sekolah' ? 'Proktor' : u.role}
+                                         </span>
+                                     </td>
+                                     <td className="p-4 text-slate-600 text-xs">{u.school || '-'}</td>
+                                     <td className="p-4 flex justify-center gap-2">
+                                         <button onClick={() => handleEdit(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"><Edit size={16}/></button>
+                                         <button onClick={() => handleDelete(u.username)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16}/></button>
+                                     </td>
+                                 </tr>
+                             ))
+                         )}
                      </tbody>
                  </table>
              </div>
+
+             {/* Add/Edit Modal */}
+             {isModalOpen && (
+                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                             <h3 className="font-bold text-lg text-slate-800">{formData.id ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}</h3>
+                             <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-slate-400 hover:text-slate-600"/></button>
+                         </div>
+                         <form onSubmit={handleSave} className="p-6 space-y-4">
+                             <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Username</label>
+                                    <input required type="text" className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} disabled={!!formData.id && formData.role !== 'siswa'} /> 
+                                    {/* Disable username edit for admins to prevent ID mismatch usually, but allowing for now/students */}
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Password</label>
+                                    <input required type="text" className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                                </div>
+                             </div>
+                             
+                             <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Lengkap</label>
+                                <input required type="text" className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} />
+                             </div>
+
+                             <div className="grid grid-cols-2 gap-4">
+                                 <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
+                                    <select 
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
+                                        value={formData.role} 
+                                        onChange={e => setFormData({...formData, role: e.target.value})}
+                                        disabled={currentUser.role !== 'admin_pusat'}
+                                    >
+                                        <option value="siswa">Siswa</option>
+                                        <option value="admin_sekolah">Proktor</option>
+                                        <option value="admin_pusat">Admin Pusat</option>
+                                    </select>
+                                 </div>
+                                 <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Kelamin</label>
+                                    <select 
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none bg-white"
+                                        value={formData.gender} 
+                                        onChange={e => setFormData({...formData, gender: e.target.value})}
+                                    >
+                                        <option value="L">Laki-laki</option>
+                                        <option value="P">Perempuan</option>
+                                    </select>
+                                 </div>
+                             </div>
+
+                             {(formData.role === 'siswa' || formData.role === 'admin_sekolah') && (
+                                 <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                        {formData.role === 'siswa' ? 'Kelas / Sekolah' : 'Nama Sekolah (Untuk Proktor)'}
+                                    </label>
+                                    <input 
+                                        required 
+                                        type="text" 
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
+                                        value={formData.school} 
+                                        onChange={e => setFormData({...formData, school: e.target.value})} 
+                                        placeholder={formData.role === 'siswa' ? "Contoh: XII-IPA-1" : "Contoh: SMAN 1 Jakarta"}
+                                        disabled={currentUser.role === 'admin_sekolah'} // Proktor cant change their own school usually, but can add students to it
+                                    />
+                                 </div>
+                             )}
+
+                             <div className="pt-4 flex gap-3">
+                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50">Batal</button>
+                                 <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex justify-center items-center gap-2">
+                                     {isSaving ? <Loader2 size={18} className="animate-spin"/> : <Save size={18}/>} Simpan
+                                 </button>
+                             </div>
+                         </form>
+                     </div>
+                 </div>
+             )}
         </div>
     );
 };
