@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers } from 'lucide-react';
 import { api } from '../services/api';
@@ -119,6 +120,26 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
         }
     }
 
+    // Status Badge Helper
+    const renderStatusBadge = (status: string) => {
+        switch (status) {
+            case 'WORKING':
+                return <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><PlayCircle size={12}/> Mengerjakan</span>;
+            case 'LOGGED_IN':
+                return <span className="bg-yellow-100 text-yellow-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><Key size={12}/> Login</span>;
+            case 'FINISHED':
+                return <span className="bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle2 size={12}/> Selesai</span>;
+            case 'OFFLINE':
+            default:
+                return <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><WifiOff size={12} className="opacity-50"/> Offline</span>;
+        }
+    };
+    
+    // Icon for WifiOff needed in this component locally if not imported
+    const WifiOff = ({size, className}:{size?:number, className?:string}) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+    );
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in">
              <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -164,10 +185,7 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
                                     <div className="text-xs text-slate-400">{s.username} • {s.school}</div>
                                 </td>
                                 <td className="p-4">
-                                    {s.is_login ? 
-                                        <span className="bg-emerald-100 text-emerald-600 px-2 py-1 rounded text-xs font-bold">Online</span> : 
-                                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded text-xs font-bold">Offline</span>
-                                    }
+                                    {renderStatusBadge(s.status)}
                                 </td>
                                 <td className="p-4 text-slate-600">{s.active_exam || '-'}</td>
                                 <td className="p-4 text-center">
@@ -1496,7 +1514,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                                 icon = <CheckCircle2 size={20}/>;
                                 colorClass = "bg-emerald-100 text-emerald-600";
                                 statusText = "Selesai";
-                            } else if (log.action === 'WORKING') { // Fallback from logs
+                            } else if (log.action === 'WORKING' || log.action === 'RESUME') { // Fallback from logs
                                 icon = <PlayCircle size={20}/>;
                                 colorClass = "bg-blue-100 text-blue-600";
                                 statusText = "Mengerjakan";
@@ -1517,7 +1535,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                                         
                                         <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
                                             <School size={12} className="text-slate-400"/>
-                                            <span className="truncate">{log.school || '-'}</span>
+                                            <span className="truncate font-medium">{log.school || '-'}</span>
                                         </div>
 
                                         <div className="flex flex-wrap gap-2">

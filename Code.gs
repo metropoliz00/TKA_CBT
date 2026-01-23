@@ -787,6 +787,8 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
 
 function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Init Users Map (Default Status: OFFLINE)
   const uSheet = ss.getSheetByName(SHEET_USERS);
   const users = {};
   let totalUsers = 0;
@@ -796,7 +798,8 @@ function getDashboardData() {
     for(let i=1; i<d.length; i++) {
         const role = String(d[i][3]).toLowerCase();
         if (role === 'siswa') {
-            users[String(d[i][1]).toLowerCase()] = { 
+            const uname = String(d[i][1]).toLowerCase();
+            users[uname] = { 
                 username: d[i][1], 
                 fullname: d[i][4], 
                 school: d[i][6], 
@@ -809,6 +812,7 @@ function getDashboardData() {
     }
   }
 
+  // 2. Check Results (Mark as FINISHED)
   const rSheet = ss.getSheetByName(SHEET_RESULTS);
   const students = [];
   const qMap = {};
@@ -835,46 +839,53 @@ function getDashboardData() {
     }
   }
 
+  // 3. Process Logs for Active Status (Skip if already FINISHED)
   const lSheet = ss.getSheetByName(SHEET_LOGS);
   const feed = [];
-  const seenUsersInFeed = new Set(); 
+  const statusSetFromLogs = new Set(); // Track users whose status is set by a more recent log
 
   if (lSheet) {
       const d = lSheet.getDataRange().getDisplayValues(); 
+      // Iterate Backwards (Newest Logs First)
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).toLowerCase();
           const act = String(d[i][3]).toUpperCase();
 
+          // STATUS LOGIC
           if (users[uname] && users[uname].status !== 'FINISHED') {
-             if (!seenUsersInFeed.has(uname)) {
-                  if (act === 'START' || act === 'RESUME') users[uname].status = 'WORKING';
-                  else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
-                  else if (act === 'RESET') users[uname].status = 'OFFLINE'; 
+             // Only set status based on the *latest* log encountered for this user
+             if (!statusSetFromLogs.has(uname)) {
+                  if (act === 'START' || act === 'RESUME') {
+                      users[uname].status = 'WORKING';
+                  } else if (act === 'LOGIN') {
+                      users[uname].status = 'LOGGED_IN';
+                  } else if (act === 'RESET') {
+                      users[uname].status = 'OFFLINE'; 
+                  }
+                  statusSetFromLogs.add(uname);
              }
           }
 
-          if (!seenUsersInFeed.has(uname)) {
-              seenUsersInFeed.add(uname);
-              if (feed.length < 20) {
-                  const school = users[uname] ? users[uname].school : '-';
-                  let subject = '-';
-                  if (act === 'START' || act === 'RESUME') {
-                      subject = d[i][4];
-                  } else if (act === 'FINISH') {
-                      const det = String(d[i][4]);
-                      subject = det.includes(':') ? det.split(':')[0] : det;
-                  }
-
-                  feed.push({ 
-                      timestamp: d[i][0], 
-                      username: d[i][1], 
-                      fullname: d[i][2], 
-                      action: act, 
-                      details: d[i][4],
-                      school: school,
-                      subject: subject
-                  });
+          // FEED LOGIC
+          if (feed.length < 20) {
+              const school = users[uname] ? users[uname].school : '-';
+              let subject = '-';
+              if (act === 'START' || act === 'RESUME') {
+                  subject = d[i][4];
+              } else if (act === 'FINISH') {
+                  const det = String(d[i][4]);
+                  subject = det.includes(':') ? det.split(':')[0] : det;
               }
+
+              feed.push({ 
+                  timestamp: d[i][0], 
+                  username: d[i][1], 
+                  fullname: d[i][2], 
+                  action: act, 
+                  details: d[i][4],
+                  school: school, // Add school to feed
+                  subject: subject
+              });
           }
       }
   }
