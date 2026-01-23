@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
@@ -211,7 +212,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               const status = await api.checkStatus(username);
               if (status === 'RESET') onExit();
           } catch(e) { console.warn("Status check failed", e); }
-      }, 15000);
+      }, 30000); // Poll every 30s instead of 15s to reduce load
       return () => clearInterval(poller);
   }, [username, onExit]);
 

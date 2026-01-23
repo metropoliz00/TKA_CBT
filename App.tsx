@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, CalendarClock } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
@@ -189,6 +190,9 @@ function App() {
   };
 
   const selectedExam = examList.find(e => e.id === selectedExamId);
+  
+  // Logic to check if session is valid
+  const hasSession = currentUser?.session && currentUser.session !== '-' && currentUser.session.trim() !== '' && currentUser.session !== 'undefined';
 
   if (view === 'system_check') {
       const isOffline = sysInfo.status === 'Offline';
@@ -256,8 +260,23 @@ function App() {
                             <div className="h-px bg-slate-100"></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Nama Lengkap</label><div className="p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700">{currentUser?.nama_lengkap}</div></div><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Asal Sekolah / Kelas</label><div className="p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700">{currentUser?.kelas_id}</div></div></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Jenis Kelamin</label><div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium">{currentUser?.jenis_kelamin || '-'}</div></div><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Sesi Ujian</label><div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium">{currentUser?.session || '-'}</div></div></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Token Ujian</label><input type="text" className={`w-full p-4 border-2 border-dashed rounded-xl focus:border-blue-500 outline-none text-center text-2xl font-mono font-bold tracking-[0.3em] uppercase placeholder-blue-100 transition-colors ${errorMsg.toLowerCase().includes('token') ? 'border-red-400 bg-red-50 text-red-700 placeholder-red-200' : 'border-blue-300 bg-white text-blue-700'}`} placeholder="TOKEN" value={inputToken} onChange={e=> { setInputToken(e.target.value.toUpperCase()); setErrorMsg(''); }} />{errorMsg && <p className="text-center text-red-500 mt-2 font-medium">{errorMsg}</p>}</div>
-                            <button onClick={handleVerifyToken} disabled={loading || examList.length === 0} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center ${examList.length === 0 ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}>SUBMIT</button>
+                            
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-400 uppercase">Token Ujian</label>
+                                {hasSession ? (
+                                    <>
+                                        <input type="text" className={`w-full p-4 border-2 border-dashed rounded-xl focus:border-blue-500 outline-none text-center text-2xl font-mono font-bold tracking-[0.3em] uppercase placeholder-blue-100 transition-colors ${errorMsg.toLowerCase().includes('token') ? 'border-red-400 bg-red-50 text-red-700 placeholder-red-200' : 'border-blue-300 bg-white text-blue-700'}`} placeholder="TOKEN" value={inputToken} onChange={e=> { setInputToken(e.target.value.toUpperCase()); setErrorMsg(''); }} />
+                                        {errorMsg && <p className="text-center text-red-500 mt-2 font-medium">{errorMsg}</p>}
+                                        <button onClick={handleVerifyToken} disabled={loading || examList.length === 0} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:-translate-y-0.5 mt-4 flex justify-center items-center ${examList.length === 0 ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}>SUBMIT</button>
+                                    </>
+                                ) : (
+                                    <div className="p-5 bg-red-50 border border-red-100 rounded-xl text-center text-red-600">
+                                        <CalendarClock size={32} className="mx-auto mb-2 opacity-50"/>
+                                        <p className="font-bold">Anda belum memiliki jadwal/sesi ujian.</p>
+                                        <p className="text-xs mt-1 text-red-500">Silakan hubungi Proktor atau Admin Sekolah anda.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

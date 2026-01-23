@@ -1,3 +1,4 @@
+
 import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
 
 // The Apps Script Web App URL provided
@@ -6,7 +7,7 @@ const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbweT3RKwCu79Hv2EJn
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
 
-// Helper to call backend functions
+// Helper to call backend functions with RETRY Logic
 const callBackend = async (fnName: string, ...args: any[]) => {
   // 1. Embedded Mode (GoogleScript Run)
   if (isEmbedded) {
@@ -18,43 +19,57 @@ const callBackend = async (fnName: string, ...args: any[]) => {
     });
   }
 
-  // 2. Remote Mode (Fetch to Exec URL)
+  // 2. Remote Mode (Fetch to Exec URL) with Retry
   if (GAS_EXEC_URL) {
-      try {
-          // Add timestamp to prevent caching
-          const url = `${GAS_EXEC_URL}?t=${new Date().getTime()}`;
-          
-          const response = await fetch(url, {
-              redirect: "follow", 
-              method: 'POST',
-              headers: {
-                 'Content-Type': 'text/plain;charset=utf-8', 
-              },
-              body: JSON.stringify({ action: fnName, args: args })
-          });
-          
-          if (!response.ok) {
-              // Usually 404 or 500
-              throw new Error(`Server Error (${response.status}). Check deployment URL.`);
-          }
-          
-          const text = await response.text();
+      let attempt = 0;
+      const maxAttempts = 3;
+      
+      while (attempt < maxAttempts) {
           try {
-              return JSON.parse(text);
-          } catch (e) {
-              console.error("Invalid JSON received:", text);
-              if (text.includes("Google Drive") || text.includes("Google Docs")) {
-                   throw new Error("HTML Response: The URL might be wrong or you need to re-deploy as 'Anyone'.");
+              // Add timestamp to prevent caching
+              const url = `${GAS_EXEC_URL}?t=${new Date().getTime()}`;
+              
+              const response = await fetch(url, {
+                  redirect: "follow", 
+                  method: 'POST',
+                  headers: {
+                     'Content-Type': 'text/plain;charset=utf-8', 
+                  },
+                  body: JSON.stringify({ action: fnName, args: args })
+              });
+              
+              if (!response.ok) {
+                  // Usually 404 or 500
+                  throw new Error(`Server Error (${response.status}). Check deployment URL.`);
               }
-              if (text.includes("<!DOCTYPE html>")) {
-                 throw new Error("Script Error: Check Apps Script 'Executions' log. Re-deploy new version.");
+              
+              const text = await response.text();
+              try {
+                  return JSON.parse(text);
+              } catch (e) {
+                  console.error("Invalid JSON received:", text);
+                  if (text.includes("Google Drive") || text.includes("Google Docs")) {
+                       throw new Error("HTML Response: The URL might be wrong or you need to re-deploy as 'Anyone'.");
+                  }
+                  if (text.includes("<!DOCTYPE html>")) {
+                     throw new Error("Script Error: Check Apps Script 'Executions' log. Re-deploy new version.");
+                  }
+                  throw new Error("Invalid response from server");
               }
-              throw new Error("Invalid response from server");
-          }
 
-      } catch (error) {
-          console.error(`API Call '${fnName}' failed:`, error);
-          throw error;
+          } catch (error) {
+              attempt++;
+              console.warn(`API Call '${fnName}' failed (Attempt ${attempt}/${maxAttempts}):`, error);
+              
+              if (attempt === maxAttempts) {
+                   // If final attempt fails, throw error
+                   console.error(`API Call '${fnName}' gave up after ${maxAttempts} attempts.`);
+                   throw error;
+              }
+              
+              // Exponential backoff: 1s, 2s, etc.
+              await new Promise(r => setTimeout(r, 1000 * attempt));
+          }
       }
   }
 
