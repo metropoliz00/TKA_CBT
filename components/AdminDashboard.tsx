@@ -78,17 +78,32 @@ const DashboardSkeleton = () => (
 
 const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterSchool, setFilterSchool] = useState('all');
     const [resetting, setResetting] = useState<string | null>(null);
+
+    // Get Unique Schools for Filter
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(students.map(s => s.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [students]);
 
     const filtered = useMemo(() => {
         return students.filter(s => {
             const matchName = s.fullname.toLowerCase().includes(searchTerm.toLowerCase()) || s.username.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            // Logic for Admin Sekolah (Proktor)
             if (currentUser.role === 'admin_sekolah') {
                 return matchName && (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase();
             }
+            
+            // Logic for Admin Pusat with Filter
+            if (filterSchool !== 'all') {
+                return matchName && s.school === filterSchool;
+            }
+
             return matchName;
         });
-    }, [students, searchTerm, currentUser]);
+    }, [students, searchTerm, currentUser, filterSchool]);
 
     const handleReset = async (username: string) => {
         if(!confirm(`Reset login untuk ${username}?`)) return;
@@ -106,17 +121,29 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in">
-             <div className="p-5 border-b border-slate-100 flex justify-between items-center gap-4">
+             <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h3 className="font-bold text-slate-700 flex items-center gap-2"><Monitor size={20}/> Status Peserta</h3>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                        type="text" 
-                        placeholder="Cari Peserta..." 
-                        className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                    {currentUser.role === 'admin_pusat' && (
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                            value={filterSchool}
+                            onChange={e => setFilterSchool(e.target.value)}
+                        >
+                            <option value="all">Semua Sekolah</option>
+                            {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    )}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Cari Peserta..." 
+                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 w-full"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
              </div>
              <div className="overflow-x-auto">
@@ -572,13 +599,23 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
     const [selectedSession, setSelectedSession] = useState('Sesi 1');
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const [filterSchool, setFilterSchool] = useState('all');
+
+    // Get Unique Schools for Filter
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(students.map(s => s.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [students]);
 
     const filtered = useMemo(() => {
+        let res = students;
         if (currentUser.role === 'admin_sekolah') {
-             return students.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
+             res = res.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
+        } else if (currentUser.role === 'admin_pusat' && filterSchool !== 'all') {
+            res = res.filter(s => s.school === filterSchool);
         }
-        return students;
-    }, [students, currentUser]);
+        return res;
+    }, [students, currentUser, filterSchool]);
 
     const handleToggle = (username: string) => {
         const newSet = new Set(selectedUsers);
@@ -604,10 +641,22 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 fade-in">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock size={20}/> Atur Sesi Ujian</h3>
-            <div className="flex gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
-                <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
-                    <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
-                </select>
+            <div className="flex flex-col md:flex-row gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
+                <div className="flex gap-2 w-full md:w-auto">
+                    {currentUser.role === 'admin_pusat' && (
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                            value={filterSchool}
+                            onChange={e => setFilterSchool(e.target.value)}
+                        >
+                            <option value="all">Semua Sekolah</option>
+                            {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    )}
+                    <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
+                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
+                    </select>
+                </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
                     {isSaving ? "Menyimpan..." : "Simpan Sesi"}
                 </button>
@@ -621,14 +670,18 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
                                 else setSelectedUsers(new Set());
                             }}/></th>
                             <th className="p-3">Nama</th>
+                            <th className="p-3">Sekolah</th>
                             <th className="p-3">Sesi Saat Ini</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map(s => (
+                        {filtered.length === 0 ? (
+                            <tr><td colSpan={4} className="p-4 text-center text-slate-400">Tidak ada siswa.</td></tr>
+                        ) : filtered.map(s => (
                             <tr key={s.username} className="border-b">
                                 <td className="p-3"><input type="checkbox" checked={selectedUsers.has(s.username)} onChange={() => handleToggle(s.username)} /></td>
                                 <td className="p-3">{s.fullname} <span className="text-slate-400 text-xs">({s.username})</span></td>
+                                <td className="p-3 text-xs text-slate-500">{s.school}</td>
                                 <td className="p-3 font-mono">{s.session || '-'}</td>
                             </tr>
                         ))}
@@ -644,17 +697,27 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     const [exams, setExams] = useState<any[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const [filterSchool, setFilterSchool] = useState('all');
 
     useEffect(() => {
         api.getExams().then(setExams);
     }, []);
 
+    // Get Unique Schools for Filter
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(students.map(s => s.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [students]);
+
     const filtered = useMemo(() => {
+        let res = students;
         if (currentUser.role === 'admin_sekolah') {
-             return students.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
+             res = res.filter(s => (s.school || '').toLowerCase() === (currentUser.kelas_id || '').toLowerCase());
+        } else if (currentUser.role === 'admin_pusat' && filterSchool !== 'all') {
+            res = res.filter(s => s.school === filterSchool);
         }
-        return students;
-    }, [students, currentUser]);
+        return res;
+    }, [students, currentUser, filterSchool]);
 
     const handleSave = async () => {
         if(!selectedExam) return alert("Pilih ujian dulu.");
@@ -672,11 +735,23 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 fade-in">
              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Group size={20}/> Kelompok Tes (Set Ujian Aktif)</h3>
-             <div className="flex gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
-                <select className="p-2 border rounded min-w-[200px]" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
-                    <option value="">-- Pilih Ujian --</option>
-                    {exams.map(e => <option key={e.id} value={e.nama_ujian}>{e.nama_ujian}</option>)}
-                </select>
+             <div className="flex flex-col md:flex-row gap-4 mb-4 bg-slate-50 p-4 rounded-lg">
+                <div className="flex gap-2 w-full md:w-auto">
+                    {currentUser.role === 'admin_pusat' && (
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+                            value={filterSchool}
+                            onChange={e => setFilterSchool(e.target.value)}
+                        >
+                            <option value="all">Semua Sekolah</option>
+                            {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    )}
+                    <select className="p-2 border rounded min-w-[200px]" value={selectedExam} onChange={e=>setSelectedExam(e.target.value)}>
+                        <option value="">-- Pilih Ujian --</option>
+                        {exams.map(e => <option key={e.id} value={e.nama_ujian}>{e.nama_ujian}</option>)}
+                    </select>
+                </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
                     {isSaving ? "Menyimpan..." : "Aktifkan Ujian"}
                 </button>
@@ -690,11 +765,14 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
                                 else setSelectedUsers(new Set());
                             }}/></th>
                             <th className="p-3">Nama</th>
+                            <th className="p-3">Sekolah</th>
                             <th className="p-3">Ujian Aktif Saat Ini</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map(s => (
+                        {filtered.length === 0 ? (
+                            <tr><td colSpan={4} className="p-4 text-center text-slate-400">Tidak ada siswa.</td></tr>
+                        ) : filtered.map(s => (
                             <tr key={s.username} className="border-b">
                                 <td className="p-3"><input type="checkbox" checked={selectedUsers.has(s.username)} onChange={() => {
                                     const newSet = new Set(selectedUsers);
@@ -703,6 +781,7 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
                                     setSelectedUsers(newSet);
                                 }} /></td>
                                 <td className="p-3">{s.fullname} <span className="text-slate-400 text-xs">({s.username})</span></td>
+                                <td className="p-3 text-xs text-slate-500">{s.school}</td>
                                 <td className="p-3 font-mono text-blue-600">{s.active_exam || '-'}</td>
                             </tr>
                         ))}
