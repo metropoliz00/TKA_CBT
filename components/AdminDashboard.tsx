@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers, Calendar } from 'lucide-react';
 import { api } from '../services/api';
-import { User, QuestionRow } from '../types';
+import { User, QuestionRow, SchoolSchedule } from '../types';
 import * as XLSX from 'xlsx';
 
 interface AdminDashboardProps {
@@ -63,8 +63,6 @@ const SimpleDonutChart = ({ data, size = 160 }: { data: { value: number, color: 
     );
 };
 
-// --- RESTORED COMPONENTS ---
-
 const DashboardSkeleton = () => (
     <div className="animate-pulse space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -77,7 +75,176 @@ const DashboardSkeleton = () => (
     </div>
 );
 
-const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: any[] }) => {
+const AturGelombangTab = ({ students }: { students: any[] }) => {
+    const [schedules, setSchedules] = useState<Record<string, { gelombang: string, tanggal: string }>>({});
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [bulkGelombang, setBulkGelombang] = useState('Gelombang 1');
+    const [bulkDate, setBulkDate] = useState('');
+    const [selectedSchools, setSelectedSchools] = useState<Set<string>>(new Set());
+
+    // 1. Extract Unique Schools from Students List
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(students.map(s => s.school).filter(Boolean));
+        return Array.from(schools).sort();
+    }, [students]);
+
+    // 2. Load Existing Schedules
+    useEffect(() => {
+        const loadSchedules = async () => {
+            setLoading(true);
+            try {
+                const data = await api.getSchoolSchedules();
+                const map: Record<string, { gelombang: string, tanggal: string }> = {};
+                data.forEach(d => {
+                    map[d.school] = { gelombang: d.gelombang, tanggal: d.tanggal };
+                });
+                setSchedules(map);
+            } catch(e) { console.error("Error loading schedules", e); }
+            finally { setLoading(false); }
+        };
+        loadSchedules();
+    }, []);
+
+    const handleChange = (school: string, field: 'gelombang' | 'tanggal', value: string) => {
+        setSchedules(prev => ({
+            ...prev,
+            [school]: {
+                gelombang: field === 'gelombang' ? value : (prev[school]?.gelombang || 'Gelombang 1'),
+                tanggal: field === 'tanggal' ? value : (prev[school]?.tanggal || '')
+            }
+        }));
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const payload: SchoolSchedule[] = Object.keys(schedules).map(school => ({
+                school,
+                gelombang: schedules[school].gelombang,
+                tanggal: schedules[school].tanggal
+            }));
+            await api.saveSchoolSchedules(payload);
+            alert("Jadwal sekolah berhasil disimpan.");
+        } catch(e) { 
+            console.error(e);
+            alert("Gagal menyimpan jadwal.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleBulkApply = () => {
+        if (selectedSchools.size === 0) return alert("Pilih minimal satu sekolah.");
+        setSchedules(prev => {
+            const next = { ...prev };
+            selectedSchools.forEach(school => {
+                next[school] = { gelombang: bulkGelombang, tanggal: bulkDate };
+            });
+            return next;
+        });
+        alert(`Berhasil menerapkan ke ${selectedSchools.size} sekolah.`);
+    };
+
+    const toggleSelectAll = (checked: boolean) => {
+        if (checked) setSelectedSchools(new Set(uniqueSchools));
+        else setSelectedSchools(new Set());
+    };
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in overflow-hidden">
+             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+                <div>
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><CalendarClock size={20}/> Atur Gelombang & Tanggal</h3>
+                    <p className="text-xs text-slate-400">Tentukan jadwal ujian untuk setiap sekolah.</p>
+                </div>
+                <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2">
+                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan Jadwal
+                </button>
+             </div>
+             
+             {/* Bulk Actions */}
+             <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Set Gelombang</label>
+                    <select className="p-2 border border-slate-200 rounded-lg text-sm bg-white min-w-[150px]" value={bulkGelombang} onChange={e => setBulkGelombang(e.target.value)}>
+                        <option>Gelombang 1</option>
+                        <option>Gelombang 2</option>
+                        <option>Gelombang 3</option>
+                        <option>Gelombang 4</option>
+                        <option>Susulan</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Set Tanggal</label>
+                    <input type="date" className="p-2 border border-slate-200 rounded-lg text-sm bg-white" value={bulkDate} onChange={e => setBulkDate(e.target.value)} />
+                </div>
+                <button onClick={handleBulkApply} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-900 transition mb-[1px]">
+                    Terapkan ke Terpilih
+                </button>
+             </div>
+
+             <div className="overflow-x-auto max-h-[600px]">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0 z-10">
+                        <tr>
+                            <th className="p-4 w-10"><input type="checkbox" onChange={e => toggleSelectAll(e.target.checked)} /></th>
+                            <th className="p-4">Nama Sekolah</th>
+                            <th className="p-4">Gelombang</th>
+                            <th className="p-4">Tanggal Pelaksanaan</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {loading ? (
+                             <tr><td colSpan={4} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data sekolah...</td></tr>
+                        ) : uniqueSchools.length === 0 ? (
+                            <tr><td colSpan={4} className="p-8 text-center text-slate-400">Belum ada data sekolah (User).</td></tr>
+                        ) : uniqueSchools.map(school => (
+                            <tr key={school} className="hover:bg-slate-50">
+                                <td className="p-4">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedSchools.has(school)} 
+                                        onChange={() => {
+                                            const newSet = new Set(selectedSchools);
+                                            if (newSet.has(school)) newSet.delete(school);
+                                            else newSet.add(school);
+                                            setSelectedSchools(newSet);
+                                        }} 
+                                    />
+                                </td>
+                                <td className="p-4 font-bold text-slate-700">{school}</td>
+                                <td className="p-4">
+                                    <select 
+                                        className="p-2 border border-slate-200 rounded bg-white w-full max-w-[200px]"
+                                        value={schedules[school]?.gelombang || 'Gelombang 1'}
+                                        onChange={(e) => handleChange(school, 'gelombang', e.target.value)}
+                                    >
+                                        <option>Gelombang 1</option>
+                                        <option>Gelombang 2</option>
+                                        <option>Gelombang 3</option>
+                                        <option>Gelombang 4</option>
+                                        <option>Susulan</option>
+                                    </select>
+                                </td>
+                                <td className="p-4">
+                                    <input 
+                                        type="date" 
+                                        className="p-2 border border-slate-200 rounded bg-white"
+                                        value={schedules[school]?.tanggal || ''}
+                                        onChange={(e) => handleChange(school, 'tanggal', e.target.value)}
+                                    />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             </div>
+        </div>
+    );
+};
+
+const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: User, students: any[], refreshData: () => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSchool, setFilterSchool] = useState('all');
     const [resetting, setResetting] = useState<string | null>(null);
@@ -107,10 +274,11 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
     }, [students, searchTerm, currentUser, filterSchool]);
 
     const handleReset = async (username: string) => {
-        if(!confirm(`Reset login untuk ${username}?`)) return;
+        if(!confirm(`Reset login untuk ${username}? Siswa akan logout otomatis dan status menjadi OFFLINE.`)) return;
         setResetting(username);
         try {
             await api.resetLogin(username);
+            refreshData(); // Refresh UI immediately
             alert(`Login ${username} berhasil di-reset.`);
         } catch(e) {
             console.error(e);
@@ -189,7 +357,7 @@ const StatusTesTab = ({ currentUser, students }: { currentUser: User, students: 
                                 </td>
                                 <td className="p-4 text-slate-600">{s.active_exam || '-'}</td>
                                 <td className="p-4 text-center">
-                                    <button onClick={() => handleReset(s.username)} disabled={!!resetting} className="bg-amber-50 text-amber-600 px-3 py-1 rounded text-xs font-bold hover:bg-amber-100 transition">
+                                    <button onClick={() => handleReset(s.username)} disabled={!!resetting} className="bg-amber-50 text-amber-600 px-3 py-1 rounded text-xs font-bold hover:bg-amber-100 transition border border-amber-100">
                                         {resetting === s.username ? "Processing..." : "Reset Login"}
                                     </button>
                                 </td>
@@ -810,7 +978,6 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     );
 };
 
-// --- NEW COMPONENT: RILIS TOKEN ---
 const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshing }: { token: string, duration: number, maxQuestions: number, refreshData: () => void, isRefreshing: boolean }) => {
     // Local state for Max Questions input
     const [localMaxQ, setLocalMaxQ] = useState(maxQuestions);
@@ -1264,7 +1431,7 @@ const BankSoalTab = () => {
 };
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rekap' | 'analisis' | 'ranking' | 'bank_soal' | 'data_user' | 'status_tes' | 'kelompok_tes' | 'rilis_token' | 'atur_sesi' | 'atur_gelombang'>('overview');
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
   const [dashboardData, setDashboardData] = useState<any>({ 
       students: [], 
@@ -1275,7 +1442,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       maxQuestions: 0, // Default 0 (All)
       statusCounts: { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 },
       activityFeed: [],
-      allUsers: [] // Extended user data for Status/Group tabs
+      allUsers: [], // Extended user data for Status/Group tabs
+      schedules: [] // New field
   });
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1369,6 +1537,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         case 'status_tes': return "Status Tes & Reset Login";
         case 'kelompok_tes': return "Kelompok Tes (Assignment)";
         case 'atur_sesi': return "Atur Sesi & Absensi";
+        case 'atur_gelombang': return "Atur Gelombang Sekolah";
         case 'rilis_token': return "Rilis Token";
         default: return "Dashboard";
     }
@@ -1397,15 +1566,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         return feed;
     }, [dashboardData.activityFeed]);
 
+    // Find schedule for current proktor
+    const mySchedule = useMemo(() => {
+        if (user.role === 'admin_sekolah' && dashboardData.schedules) {
+            return dashboardData.schedules.find((s:any) => s.school === user.kelas_id);
+        }
+        return null;
+    }, [user, dashboardData.schedules]);
+
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
         {user.role === 'admin_sekolah' && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3">
-                <div className="bg-blue-200 p-2 rounded-lg"><School size={20}/></div>
-                <div>
-                    <h3 className="font-bold text-sm uppercase tracking-wide">Mode Proktor</h3>
-                    <p className="text-sm">Menampilkan data untuk: <b>{user.kelas_id}</b></p>
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3 justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-200 p-2 rounded-lg"><School size={20}/></div>
+                    <div>
+                        <h3 className="font-bold text-sm uppercase tracking-wide">Mode Proktor</h3>
+                        <p className="text-sm">Menampilkan data untuk: <b>{user.kelas_id}</b></p>
+                    </div>
                 </div>
+            </div>
+        )}
+
+        {/* --- NEW: SCHEDULE CARD FOR PROKTOR --- */}
+        {user.role === 'admin_sekolah' && mySchedule && (
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                 <div className="flex items-center gap-4">
+                    <div className="bg-white/20 p-3 rounded-full"><CalendarClock size={32}/></div>
+                    <div>
+                         <h2 className="text-xl font-bold">Jadwal Ujian Aktif</h2>
+                         <p className="opacity-90 text-sm">Anda telah dijadwalkan oleh admin pusat.</p>
+                    </div>
+                 </div>
+                 <div className="flex gap-4 text-center">
+                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20">
+                        <p className="text-xs uppercase font-bold text-indigo-200">Tanggal Pelaksanaan</p>
+                        <p className="text-xl font-bold">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                    <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md">
+                        <p className="text-xs uppercase font-bold text-indigo-400">Sesi Gelombang</p>
+                        <p className="text-xl font-extrabold">{mySchedule.gelombang}</p>
+                    </div>
+                 </div>
             </div>
         )}
 
@@ -1893,6 +2095,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             <button onClick={() => { setActiveTab('data_user'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><List size={20} /> Daftar Peserta</button>
           )}
 
+          {user.role === 'admin_pusat' && (
+              <button onClick={() => { setActiveTab('atur_gelombang'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'atur_gelombang' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Calendar size={20} /> Atur Gelombang</button>
+          )}
+
           <button onClick={() => { setActiveTab('rilis_token'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rilis_token' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Key size={20} /> Rilis Token</button>
 
           {user.role === 'admin_pusat' && (
@@ -1949,10 +2155,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           ) : (
              <>
                 {activeTab === 'overview' && <OverviewTab />}
-                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} />}
+                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
                 {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
+                {activeTab === 'atur_gelombang' && user.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
                 {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
                 {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab />}

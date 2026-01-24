@@ -1,8 +1,8 @@
 
-import { User, Exam, QuestionWithOptions, QuestionRow } from '../types';
+import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycby9ydTRkj2va75utQMe_hrsbAmJFxQS8eTqEpKlaGPmekFMQdlq8Ut2epi5ZyrbGIQS/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzMwcCzX6wfMMzM_EjfxD6Mv-iDypXI-novuQoGmQTY2A1asaHzQmZ6YRu1H5X-_jvr/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -237,6 +237,16 @@ export const api = {
   // NEW: Reset Login
   resetLogin: async (username: string): Promise<{success: boolean}> => {
       return await callBackend('resetLogin', username);
+  },
+  
+  // NEW: Get School Schedules
+  getSchoolSchedules: async (): Promise<SchoolSchedule[]> => {
+      return await callBackend('getSchoolSchedules');
+  },
+
+  // NEW: Save School Schedules
+  saveSchoolSchedules: async (schedules: SchoolSchedule[]): Promise<{success: boolean}> => {
+      return await callBackend('saveSchoolSchedules', schedules);
   },
 
   // Submit Exam

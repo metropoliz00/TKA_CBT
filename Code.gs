@@ -11,8 +11,9 @@ const SHEET_REKAP = "Rekap_Analisis";
 const SHEET_JAWABAN = "Jawaban";      
 const SHEET_RANKING = "Rangking";     
 const SHEET_LOGS = "Logs";            
+const SHEET_SCHEDULE = "Jadwal_Sekolah"; // New Sheet
 
-const SYSTEM_SHEETS = [SHEET_USERS, SHEET_ADMINS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS];
+const SYSTEM_SHEETS = [SHEET_USERS, SHEET_ADMINS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS, SHEET_SCHEDULE];
 
 /* ENTRY POINT: doPost */
 function doPost(e) {
@@ -67,6 +68,8 @@ function processAction(action, args) {
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
       case 'updateUserSessions': return updateUserSessions(args[0]); 
       case 'resetLogin': return resetLogin(args[0]);
+      case 'getSchoolSchedules': return getSchoolSchedules(); // New
+      case 'saveSchoolSchedules': return saveSchoolSchedules(args[0]); // New
       default: return { error: "Action not found: " + action };
     }
 }
@@ -119,6 +122,43 @@ function loginUser(username, password) {
 
         if (dbUser === inputUser && dbPass === inputPass) {
              const role = data[i][3];
+             const schoolName = data[i][6] || '-';
+             
+             // VALIDASI TANGGAL UNTUK PROKTOR (ADMIN SEKOLAH)
+             if (role === 'admin_sekolah') {
+                 const schSheet = ss.getSheetByName(SHEET_SCHEDULE);
+                 if (schSheet) {
+                     const schData = schSheet.getDataRange().getDisplayValues();
+                     // Format Today: YYYY-MM-DD based on script timezone (Jakarta usually)
+                     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+                     
+                     let scheduleFound = false;
+                     let isDateMatch = false;
+                     let scheduledDate = "-";
+
+                     for(let k=1; k<schData.length; k++) {
+                         if (String(schData[k][0]).toLowerCase() === String(schoolName).toLowerCase()) {
+                             scheduleFound = true;
+                             scheduledDate = schData[k][2]; // Assuming col 2 is date YYYY-MM-DD
+                             if (scheduledDate === today) {
+                                 isDateMatch = true;
+                             }
+                             break;
+                         }
+                     }
+
+                     // Jika jadwal ditemukan TAPI tanggal tidak cocok, tolak login
+                     if (scheduleFound && !isDateMatch) {
+                         return { 
+                             success: false, 
+                             message: `Login Ditolak. Jadwal ujian sekolah Anda adalah tanggal ${scheduledDate}, hari ini ${today}. Hubungi Admin Pusat.` 
+                         };
+                     }
+                     // Jika jadwal tidak ditemukan, kita izinkan login (atau bisa diubah untuk tolak)
+                     // Saat ini: Allow if not set to prevent lockout before config
+                 }
+             }
+
              return {
                 success: true,
                 user: { 
@@ -126,7 +166,7 @@ function loginUser(username, password) {
                     role: role, 
                     fullname: data[i][4], 
                     gender: data[i][5] || '-', 
-                    school: data[i][6] || '-' 
+                    school: schoolName
                 }
              };
         }
@@ -208,6 +248,7 @@ function checkUserStatus(username) {
     if (!logSheet) return { status: 'OK' };
 
     const data = logSheet.getDataRange().getValues();
+    // Iterate backwards to find the LATEST action
     for (let i = data.length - 1; i >= 1; i--) {
         const rowUser = String(data[i][1]).toLowerCase();
         if (rowUser === String(username).toLowerCase()) {
@@ -218,7 +259,10 @@ function checkUserStatus(username) {
             if (action === 'FINISH') {
                 return { status: 'FINISHED' };
             }
-            return { status: 'OK' };
+            // If LOGIN or START is found first (meaning latest), then status is OK
+            if (action === 'LOGIN' || action === 'START' || action === 'RESUME') {
+               return { status: 'OK' };
+            }
         }
     }
     return { status: 'OK' };
@@ -269,7 +313,51 @@ function updateUserSessions(updates) {
 }
 
 function resetLogin(username) {
+  // Adds a specific log entry "RESET". This is detected by getDashboardData to set status to OFFLINE.
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
+  return { success: true };
+}
+
+// --- NEW FUNCTION: Get School Schedules ---
+function getSchoolSchedules() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SCHEDULE);
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getDisplayValues();
+  const schedules = [];
+  
+  // Skip header
+  for(let i=1; i<data.length; i++) {
+    if(data[i][0]) {
+      schedules.push({
+        school: data[i][0],
+        gelombang: data[i][1],
+        tanggal: data[i][2]
+      });
+    }
+  }
+  return schedules;
+}
+
+// --- NEW FUNCTION: Save School Schedules ---
+function saveSchoolSchedules(schedules) {
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SCHEDULE);
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_SCHEDULE);
+    sheet.appendRow(["Nama_Sekolah", "Gelombang", "Tanggal_Ujian"]);
+  }
+  
+  // Clear existing data (except header)
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+  }
+  
+  if (schedules.length > 0) {
+    const rows = schedules.map(s => [s.school, s.gelombang, s.tanggal]);
+    sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  }
+  
   return { success: true };
 }
 
@@ -863,7 +951,7 @@ function getDashboardData() {
                   } else if (act === 'LOGIN') {
                       users[uname].status = 'LOGGED_IN';
                   } else if (act === 'RESET') {
-                      users[uname].status = 'OFFLINE'; 
+                      users[uname].status = 'OFFLINE'; // Explicitly set OFFLINE on reset
                   }
                   statusSetFromLogs.add(uname);
              }
@@ -904,6 +992,9 @@ function getDashboardData() {
   const duration = getConfigValue('DURATION', 60);
   const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
 
+  // 4. Get Schedules for Frontend Display
+  const schedules = getSchoolSchedules();
+
   return { 
     students, 
     questionsMap: qMap, 
@@ -913,6 +1004,7 @@ function getDashboardData() {
     maxQuestions: maxQuestions,
     statusCounts: counts, 
     activityFeed: feed, 
-    allUsers: Object.values(users)
+    allUsers: Object.values(users),
+    schedules: schedules // New field
   };
 }

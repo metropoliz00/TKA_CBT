@@ -206,13 +206,17 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
     return () => clearInterval(intervalId);
   }, [startTime, exam.durasi]);
 
+  // Polling Status User: 5 detik agar Reset dari Admin cepat berefek
   useEffect(() => {
       const poller = setInterval(async () => {
           try {
               const status = await api.checkStatus(username);
-              if (status === 'RESET') onExit();
+              if (status === 'RESET') {
+                  alert("Sesi anda telah di-reset oleh Admin. Silakan login kembali.");
+                  onExit();
+              }
           } catch(e) { console.warn("Status check failed", e); }
-      }, 30000); // Poll every 30s instead of 15s to reduce load
+      }, 5000); 
       return () => clearInterval(poller);
   }, [username, onExit]);
 

@@ -77,6 +77,13 @@ export interface AnswerDB {
   is_marked: boolean;
 }
 
+// 7. Jadwal Sekolah (Gelombang)
+export interface SchoolSchedule {
+  school: string;
+  gelombang: string;
+  tanggal: string; // YYYY-MM-DD
+}
+
 // UI State Helper Types
 export interface QuestionWithOptions extends Question {
   options: Option[];
