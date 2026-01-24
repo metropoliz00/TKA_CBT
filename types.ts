@@ -8,6 +8,7 @@ export interface User {
   nama_lengkap: string;
   jenis_kelamin?: string; // New Field
   kelas_id: string; // Used for School Name
+  kecamatan?: string; // New Field: Kecamatan
   active_exam?: string; // Assigned Exam
   session?: string; // Assigned Session
 }

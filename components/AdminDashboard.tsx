@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers, Calendar } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers, Calendar, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow, SchoolSchedule } from '../types';
 import * as XLSX from 'xlsx';
@@ -390,6 +390,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
         fullname: '',
         role: 'siswa', // siswa, admin_sekolah, admin_pusat
         school: '',
+        kecamatan: '', // NEW: Kecamatan Field
         gender: 'L'
     });
 
@@ -428,6 +429,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
             fullname: user.fullname,
             role: user.role,
             school: user.school || '',
+            kecamatan: user.kecamatan || '', // Set Kecamatan
             gender: user.gender || 'L'
         });
         setIsModalOpen(true);
@@ -441,6 +443,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
             fullname: '',
             role: 'siswa',
             school: currentUser.role === 'admin_sekolah' ? currentUser.kelas_id : '',
+            kecamatan: '',
             gender: 'L'
         });
         setIsModalOpen(true);
@@ -487,7 +490,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
             res = res.filter(u => 
                 u.username.toLowerCase().includes(lower) || 
                 u.fullname.toLowerCase().includes(lower) ||
-                (u.school && u.school.toLowerCase().includes(lower))
+                (u.school && u.school.toLowerCase().includes(lower)) ||
+                (u.kecamatan && u.kecamatan.toLowerCase().includes(lower)) // Include Kecamatan in search
             );
         }
 
@@ -511,7 +515,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
             "Nama Lengkap": u.fullname,
             Role: u.role,
             "Jenis Kelamin": u.gender,
-            "Sekolah / Kelas": u.school
+            "Sekolah / Kelas": u.school,
+            "Kecamatan": u.kecamatan || '-' // Add Kecamatan to Export
         }));
         exportToExcel(dataToExport, "Data_Pengguna", "Users");
     };
@@ -532,7 +537,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 // Added raw: false to ensure string values like '001' are preserved as "001" and not parsed as number 1
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
                 
-                // Expected Columns: Username, Password, Role (siswa/admin_sekolah/admin_pusat), Nama Lengkap, Jenis Kelamin (L/P), Sekolah/Kelas
+                // Expected Columns: Username, Password, Role (siswa/admin_sekolah/admin_pusat), Nama Lengkap, Jenis Kelamin (L/P), Sekolah/Kelas, Kecamatan
                 const parsedUsers = [];
                 for (let i = 1; i < data.length; i++) {
                     const row: any = data[i];
@@ -544,7 +549,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                         role: String(row[2] || 'siswa').toLowerCase(),
                         fullname: String(row[3]),
                         gender: String(row[4] || 'L').toUpperCase(),
-                        school: String(row[5] || '')
+                        school: String(row[5] || ''),
+                        kecamatan: String(row[6] || '') // Parse Kecamatan from Column G (Index 6)
                     });
                 }
 
@@ -576,7 +582,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 "Role (siswa/admin_sekolah/admin_pusat)": "siswa",
                 "Nama Lengkap": "Ahmad Siswa",
                 "L/P": "L",
-                "Sekolah / Kelas": "X-IPA-1"
+                "Sekolah / Kelas": "X-IPA-1",
+                "Kecamatan": "Gambir"
             },
             {
                 "Username": "proktor01",
@@ -584,7 +591,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 "Role (siswa/admin_sekolah/admin_pusat)": "admin_sekolah",
                 "Nama Lengkap": "Pak Guru",
                 "L/P": "L",
-                "Sekolah / Kelas": "SMAN 1 Jakarta"
+                "Sekolah / Kelas": "SMAN 1 Jakarta",
+                "Kecamatan": "Gambir"
             }
         ]);
         const wb = XLSX.utils.book_new();
@@ -628,7 +636,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                         type="text" 
-                        placeholder="Cari Username, Nama, atau Sekolah..." 
+                        placeholder="Cari Username, Nama, Sekolah, atau Kecamatan..." 
                         className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -667,14 +675,15 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                              <th className="p-4">Nama Lengkap</th>
                              <th className="p-4">Role</th>
                              <th className="p-4">Sekolah / Kelas</th>
+                             <th className="p-4">Kecamatan</th> 
                              <th className="p-4 text-center">Aksi</th>
                          </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-100">
                          {loading ? (
-                             <tr><td colSpan={5} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</td></tr>
+                             <tr><td colSpan={6} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</td></tr>
                          ) : filteredUsers.length === 0 ? (
-                             <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>
+                             <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>
                          ) : (
                              filteredUsers.map(u => (
                                  <tr key={u.id || u.username} className="hover:bg-slate-50 transition">
@@ -686,6 +695,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                                          </span>
                                      </td>
                                      <td className="p-4 text-slate-600 text-xs">{u.school || '-'}</td>
+                                     <td className="p-4 text-slate-600 text-xs">{u.kecamatan || '-'}</td>
                                      <td className="p-4 flex justify-center gap-2">
                                          <button onClick={() => handleEdit(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"><Edit size={16}/></button>
                                          <button onClick={() => handleDelete(u.username)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16}/></button>
@@ -751,19 +761,33 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                              </div>
 
                              {(formData.role === 'siswa' || formData.role === 'admin_sekolah') && (
-                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                                        {formData.role === 'siswa' ? 'Kelas / Sekolah' : 'Nama Sekolah (Untuk Proktor)'}
-                                    </label>
-                                    <input 
-                                        required 
-                                        type="text" 
-                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
-                                        value={formData.school} 
-                                        onChange={e => setFormData({...formData, school: e.target.value})} 
-                                        placeholder={formData.role === 'siswa' ? "Contoh: XII-IPA-1" : "Contoh: SMAN 1 Jakarta"}
-                                        disabled={currentUser.role === 'admin_sekolah'} // Proktor cant change their own school usually, but can add students to it
-                                    />
+                                 <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                            {formData.role === 'siswa' ? 'Kelas / Sekolah' : 'Nama Sekolah (Untuk Proktor)'}
+                                        </label>
+                                        <input 
+                                            required 
+                                            type="text" 
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
+                                            value={formData.school} 
+                                            onChange={e => setFormData({...formData, school: e.target.value})} 
+                                            placeholder={formData.role === 'siswa' ? "Contoh: XII-IPA-1" : "Contoh: SMAN 1 Jakarta"}
+                                            disabled={currentUser.role === 'admin_sekolah'} // Proktor cant change their own school usually, but can add students to it
+                                        />
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                            Kecamatan
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
+                                            value={formData.kecamatan} 
+                                            onChange={e => setFormData({...formData, kecamatan: e.target.value})} 
+                                            placeholder="Contoh: Gambir"
+                                        />
+                                     </div>
                                  </div>
                              )}
 

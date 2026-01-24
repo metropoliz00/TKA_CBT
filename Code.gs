@@ -154,8 +154,6 @@ function loginUser(username, password) {
                              message: `Login Ditolak. Jadwal ujian sekolah Anda adalah tanggal ${scheduledDate}, hari ini ${today}. Hubungi Admin Pusat.` 
                          };
                      }
-                     // Jika jadwal tidak ditemukan, kita izinkan login (atau bisa diubah untuk tolak)
-                     // Saat ini: Allow if not set to prevent lockout before config
                  }
              }
 
@@ -166,7 +164,8 @@ function loginUser(username, password) {
                     role: role, 
                     fullname: data[i][4], 
                     gender: data[i][5] || '-', 
-                    school: schoolName
+                    school: schoolName,
+                    kecamatan: '' // Admin biasanya tidak butuh kecamatan di frontend logic
                 }
              };
         }
@@ -188,6 +187,7 @@ function loginUser(username, password) {
         const school = data[i][6] || '-';
         const active_exam = data[i][7] || '-';
         const session = data[i][8] || '-';
+        const kecamatan = data[i][9] || '-'; // NEW FIELD
         
         logUserActivity(dbUser, fullname, "LOGIN", "Success");
         
@@ -199,6 +199,7 @@ function loginUser(username, password) {
               fullname: fullname, 
               gender: gender, 
               school: school,
+              kecamatan: kecamatan,
               active_exam: active_exam,
               session: session
           }
@@ -394,7 +395,8 @@ function getUsers() {
           gender: data[i][5],
           school: data[i][6],
           active_exam: data[i][7] || '-', 
-          session: data[i][8] || '-'      
+          session: data[i][8] || '-',
+          kecamatan: data[i][9] || '-' // NEW COLUMN KECAMATAN
         });
       }
   }
@@ -412,6 +414,7 @@ function getUsers() {
           fullname: data[i][4],
           gender: data[i][5],
           school: data[i][6],
+          kecamatan: '-', // Admin usually doesn't have Kecamatan listed
           active_exam: '-', 
           session: '-'      
         });
@@ -443,7 +446,7 @@ function adminSaveUser(userData) {
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(targetSheetName);
         if (isStudent) {
-            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan"]);
         } else {
             sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School"]);
         }
@@ -478,7 +481,8 @@ function adminSaveUser(userData) {
             userData.gender || '-',
             userData.school || '-',
             userData.active_exam || '-',
-            userData.session || '-'
+            userData.session || '-',
+            userData.kecamatan || '-' // Add Kecamatan
         ];
     } else {
         rowValues = [
@@ -494,6 +498,10 @@ function adminSaveUser(userData) {
 
     if (rowIndex > 0) {
         if (isStudent) {
+             // Preserve existing Exam/Session/Kecamatan if updating only parts, 
+             // but here we overwrite mostly. However, preserve if frontend sends empty but DB has value? 
+             // Logic in frontend sends full object, so we overwrite.
+             // Just ensure we don't accidentally wipe ActiveExam/Session if not passed
              if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
              if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
         }
@@ -526,7 +534,16 @@ function adminImportUsers(usersList) {
         
         if (isStudent) {
             students.push([
-                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-'
+                toSheetValue(id), 
+                toSheetValue(u.username), 
+                toSheetValue(u.password), 
+                'siswa', 
+                u.fullname, 
+                u.gender || '-', 
+                u.school || '-', 
+                '-', 
+                '-', 
+                u.kecamatan || '-' // Add Kecamatan
             ]);
         } else {
             admins.push([
@@ -539,9 +556,9 @@ function adminImportUsers(usersList) {
         let sSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
         if (!sSheet) {
             sSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
-            sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session"]);
+            sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan"]);
         }
-        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 9).setValues(students);
+        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 10).setValues(students);
     }
 
     if (admins.length > 0) {
@@ -912,6 +929,7 @@ function getDashboardData() {
                 username: d[i][1], 
                 fullname: d[i][4], 
                 school: d[i][6], 
+                kecamatan: d[i][9] || '-', // READ KECAMATAN FOR DASHBOARD
                 status: 'OFFLINE',
                 active_exam: d[i][7] || '-', 
                 session: d[i][8] || '-' 
@@ -936,12 +954,18 @@ function getDashboardData() {
        
        // FIX: Use username from User Sheet if available to preserve formatting (e.g. leading zeros)
        const displayUsername = users[uname] ? users[uname].username : d[i][1];
+       const displayKecamatan = users[uname] ? users[uname].kecamatan : '-';
 
        students.push({
            timestamp: d[i][0], 
            username: displayUsername, 
-           fullname: d[i][2], school: d[i][3], 
-           subject: d[i][4], score: Number(d[i][5]), itemAnalysis: analysis, duration: d[i][7]
+           fullname: d[i][2], 
+           school: d[i][3], 
+           kecamatan: displayKecamatan,
+           subject: d[i][4], 
+           score: Number(d[i][5]), 
+           itemAnalysis: analysis, 
+           duration: d[i][7]
        });
        
        if(users[uname]) {

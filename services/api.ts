@@ -2,7 +2,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyKlQ7dcNM2NwNo0KrfoGS7kY4npoKC-M2UlpXUVhO9ZorJLAUlEbCCyRMbhF8MQEAl/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyH49YiGus4vm9uU0bpVNtniwKMi-dGMf65UwTb28rjc77v-6DCrS8JVGIl9v1kstNv/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -89,6 +89,7 @@ export const api = {
             nama_lengkap: result.user.fullname,
             jenis_kelamin: result.user.gender, // Map gender from backend
             kelas_id: result.user.school,
+            kecamatan: result.user.kecamatan, // Map Kecamatan
             active_exam: result.user.active_exam, // NEW
             session: result.user.session // NEW
         };
