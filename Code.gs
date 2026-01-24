@@ -313,7 +313,22 @@ function updateUserSessions(updates) {
 }
 
 function resetLogin(username) {
-  // Adds a specific log entry "RESET". This is detected by getDashboardData to set status to OFFLINE.
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Clear Active Exam in SHEET_USERS
+  const userSheet = ss.getSheetByName(SHEET_USERS);
+  if (userSheet) {
+      const data = userSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < data.length; i++) {
+          if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
+              // Column 8 (index 7) is Active_Exam. Set to "-" to indicate no exam.
+              userSheet.getRange(i + 1, 8).setValue("-");
+              break; 
+          }
+      }
+  }
+
+  // 2. Log Activity to force status OFFLINE
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
   return { success: true };
 }
@@ -836,12 +851,15 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
       finalScore = parseFloat(finalScore.toFixed(2));
   }
 
+  // Force username to text to preserve leading zeros
+  const safeUsername = toSheetValue(username);
+
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
   if (!shNilai) {
       shNilai = ss.insertSheet(SHEET_RESULTS);
       shNilai.appendRow(["Timestamp", "Username", "Nama", "Kelas", "Mapel", "Nilai", "Analisis_JSON", "Durasi"]);
   }
-  shNilai.appendRow([timestamp, username, fullname, school, subject, finalScore, JSON.stringify(itemAnalysis), durationStr]);
+  shNilai.appendRow([timestamp, safeUsername, fullname, school, subject, finalScore, JSON.stringify(itemAnalysis), durationStr]);
   
   let shRekap = ss.getSheetByName(SHEET_REKAP);
   if (!shRekap) {
@@ -869,7 +887,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
       shRank = ss.insertSheet(SHEET_RANKING);
       shRank.appendRow(["Timestamp", "Username", "Nama", "Kelas", "Mapel", "Durasi", "Nilai"]);
   }
-  shRank.appendRow([timestamp, username, fullname, school, subject, durationStr, finalScore]);
+  shRank.appendRow([timestamp, safeUsername, fullname, school, subject, durationStr, finalScore]);
 
   logUserActivity(username, fullname, "FINISH", `${subject}: ${finalScore}`);
   
@@ -916,8 +934,13 @@ function getDashboardData() {
        let analysis = {};
        try { analysis = JSON.parse(d[i][6]); } catch(e){}
        
+       // FIX: Use username from User Sheet if available to preserve formatting (e.g. leading zeros)
+       const displayUsername = users[uname] ? users[uname].username : d[i][1];
+
        students.push({
-           timestamp: d[i][0], username: d[i][1], fullname: d[i][2], school: d[i][3], 
+           timestamp: d[i][0], 
+           username: displayUsername, 
+           fullname: d[i][2], school: d[i][3], 
            subject: d[i][4], score: Number(d[i][5]), itemAnalysis: analysis, duration: d[i][7]
        });
        

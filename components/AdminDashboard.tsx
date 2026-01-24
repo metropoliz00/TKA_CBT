@@ -529,7 +529,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 const wb = XLSX.read(bstr, { type: 'binary' });
                 const wsName = wb.SheetNames[0];
                 const ws = wb.Sheets[wsName];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                // Added raw: false to ensure string values like '001' are preserved as "001" and not parsed as number 1
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
                 
                 // Expected Columns: Username, Password, Role (siswa/admin_sekolah/admin_pusat), Nama Lengkap, Jenis Kelamin (L/P), Sekolah/Kelas
                 const parsedUsers = [];
@@ -1574,6 +1575,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         return null;
     }, [user, dashboardData.schedules]);
 
+    // NEW: Calculate Unique Schools for Admin Pusat
+    const uniqueSchoolsCount = useMemo(() => {
+        if (!dashboardData.allUsers) return 0;
+        const schools = new Set(dashboardData.allUsers.map((u: any) => u.school).filter((s: any) => s && s !== '-' && s.trim() !== ''));
+        return schools.size;
+    }, [dashboardData.allUsers]);
+
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
         {user.role === 'admin_sekolah' && (
@@ -1611,7 +1619,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${user.role === 'admin_pusat' ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-6`}>
+            
+            {/* NEW CARD: Total Sekolah (Only Admin Pusat) */}
+            {user.role === 'admin_pusat' && (
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Sekolah</p>
+                        <h3 className="text-3xl font-extrabold text-slate-700 mt-1">{uniqueSchoolsCount}</h3>
+                    </div>
+                    <div className="bg-orange-50 p-3 rounded-xl text-orange-500"><School size={24}/></div>
+                </div>
+            )}
+
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                 <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Terdaftar</p><h3 className="text-3xl font-extrabold text-slate-700 mt-1">{dashboardData.totalUsers}</h3></div>
                 <div className="bg-indigo-50 p-3 rounded-xl text-indigo-500"><Users size={24}/></div>
