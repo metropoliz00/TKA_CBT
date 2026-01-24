@@ -2087,6 +2087,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             });
             return row;
         });
+
+        // --- ADD SUMMARY ROWS ---
+        
+        // 1. Jumlah Benar
+        const correctRow: any = {
+            No: '',
+            "Nama Siswa": 'JUMLAH BENAR',
+            Sekolah: '',
+            Nilai: ''
+        };
+        stats.forEach((st: any, i: number) => {
+            correctRow[`Q${i + 1}`] = st.correct;
+        });
+        dataToExport.push(correctRow);
+
+        // 2. Persentase
+        const pctRow: any = {
+            No: '',
+            "Nama Siswa": 'PERSENTASE',
+            Sekolah: '',
+            Nilai: ''
+        };
+        stats.forEach((st: any, i: number) => {
+            pctRow[`Q${i + 1}`] = `${st.pct}%`;
+        });
+        dataToExport.push(pctRow);
+
         exportToExcel(dataToExport, `Analisis_Soal_${localSubject}`, "Analisis");
     };
 
