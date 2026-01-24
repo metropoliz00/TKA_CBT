@@ -322,8 +322,11 @@ function resetLogin(username) {
       const data = userSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < data.length; i++) {
           if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
-              // Column 8 (index 7) is Active_Exam. Set to "-" to indicate no exam.
-              userSheet.getRange(i + 1, 8).setValue("-");
+              // Column 8 (index 7) is Active_Exam. 
+              // Use clearContent() to ensure it is completely empty.
+              userSheet.getRange(i + 1, 8).clearContent();
+              // Also clear Session if needed, keeping it consistent (Column 9, index 8)
+              userSheet.getRange(i + 1, 9).clearContent(); 
               break; 
           }
       }
@@ -331,6 +334,7 @@ function resetLogin(username) {
 
   // 2. Log Activity to force status OFFLINE
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
+  SpreadsheetApp.flush(); // Force write changes
   return { success: true };
 }
 
@@ -993,13 +997,13 @@ function getDashboardData() {
           if (users[uname] && users[uname].status !== 'FINISHED') {
              // Only set status based on the *latest* log encountered for this user
              if (!statusSetFromLogs.has(uname)) {
-                  if (act === 'START' || act === 'RESUME') {
+                  if (act === 'RESET') {
+                      users[uname].status = 'OFFLINE'; // Explicitly set OFFLINE on reset
+                  } else if (act === 'START' || act === 'RESUME') {
                       users[uname].status = 'WORKING';
                   } else if (act === 'LOGIN') {
                       users[uname].status = 'LOGGED_IN';
-                  } else if (act === 'RESET') {
-                      users[uname].status = 'OFFLINE'; // Explicitly set OFFLINE on reset
-                  }
+                  } 
                   statusSetFromLogs.add(uname);
              }
           }

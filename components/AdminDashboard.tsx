@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, CalendarClock, Monitor, List, Layers, Calendar, MapPin } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow, SchoolSchedule } from '../types';
 import * as XLSX from 'xlsx';
@@ -155,7 +155,7 @@ const AturGelombangTab = ({ students }: { students: any[] }) => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in overflow-hidden">
              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
                 <div>
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><CalendarClock size={20}/> Atur Gelombang & Tanggal</h3>
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><Calendar size={20}/> Atur Gelombang & Tanggal</h3>
                     <p className="text-xs text-slate-400">Tentukan jadwal ujian untuk setiap sekolah.</p>
                 </div>
                 <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2">
@@ -1627,7 +1627,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         {user.role === 'admin_sekolah' && mySchedule && (
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
                  <div className="flex items-center gap-4">
-                    <div className="bg-white/20 p-3 rounded-full"><CalendarClock size={32}/></div>
+                    <div className="bg-white/20 p-3 rounded-full"><Calendar size={32}/></div>
                     <div>
                          <h2 className="text-xl font-bold">Jadwal Ujian Aktif</h2>
                          <p className="opacity-90 text-sm">Anda telah dijadwalkan oleh admin pusat.</p>
@@ -2172,7 +2172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 <p className="text-sm font-bold text-slate-800 leading-tight break-words mb-1">
                     {user.nama_lengkap || user.username}
                 </p>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${user.role === 'admin_pusat' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${user.role === 'admin_pusat' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-700'}`}>
                     {user.role === 'admin_pusat' ? 'Administrator' : 'Proktor'}
                 </span>
             </div>

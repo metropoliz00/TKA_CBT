@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, CalendarClock } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, Clock } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
@@ -207,7 +207,7 @@ function App() {
                     <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isOffline ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}><div className="flex items-center gap-3">{isOffline ? <WifiOff className="text-red-400" size={20} /> : <Wifi className="text-slate-400" size={20} />}<div><p className={`text-xs font-bold uppercase ${isOffline ? 'text-red-400' : 'text-slate-400'}`}>Status Device</p><p className={`font-bold ${isOffline ? 'text-red-600' : 'text-emerald-600'}`}>{sysInfo.status}</p></div></div><div className={`w-3 h-3 rounded-full ${isOffline ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div></div>
                 </div>
                 <button onClick={() => { enterFullscreen(); setView('login'); }} disabled={isOffline} className={`w-full font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 group ${isOffline ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'}`}>{isOffline ? "KONEKSI TERPUTUS" : (<>LANJUTKAN <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>)}</button>
-                <p className="text-center text-[10px] text-slate-400 mt-6">Klik "LANJUTKAN" untuk masuk ke mode layar penuh.</p>
+                <p className="text-center text-[10px] text-slate-400 mt-6">Klik "LANJUTKAN" untuk masuk ke halaman Login.</p>
             </div>
         </div>
       );
@@ -271,7 +271,7 @@ function App() {
                                     </>
                                 ) : (
                                     <div className="p-5 bg-red-50 border border-red-100 rounded-xl text-center text-red-600">
-                                        <CalendarClock size={32} className="mx-auto mb-2 opacity-50"/>
+                                        <Clock size={32} className="mx-auto mb-2 opacity-50"/>
                                         <p className="font-bold">Anda belum memiliki jadwal/sesi ujian.</p>
                                         <p className="text-xs mt-1 text-red-500">Silakan hubungi Proktor atau Admin Sekolah anda.</p>
                                     </div>

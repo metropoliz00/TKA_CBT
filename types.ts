@@ -105,9 +105,8 @@ declare global {
     google?: {
       script: {
         run: {
-          withSuccessHandler: (callback: (data: any) => void) => {
-            withFailureHandler: (callback: (error: any) => void) => any;
-          };
+          withSuccessHandler(callback: (data: any) => void): any;
+          withFailureHandler(callback: (error: any) => void): any;
           [key: string]: any;
         };
       };
