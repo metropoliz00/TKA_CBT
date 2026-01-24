@@ -585,8 +585,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 "Role (siswa/admin_sekolah/admin_pusat)": "siswa",
                 "Nama Lengkap": "Ahmad Siswa",
                 "L/P": "L",
-                "Sekolah / Kelas": "X-IPA-1",
-                "Kecamatan": "Gambir"
+                "Sekolah / Kelas": "UPT SD Negeri Remen 2",
+                "Kecamatan": "Jenu"
             },
             {
                 "Username": "proktor01",
@@ -594,8 +594,8 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                 "Role (siswa/admin_sekolah/admin_pusat)": "admin_sekolah",
                 "Nama Lengkap": "Pak Guru",
                 "L/P": "L",
-                "Sekolah / Kelas": "SMAN 1 Jakarta",
-                "Kecamatan": "Gambir"
+                "Sekolah / Kelas": "UPT SD Negeri Glodog",
+                "Kecamatan": "Palang"
             }
         ]);
         const wb = XLSX.utils.book_new();
@@ -775,7 +775,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                                             className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
                                             value={formData.school} 
                                             onChange={e => setFormData({...formData, school: e.target.value})} 
-                                            placeholder={formData.role === 'siswa' ? "Contoh: XII-IPA-1" : "Contoh: SMAN 1 Jakarta"}
+                                            placeholder={formData.role === 'siswa' ? "Sekolah" : "Sekolah"}
                                             disabled={currentUser.role === 'admin_sekolah'} // Proktor cant change their own school usually, but can add students to it
                                         />
                                      </div>
@@ -788,7 +788,7 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
                                             className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none" 
                                             value={formData.kecamatan} 
                                             onChange={e => setFormData({...formData, kecamatan: e.target.value})} 
-                                            placeholder="Contoh: Gambir"
+                                            placeholder="Kecamatan"
                                         />
                                      </div>
                                  </div>
@@ -1020,7 +1020,7 @@ const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshin
         try {
             await api.saveMaxQuestions(Number(localMaxQ));
             refreshData();
-            alert("Jumlah soal berhasil disimpan. Perhitungan nilai akan menyesuaikan jumlah ini.");
+            alert("Jumlah soal berhasil disimpan. Perhitungan nilai akan menyesuaikan jumlah soal.");
         } catch (e) {
             console.error(e);
             alert("Gagal menyimpan.");
@@ -1289,7 +1289,7 @@ const BankSoalTab = () => {
                     <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><FileQuestion size={24}/></div>
                     <div>
                         <h3 className="font-bold text-slate-800">Manajemen Bank Soal</h3>
-                        <p className="text-xs text-slate-400">Edit database soal (Matematika / Bahasa Indonesia).</p>
+                        <p className="text-xs text-slate-400">Edit database Bank soal.</p>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
