@@ -339,19 +339,22 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                         <tr>
-                            <th className="p-4">Peserta</th>
+                            <th className="p-4">Nama Peserta</th>
+                            <th className="p-4">Username</th>
+                            <th className="p-4">Sekolah</th>
+                            <th className="p-4">Kecamatan</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ujian Aktif</th>
                             <th className="p-4 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {filtered.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400">Tidak ada data.</td></tr> : filtered.map((s, i) => (
+                        {filtered.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-slate-400">Tidak ada data.</td></tr> : filtered.map((s, i) => (
                             <tr key={i} className="hover:bg-slate-50">
-                                <td className="p-4">
-                                    <div className="font-bold text-slate-700">{s.fullname}</div>
-                                    <div className="text-xs text-slate-400">{s.username} • {s.school}</div>
-                                </td>
+                                <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
+                                <td className="p-4 font-mono text-slate-500">{s.username}</td>
+                                <td className="p-4 text-slate-600">{s.school}</td>
+                                <td className="p-4 text-slate-600">{s.kecamatan || '-'}</td>
                                 <td className="p-4">
                                     {renderStatusBadge(s.status)}
                                 </td>
@@ -1780,9 +1783,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                                             <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">{new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                         </div>
                                         
-                                        <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                            <School size={12} className="text-slate-400"/>
-                                            <span className="truncate font-medium">{log.school || '-'}</span>
+                                        <div className="text-xs text-slate-500 mb-2 space-y-1">
+                                            <div className="flex items-center gap-1">
+                                                <School size={12} className="text-slate-400"/>
+                                                <span className="truncate font-medium">{log.school || '-'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <MapPin size={12} className="text-slate-400"/>
+                                                <span className="truncate font-medium">{log.kecamatan || '-'}</span>
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-wrap gap-2">

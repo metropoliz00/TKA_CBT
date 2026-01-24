@@ -2,7 +2,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyH49YiGus4vm9uU0bpVNtniwKMi-dGMf65UwTb28rjc77v-6DCrS8JVGIl9v1kstNv/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbxnuv_n2mwMPoVq25Mu2RbmpN0Zi65oVFrGZbTZniZB4AjVsNOaXfSr-adZVYsagKc_/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;

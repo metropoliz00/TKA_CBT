@@ -198,7 +198,7 @@ function loginUser(username, password) {
               role: 'siswa', 
               fullname: fullname, 
               gender: gender, 
-              school: school,
+              school: school, 
               kecamatan: kecamatan,
               active_exam: active_exam,
               session: session
@@ -1007,6 +1007,8 @@ function getDashboardData() {
           // FEED LOGIC
           if (feed.length < 20) {
               const school = users[uname] ? users[uname].school : '-';
+              const kecamatan = users[uname] ? users[uname].kecamatan : '-'; // NEW FIELD KECAMATAN
+
               let subject = '-';
               if (act === 'START' || act === 'RESUME') {
                   subject = d[i][4];
@@ -1022,6 +1024,7 @@ function getDashboardData() {
                   action: act, 
                   details: d[i][4],
                   school: school, // Add school to feed
+                  kecamatan: kecamatan, // Add kecamatan to feed
                   subject: subject
               });
           }
