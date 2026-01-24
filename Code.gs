@@ -1,4 +1,5 @@
 
+
 /* 
   CONFIGURATION
   Pastikan nama Sheet (Tab) di Google Spreadsheet sesuai dengan variabel di bawah ini.
@@ -165,7 +166,7 @@ function loginUser(username, password) {
                     fullname: data[i][4], 
                     gender: data[i][5] || '-', 
                     school: schoolName,
-                    kecamatan: '' // Admin biasanya tidak butuh kecamatan di frontend logic
+                    kecamatan: data[i][7] || '-' // Read from column H (Index 7)
                 }
              };
         }
@@ -418,7 +419,7 @@ function getUsers() {
           fullname: data[i][4],
           gender: data[i][5],
           school: data[i][6],
-          kecamatan: '-', // Admin usually doesn't have Kecamatan listed
+          kecamatan: data[i][7] || '-', // UPDATED: Read Kecamatan for Admins
           active_exam: '-', 
           session: '-'      
         });
@@ -452,7 +453,7 @@ function adminSaveUser(userData) {
         if (isStudent) {
             sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan"]);
         } else {
-            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School"]);
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan"]);
         }
     }
 
@@ -486,9 +487,10 @@ function adminSaveUser(userData) {
             userData.school || '-',
             userData.active_exam || '-',
             userData.session || '-',
-            userData.kecamatan || '-' // Add Kecamatan
+            userData.kecamatan || '-'
         ];
     } else {
+        // UPDATED: Include Kecamatan for Admins
         rowValues = [
             toSheetValue(id),
             toSheetValue(userData.username),
@@ -496,20 +498,18 @@ function adminSaveUser(userData) {
             userData.role,
             userData.fullname,
             userData.gender || '-',
-            userData.school || '-'
+            userData.school || '-',
+            userData.kecamatan || '-'
         ];
     }
 
     if (rowIndex > 0) {
         if (isStudent) {
-             // Preserve existing Exam/Session/Kecamatan if updating only parts, 
-             // but here we overwrite mostly. However, preserve if frontend sends empty but DB has value? 
-             // Logic in frontend sends full object, so we overwrite.
-             // Just ensure we don't accidentally wipe ActiveExam/Session if not passed
              if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
              if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
         }
         
+        // Use rowValues.length to determine range size (Safe for variable columns)
         sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
         sheet.appendRow(rowValues);
@@ -547,11 +547,12 @@ function adminImportUsers(usersList) {
                 u.school || '-', 
                 '-', 
                 '-', 
-                u.kecamatan || '-' // Add Kecamatan
+                u.kecamatan || '-' 
             ]);
         } else {
+            // UPDATED: Include Kecamatan for Admins Import
             admins.push([
-                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-'
+                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-', u.kecamatan || '-'
             ]);
         }
     });
@@ -569,9 +570,10 @@ function adminImportUsers(usersList) {
         let aSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ADMINS);
         if (!aSheet) {
             aSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_ADMINS);
-            aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School"]);
+            aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan"]);
         }
-        aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 7).setValues(admins);
+        // UPDATED: Write 8 columns for Admins
+        aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 8).setValues(admins);
     }
 
     return { success: true, message: `Berhasil mengimpor ${students.length} siswa dan ${admins.length} admin.` };
