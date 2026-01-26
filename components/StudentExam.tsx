@@ -10,7 +10,7 @@ interface StudentExamProps {
   userFullName: string;
   username: string; // Needed for unique local storage key
   startTime: number; // Absolute start time from server
-  onFinish: (answers: Record<string, UserAnswerValue>, questionCount: number, questionIds: string[]) => Promise<void> | void;
+  onFinish: (answers: Record<string, UserAnswerValue>, questionCount: number, questionIds: string[], isTimeout?: boolean) => Promise<void> | void;
   onExit: () => void;
 }
 
@@ -188,6 +188,25 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       }
   }, [answers, doubtful, storageKey]);
 
+  // Execute Finish Function
+  const executeFinish = async (isTimeout: boolean = false) => {
+    setShowConfirmFinish(false);
+    setIsSubmitting(true);
+    try { if(document.fullscreenElement) await document.exitFullscreen(); } catch(e) {}
+    try {
+      const qIds = examQuestions.map(q => q.id);
+      await onFinish(answers, examQuestions.length, qIds, isTimeout);
+    } catch (error) {
+      console.error("Error submitting:", error);
+      setIsSubmitting(false);
+      alert("Gagal mengirim jawaban. Silakan periksa koneksi internet anda dan coba lagi.");
+    }
+  };
+
+  // Ref to hold the latest executeFinish to avoid stale closure in setInterval
+  const executeFinishRef = useRef(executeFinish);
+  useEffect(() => { executeFinishRef.current = executeFinish; });
+
   useEffect(() => {
     if (timeLeft <= 0) return;
     const intervalId = setInterval(() => {
@@ -198,7 +217,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       if (remaining <= 0) {
         clearInterval(intervalId);
         setTimeLeft(0);
-        executeFinish();
+        executeFinishRef.current(true); // Call Ref to ensure latest state (answers) is used
       } else {
         setTimeLeft(remaining);
       }
@@ -301,20 +320,6 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       }
       return prev;
     });
-  };
-
-  const executeFinish = async () => {
-    setShowConfirmFinish(false);
-    setIsSubmitting(true);
-    try { if(document.fullscreenElement) await document.exitFullscreen(); } catch(e) {}
-    try {
-      const qIds = examQuestions.map(q => q.id);
-      await onFinish(answers, examQuestions.length, qIds);
-    } catch (error) {
-      console.error("Error submitting:", error);
-      setIsSubmitting(false);
-      alert("Gagal mengirim jawaban. Silakan periksa koneksi internet anda dan coba lagi.");
-    }
   };
 
   const isLastQuestion = currentIdx === examQuestions.length - 1;
@@ -425,7 +430,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
           )}
         </div>
       </footer>
-      {showConfirmFinish && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-all border border-slate-100"><div className="p-6 text-center"><div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-yellow-50"><AlertTriangle size={32} /></div><h3 className="text-xl font-bold text-slate-800 mb-2">Selesaikan Ujian?</h3><p className="text-slate-500 mb-6 text-sm leading-relaxed">Anda akan mengakhiri sesi untuk <span className="font-bold text-slate-800">{userFullName}</span>.<br/>Jawaban akan dikirim permanen.</p><div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100 text-left text-sm space-y-2"><div className="flex justify-between"><span className="text-slate-500">Terjawab</span><span className="font-bold text-slate-700">{Object.keys(answers).length} / {examQuestions.length}</span></div><div className="flex justify-between"><span className="text-slate-500">Ragu-ragu</span><span className="font-bold text-yellow-600">{Object.values(doubtful).filter(Boolean).length}</span></div></div><div className="flex gap-3"><button onClick={() => setShowConfirmFinish(false)} className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition">Batal</button><button onClick={executeFinish} className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">Ya, Selesai</button></div></div></div></div>)}
+      {showConfirmFinish && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 transition-all border border-slate-100"><div className="p-6 text-center"><div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-yellow-50"><AlertTriangle size={32} /></div><h3 className="text-xl font-bold text-slate-800 mb-2">Selesaikan Ujian?</h3><p className="text-slate-500 mb-6 text-sm leading-relaxed">Anda akan mengakhiri sesi untuk <span className="font-bold text-slate-800">{userFullName}</span>.<br/>Jawaban akan dikirim permanen.</p><div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100 text-left text-sm space-y-2"><div className="flex justify-between"><span className="text-slate-500">Terjawab</span><span className="font-bold text-slate-700">{Object.keys(answers).length} / {examQuestions.length}</span></div><div className="flex justify-between"><span className="text-slate-500">Ragu-ragu</span><span className="font-bold text-yellow-600">{Object.values(doubtful).filter(Boolean).length}</span></div></div><div className="flex gap-3"><button onClick={() => setShowConfirmFinish(false)} className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition">Batal</button><button onClick={() => executeFinish(false)} className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">Ya, Selesai</button></div></div></div></div>)}
     </div>
   );
 };

@@ -158,10 +158,21 @@ function App() {
     } catch (err) { console.error(err); setErrorMsg('Gagal memuat soal. Periksa koneksi.'); setShowConfirmModal(false); } finally { setLoading(false); }
   };
 
-  const handleFinishExam = async (answers: any, displayedQuestionCount: number, questionIds: string[]) => {
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setLoginForm({ username: '', password: '' });
+    setInputToken('');
+    setErrorMsg('');
+    setQuestions([]);
+    setShowPassword(false);
+    setShowConfirmModal(false);
+    setView('login');
+  };
+
+  const handleFinishExam = async (answers: any, displayedQuestionCount: number, questionIds: string[], isTimeout: boolean = false) => {
     if (!currentUser || !selectedExamId) return;
     setLoading(true);
-    setLoadingMessage('Menyimpan Jawaban ke Database...');
+    setLoadingMessage(isTimeout ? 'Waktu Habis! Menyimpan Jawaban...' : 'Menyimpan Jawaban ke Database...');
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { console.warn("Exit fullscreen failed", e); }
     try {
         const lsKey = `cbt_answers_${currentUser.username}_${selectedExamId}`;
@@ -174,19 +185,14 @@ function App() {
             displayedQuestionCount,
             questionIds
         });
-        setView('result');
+        
+        if (isTimeout) {
+            alert("Waktu Ujian Telah Habis. Jawaban anda telah tersimpan secara otomatis. Sistem akan logout.");
+            handleLogout();
+        } else {
+            setView('result');
+        }
     } catch (err) { alert("Gagal menyimpan jawaban. Coba lagi."); console.error(err); } finally { setLoading(false); }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setLoginForm({ username: '', password: '' });
-    setInputToken('');
-    setErrorMsg('');
-    setQuestions([]);
-    setShowPassword(false);
-    setShowConfirmModal(false);
-    setView('login');
   };
 
   const selectedExam = examList.find(e => e.id === selectedExamId);
