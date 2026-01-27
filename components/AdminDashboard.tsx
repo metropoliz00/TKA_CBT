@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin } from 'lucide-react';
+import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer } from 'lucide-react';
 import { api } from '../services/api';
 import { User, QuestionRow, SchoolSchedule } from '../types';
 import * as XLSX from 'xlsx';
@@ -27,6 +27,27 @@ const formatDurationToText = (duration: string) => {
         
         return textParts.length > 0 ? textParts.join(' ') : '0 Detik';
     } catch (e) { return duration; }
+};
+
+// Helper: Score Predicate Logic
+const getScorePredicate = (score: number) => {
+    if (score >= 86) return "Istimewa";
+    if (score >= 71) return "Baik";
+    if (score >= 56) return "Memadai";
+    return "Kurang";
+};
+
+// Helper: Predicate Badge Component
+const getPredicateBadge = (score: number) => {
+    const p = getScorePredicate(score);
+    let color = "";
+    switch (p) {
+        case "Istimewa": color = "bg-purple-100 text-purple-700 border-purple-200"; break;
+        case "Baik": color = "bg-emerald-100 text-emerald-700 border-emerald-200"; break;
+        case "Memadai": color = "bg-yellow-100 text-yellow-700 border-yellow-200"; break;
+        default: color = "bg-rose-100 text-rose-700 border-rose-200"; break;
+    }
+    return <span className={`px-2 py-1 rounded text-xs font-bold border ${color}`}>{p}</span>;
 };
 
 // Generic Export Function
@@ -1877,11 +1898,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             "Asal Sekolah": s.school,
             Mapel: s.subject,
             Score: s.score,
+            Predikat: getScorePredicate(s.score),
             "Waktu Mulai": calculateStartTime(s.timestamp, s.duration),
             "Waktu Selesai": formatTime(s.timestamp),
             Durasi: formatDurationToText(s.duration)
         }));
         exportToExcel(dataToExport, "Rekap_Nilai_Peserta", "Rekap Nilai");
+    };
+
+    const printIndividualRecap = (student: any) => {
+        const predicate = getScorePredicate(student.score);
+        const dateStr = new Date(student.timestamp).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        
+        const printWindow = window.open('', '', 'width=800,height=600');
+        if (!printWindow) return alert("Pop-up blocked. Please allow pop-ups.");
+  
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Hasil Tes - ${student.fullname}</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+               @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+               body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-print-color-adjust: exact; }
+            </style>
+          </head>
+          <body class="bg-white p-8">
+              <div class="max-w-2xl mx-auto border-2 border-slate-800 p-8 rounded-xl relative overflow-hidden">
+                  <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                  
+                  <div class="text-center border-b-2 border-slate-100 pb-6 mb-8">
+                      <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight uppercase">Laporan Hasil Tes</h1>
+                      <p class="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">Computer Based Test (CBT) System</p>
+                  </div>
+  
+                  <div class="grid grid-cols-1 gap-6 mb-8">
+                      <div class="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                           <table class="w-full text-sm font-medium text-slate-700">
+                              <tr><td class="py-2 w-32 text-slate-400 font-bold uppercase text-xs">Nama Peserta</td><td class="font-bold text-lg text-slate-800">${student.fullname}</td></tr>
+                              <tr><td class="py-2 text-slate-400 font-bold uppercase text-xs">Nomor Peserta</td><td class="font-mono font-bold">${student.username}</td></tr>
+                              <tr><td class="py-2 text-slate-400 font-bold uppercase text-xs">Asal Sekolah</td><td>${student.school}</td></tr>
+                              <tr><td class="py-2 text-slate-400 font-bold uppercase text-xs">Mata Ujian</td><td><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold uppercase">${student.subject}</span></td></tr>
+                              <tr><td class="py-2 text-slate-400 font-bold uppercase text-xs">Waktu Ujian</td><td>${dateStr}</td></tr>
+                          </table>
+                      </div>
+                  </div>
+  
+                  <div class="flex flex-col items-center justify-center bg-slate-900 text-white rounded-2xl p-8 mb-10 shadow-xl relative overflow-hidden">
+                       <div class="absolute top-0 right-0 p-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                       <p class="text-xs font-bold text-blue-200 uppercase tracking-[0.2em] mb-2 z-10">Pencapaian Nilai Akhir</p>
+                       <div class="text-7xl font-extrabold mb-4 z-10">${student.score}</div>
+                       <div class="px-4 py-1.5 bg-white/10 rounded-full border border-white/20 text-sm font-bold z-10">Predikat: <span class="text-yellow-400">${predicate}</span></div>
+                  </div>
+  
+                  <div class="flex justify-between items-end mt-12 text-sm text-slate-600">
+                      <div class="text-xs text-slate-400 italic">
+                          Dicetak pada: ${new Date().toLocaleString('id-ID')}
+                      </div>
+                      <div class="text-center">
+                          <p class="mb-16">Mengetahui,</p>
+                          <p class="font-bold text-slate-800 border-b border-slate-300 pb-1 px-4 inline-block">Proktor / Pengawas</p>
+                      </div>
+                  </div>
+              </div>
+              <script>
+                  setTimeout(() => { window.print(); window.close(); }, 500);
+              </script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
     };
 
     if (isRefreshing) {
@@ -1949,14 +2036,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                             <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('school')}>Asal Sekolah <ArrowUpDown size={12} className="inline ml-1"/></th>
                             <th className="p-4 cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('subject')}>Mapel <ArrowUpDown size={12} className="inline ml-1"/></th>
                             <th className="p-4 text-center cursor-pointer hover:text-indigo-600" onClick={()=>handleSort('score')}>Score <ArrowUpDown size={12} className="inline ml-1"/></th>
+                            <th className="p-4 text-center">Predikat</th>
                             <th className="p-4">Waktu Mulai</th>
                             <th className="p-4">Waktu Selesai</th>
                             <th className="p-4">Durasi</th>
+                            <th className="p-4 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {filteredRekap.length === 0 ? (
-                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan sesuai filter.</td></tr>
+                            <tr><td colSpan={10} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan sesuai filter.</td></tr>
                         ) : filteredRekap.map((s: any, i: number) => (
                             <tr key={i} className="hover:bg-slate-50 transition">
                                 <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
@@ -1964,9 +2053,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                                 <td className="p-4 text-slate-600">{s.school}</td>
                                 <td className="p-4 text-slate-600"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs font-bold">{s.subject}</span></td>
                                 <td className="p-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</span></td>
+                                <td className="p-4 text-center">{getPredicateBadge(s.score)}</td>
                                 <td className="p-4 text-slate-500 font-mono text-xs">{calculateStartTime(s.timestamp, s.duration)}</td>
                                 <td className="p-4 text-slate-500 font-mono text-xs">{formatTime(s.timestamp)}</td>
                                 <td className="p-4 text-slate-500 font-bold text-xs">{formatDurationToText(s.duration)}</td>
+                                <td className="p-4 text-center">
+                                    <button onClick={() => printIndividualRecap(s)} className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition" title="Cetak Rekap Individu">
+                                        <Printer size={16}/>
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -2000,6 +2095,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             "Nama Peserta": s.fullname,
             "Asal Sekolah": s.school,
             Nilai: s.score,
+            Predikat: getScorePredicate(s.score),
             Durasi: formatDurationToText(s.duration)
         }));
         exportToExcel(dataToExport, "Peringkat_Peserta", "Peringkat");
@@ -2015,16 +2111,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
+                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 text-center">Predikat</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
-                        {currentData.length === 0 ? ( <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
+                        {currentData.length === 0 ? ( <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
                             currentData.map((s, i) => {
                                 const realRank = startIndex + i + 1;
                                 let rankBadge = <span className="font-mono text-slate-400 font-bold">#{realRank}</span>;
                                 if (realRank === 1) rankBadge = <span className="text-2xl">🥇</span>;
                                 if (realRank === 2) rankBadge = <span className="text-2xl">🥈</span>;
                                 if (realRank === 3) rankBadge = <span className="text-2xl">🥉</span>;
-                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
+                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-center">{getPredicateBadge(s.score)}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
                             })
                         )}
                     </tbody>
@@ -2079,7 +2175,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 No: i + 1,
                 "Nama Siswa": s.fullname,
                 Sekolah: s.school,
-                Nilai: s.score
+                Nilai: s.score,
+                Predikat: getScorePredicate(s.score)
             };
             currentQuestions.forEach((q: any, idx: number) => {
                 const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined;
@@ -2133,12 +2230,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-center border-collapse">
-                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th></tr></thead>
+                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th><th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">PREDIKAT</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
-                        {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 3} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors"><td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td><td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">{s.fullname}<div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div></td>{currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td></tr>
+                        {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 4} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors"><td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td><td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">{s.fullname}<div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div></td>{currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td><td className="p-2 border-l border-slate-100">{getPredicateBadge(s.score)}</td></tr>
                         ))}
-                        {finalStudents.length > 0 && ( <><tr className="bg-slate-50 border-t-2 border-slate-200"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}<td className="bg-slate-100"></td></tr><tr className="bg-slate-100"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}<td className="bg-slate-200"></td></tr></> )}
+                        {finalStudents.length > 0 && ( <><tr className="bg-slate-50 border-t-2 border-slate-200"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}<td className="bg-slate-100"></td><td className="bg-slate-100"></td></tr><tr className="bg-slate-100"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}<td className="bg-slate-200"></td><td className="bg-slate-200"></td></tr></> )}
                     </tbody>
                 </table>
             </div>
