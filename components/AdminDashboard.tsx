@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer } from 'lucide-react';
 import { api } from '../services/api';
@@ -2075,12 +2074,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const RankingTab = () => {
-    // ... (RankingTab content stays same)
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterSchool, setFilterSchool] = useState('all');
+    const [filterKecamatan, setFilterKecamatan] = useState('all');
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
-    const rankingData = useMemo(() => {
-        return [...filteredStudents].sort((a: any, b: any) => b.score - a.score);
+
+    const uniqueSchools = useMemo(() => {
+        const schools = new Set(filteredStudents.map((s: any) => s.school).filter(Boolean));
+        return Array.from(schools).sort();
     }, [filteredStudents]);
+
+    const uniqueKecamatans = useMemo(() => {
+        const kecs = new Set(filteredStudents.map((s: any) => s.kecamatan).filter(Boolean));
+        return Array.from(kecs).sort();
+    }, [filteredStudents]);
+
+    const rankingData = useMemo(() => {
+        return [...filteredStudents]
+            .filter((s: any) => {
+                const matchName = s.fullname.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  s.username.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchSchool = filterSchool === 'all' || s.school === filterSchool;
+                const matchKecamatan = filterKecamatan === 'all' || s.kecamatan === filterKecamatan;
+                return matchName && matchSchool && matchKecamatan;
+            })
+            .sort((a: any, b: any) => b.score - a.score);
+    }, [filteredStudents, searchTerm, filterSchool, filterKecamatan]);
 
     const totalPages = Math.ceil(rankingData.length / rowsPerPage);
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -2094,6 +2114,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             Username: s.username,
             "Nama Peserta": s.fullname,
             "Asal Sekolah": s.school,
+            "Kecamatan": s.kecamatan || '-',
             Nilai: s.score,
             Predikat: getScorePredicate(s.score),
             Durasi: formatDurationToText(s.duration)
@@ -2109,18 +2130,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     <FileText size={16}/> Export Excel
                 </button>
             </div>
+
+            {/* Filter Section */}
+            <div className="p-4 bg-slate-50 border-b border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Cari Nama / Username..." 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    />
+                </div>
+                <div className="relative">
+                    <School className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <select 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={filterSchool}
+                        onChange={(e) => { setFilterSchool(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value="all">Semua Sekolah</option>
+                        {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <select 
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-100 outline-none"
+                        value={filterKecamatan}
+                        onChange={(e) => { setFilterKecamatan(e.target.value); setCurrentPage(1); }}
+                    >
+                        <option value="all">Semua Kecamatan</option>
+                        {uniqueKecamatans.map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                </div>
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 text-center">Predikat</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
+                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 cursor-pointer hover:text-amber-700">Kecamatan</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 text-center">Predikat</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
-                        {currentData.length === 0 ? ( <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
+                        {currentData.length === 0 ? ( <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
                             currentData.map((s, i) => {
                                 const realRank = startIndex + i + 1;
                                 let rankBadge = <span className="font-mono text-slate-400 font-bold">#{realRank}</span>;
                                 if (realRank === 1) rankBadge = <span className="text-2xl">🥇</span>;
                                 if (realRank === 2) rankBadge = <span className="text-2xl">🥈</span>;
                                 if (realRank === 3) rankBadge = <span className="text-2xl">🥉</span>;
-                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-center">{getPredicateBadge(s.score)}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
+                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-slate-500 text-xs font-medium uppercase tracking-wide">{s.kecamatan || '-'}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-center">{getPredicateBadge(s.score)}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
                             })
                         )}
                     </tbody>
@@ -2250,7 +2308,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden fade-in" onClick={() => setIsSidebarOpen(false)}></div>}
 
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:flex ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* ... (Sidebar Header & Nav remains same) */}
+        {/* Sidebar Header */}
         <div className="p-6 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">Management System <span className="text-indigo-600">Center</span></h1>
