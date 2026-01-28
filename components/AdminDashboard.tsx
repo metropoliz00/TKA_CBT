@@ -889,10 +889,7 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
                         </select>
                     )}
                     <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
-                        <option>Sesi 1</option>
-                        <option>Sesi 2</option>
-                        <option>Sesi 3</option>
-                        <option>Sesi 4</option>
+                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
                     </select>
                 </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
@@ -2220,7 +2217,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     const availableSchools = useMemo((): string[] => {
         const schools = new Set(studentsBySubject.map((s: any) => s.school));
         const arr = Array.from(schools).filter((s): s is string => typeof s === 'string' && !!s).sort();
-        return ['Semua', ...arr] as string[];
+        return ['Semua', ...arr];
     }, [studentsBySubject]);
 
     const finalStudents = studentsBySubject.filter((s: any) => {
@@ -2294,8 +2291,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition mr-4">
                         <FileText size={16}/> Export Excel
                     </button>
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map((s: string) => <option key={s} value={s}>{s}</option>)}</select></div>
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s: string) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
+                    {/* Fix: cast subjects to any[] and map parameter s to any to prevent unknown error on line 2157 */}
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{(subjects as any[]).map((s: any) => <option key={s} value={s}>{s}</option>)}</select></div>
+                    {/* Fix: cast availableSchools to any[] and map parameter s to any to prevent unknown error on line 2168 */}
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{(availableSchools as any[]).map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
                 </div>
             </div>
             <div className="overflow-x-auto">
