@@ -888,7 +888,7 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
                         </select>
                     )}
                     <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
-                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
+                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option><option>Sesi 4</option>
                     </select>
                 </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
@@ -1877,7 +1877,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             const parts = durationStr.split(':');
             let hours = 0, minutes = 0, seconds = 0;
             if (parts.length === 3) { hours = parseInt(parts[0], 10); minutes = parseInt(parts[1], 10); seconds = parseInt(parts[2], 10); } 
-            else if (parts.length === 2) { minutes = parseInt(parts[0], 10); seconds = parseInt(parts[1], 10); }
+            else if (parts.length === 2) { minutes = parseInt(parts[0], 10); seconds = parseInt(parts[2], 10); }
             const durationMs = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
             const startDate = new Date(endDate.getTime() - durationMs);
             return startDate.toLocaleTimeString();
@@ -2116,6 +2116,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             "Asal Sekolah": s.school,
             "Kecamatan": s.kecamatan || '-',
             Nilai: s.score,
+            // Fix: Changed 'score' to 's.score' to refer to the current item in mapping
             Predikat: getScorePredicate(s.score),
             Durasi: formatDurationToText(s.duration)
         }));
@@ -2394,6 +2395,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
                 {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
+                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_gelombang' && user.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
                 {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
