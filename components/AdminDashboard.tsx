@@ -2242,6 +2242,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 No: i + 1,
                 "Nama Siswa": s.fullname,
                 Sekolah: s.school,
+                Kecamatan: s.kecamatan || '-',
                 Nilai: s.score,
                 Predikat: getScorePredicate(s.score)
             };
@@ -2259,6 +2260,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             No: '',
             "Nama Siswa": 'JUMLAH BENAR',
             Sekolah: '',
+            Kecamatan: '',
             Nilai: ''
         };
         stats.forEach((st: any, i: number) => {
@@ -2271,6 +2273,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             No: '',
             "Nama Siswa": 'PERSENTASE',
             Sekolah: '',
+            Kecamatan: '',
             Nilai: ''
         };
         stats.forEach((st: any, i: number) => {
@@ -2292,19 +2295,51 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                         <FileText size={16}/> Export Excel
                     </button>
                     {/* Fix: cast subjects to any[] and map parameter s to any to prevent unknown error on line 2157 */}
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{(subjects as any[]).map((s: any) => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
                     {/* Fix: cast availableSchools to any[] and map parameter s to any to prevent unknown error on line 2168 */}
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{(availableSchools as any[]).map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
                 </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-center border-collapse">
-                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th><th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">PREDIKAT</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th>
+                            <th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">
+                                NAMA SISWA
+                                <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span>
+                            </th>
+                            <th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px]">SEKOLAH</th>
+                            <th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[150px]">KECAMATAN</th>
+                            {currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}
+                            <th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th>
+                            <th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">PREDIKAT</th>
+                        </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 4} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors"><td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td><td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">{s.fullname}<div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div></td>{currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td><td className="p-2 border-l border-slate-100">{getPredicateBadge(s.score)}</td></tr>
+                        {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 6} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td>
+                                <td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10 shadow-sm">{s.fullname}</td>
+                                <td className="p-2 border-r border-slate-100 text-left text-xs text-slate-600 whitespace-nowrap">{s.school}</td>
+                                <td className="p-2 border-r border-slate-100 text-left text-xs text-slate-600">{s.kecamatan || '-'}</td>
+                                {currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td><td className="p-2 border-l border-slate-100">{getPredicateBadge(s.score)}</td>
+                            </tr>
                         ))}
-                        {finalStudents.length > 0 && ( <><tr className="bg-slate-50 border-t-2 border-slate-200"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}<td className="bg-slate-100"></td><td className="bg-slate-100"></td></tr><tr className="bg-slate-100"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}<td className="bg-slate-200"></td><td className="bg-slate-200"></td></tr></> )}
+                        {finalStudents.length > 0 && ( 
+                            <>
+                                <tr className="bg-slate-50 border-t-2 border-slate-200">
+                                    <td colSpan={4} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>
+                                    {stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}
+                                    <td className="bg-slate-100"></td><td className="bg-slate-100"></td>
+                                </tr>
+                                <tr className="bg-slate-100">
+                                    <td colSpan={4} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>
+                                    {stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}
+                                    <td className="bg-slate-200"></td><td className="bg-slate-200"></td>
+                                </tr>
+                            </> 
+                        )}
                     </tbody>
                 </table>
             </div>
