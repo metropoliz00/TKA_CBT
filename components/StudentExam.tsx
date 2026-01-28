@@ -311,8 +311,13 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       if (type === 'PG') return { ...prev, [qId]: val };
       if (type === 'PGK') {
         const currentArr = (prev[qId] as string[]) || [];
-        if (currentArr.includes(val)) return { ...prev, [qId]: currentArr.filter(id => id !== val) };
-        else return { ...prev, [qId]: [...currentArr, val] };
+        if (currentArr.includes(val)) {
+             return { ...prev, [qId]: currentArr.filter(id => id !== val) };
+        } else {
+             // Enforce Limit of 2 Selections for PGK as per requirements
+             if (currentArr.length >= 2) return prev;
+             return { ...prev, [qId]: [...currentArr, val] };
+        }
       }
       if (type === 'BS' && subId) {
         const currentObj = (prev[qId] as Record<string, boolean>) || {};
@@ -363,6 +368,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               <div className="flex items-center gap-3">
                 <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded">SOAL NO. {currentIdx + 1}</span>
                 {exam.max_questions && exam.max_questions > 0 && (<span className="text-[10px] text-slate-400 font-bold hidden sm:inline">(Total: {exam.max_questions})</span>)}
+                {currentQ.tipe_soal === 'PGK' && <span className="text-xs text-indigo-600 font-bold hidden md:inline bg-indigo-50 px-2 py-1 rounded border border-indigo-100">(Pilih 2 Jawaban)</span>}
               </div>
               <div className="flex gap-1 bg-white p-1 rounded-lg border border-slate-200">
                 {(['sm', 'md', 'lg'] as const).map(s => (<button key={s} onClick={() => setFontSize(s)} className={`w-8 h-8 flex items-center justify-center rounded text-xs font-bold transition ${fontSize === s ? 'bg-slate-200 font-bold' : 'hover:bg-slate-50 text-slate-500'}`}>A{s === 'lg' ? '+' : s === 'sm' ? '-' : ''}</button>))}

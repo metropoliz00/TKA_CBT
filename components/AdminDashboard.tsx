@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer } from 'lucide-react';
 import { api } from '../services/api';
@@ -888,7 +889,7 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
                         </select>
                     )}
                     <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
-                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option><option>Sesi 4</option>
+                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
                     </select>
                 </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
@@ -1297,7 +1298,7 @@ const BankSoalTab = () => {
 
     const getKeyHelper = (type: string) => {
         if (type === 'PG') return "Masukkan satu huruf kunci jawaban (A/B/C/D).";
-        if (type === 'PGK') return "Masukkan huruf opsi yang benar dipisah koma (Misal: A,C).";
+        if (type === 'PGK') return "Masukkan 2 huruf opsi benar dipisah koma (Misal: A,C). Opsi tersedia hanya 3 (A,B,C).";
         if (type === 'BS') return "Masukkan B (Benar) atau S (Salah) sesuai urutan pernyataan, dipisah koma (Misal: B,S,B,S).";
         return "";
     };
@@ -1458,10 +1459,12 @@ const BankSoalTab = () => {
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Opsi C / Pernyataan 3</label>
                                         <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={currentQ.opsi_c} onChange={e => setCurrentQ({...currentQ, opsi_c: e.target.value})} />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Opsi D / Pernyataan 4</label>
-                                        <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={currentQ.opsi_d} onChange={e => setCurrentQ({...currentQ, opsi_d: e.target.value})} />
-                                    </div>
+                                    {currentQ.tipe_soal !== 'PGK' && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Opsi D / Pernyataan 4</label>
+                                            <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none" value={currentQ.opsi_d} onChange={e => setCurrentQ({...currentQ, opsi_d: e.target.value})} />
+                                        </div>
+                                    )}
                                 </div>
                             </form>
                         </div>
@@ -1877,7 +1880,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             const parts = durationStr.split(':');
             let hours = 0, minutes = 0, seconds = 0;
             if (parts.length === 3) { hours = parseInt(parts[0], 10); minutes = parseInt(parts[1], 10); seconds = parseInt(parts[2], 10); } 
-            else if (parts.length === 2) { minutes = parseInt(parts[0], 10); seconds = parseInt(parts[2], 10); }
+            else if (parts.length === 2) { minutes = parseInt(parts[0], 10); seconds = parseInt(parts[1], 10); }
             const durationMs = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
             const startDate = new Date(endDate.getTime() - durationMs);
             return startDate.toLocaleTimeString();
@@ -2116,7 +2119,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             "Asal Sekolah": s.school,
             "Kecamatan": s.kecamatan || '-',
             Nilai: s.score,
-            // Fix: Changed 'score' to 's.score' to refer to the current item in mapping
             Predikat: getScorePredicate(s.score),
             Durasi: formatDurationToText(s.duration)
         }));
@@ -2198,18 +2200,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const AnalisisTab = () => {
-    // ... (AnalisisTab stays same)
-    const subjects = useMemo(() => Object.keys(dashboardData.questionsMap), []);
+    // Explicit type to fix "unknown is not assignable to Key" error
+    const subjects = useMemo((): string[] => {
+        if (!dashboardData?.questionsMap) return [];
+        return Object.keys(dashboardData.questionsMap) as string[];
+    }, [dashboardData]);
+
     const [localSubject, setLocalSubject] = useState(subjects[0] || '');
     const [localSchool, setLocalSchool] = useState('Semua');
 
-    useEffect(() => { if (!localSubject && subjects.length > 0) setLocalSubject(subjects[0]); }, [subjects.length]);
+    useEffect(() => { if (!localSubject && subjects.length > 0) setLocalSubject(subjects[0]); }, [subjects, localSubject]);
 
     const studentsBySubject = filteredStudents.filter((s: any) => s.subject === localSubject);
-    const availableSchools = useMemo(() => {
+    
+    // Explicit type to fix "unknown is not assignable to Key" error
+    const availableSchools = useMemo((): string[] => {
         const schools = new Set(studentsBySubject.map((s: any) => s.school));
-        const arr = Array.from(schools).filter(Boolean).sort();
-        return ['Semua', ...arr];
+        const arr = Array.from(schools).filter((s): s is string => typeof s === 'string' && !!s).sort();
+        return ['Semua', ...arr] as string[];
     }, [studentsBySubject]);
 
     const finalStudents = studentsBySubject.filter((s: any) => {
@@ -2283,8 +2291,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition mr-4">
                         <FileText size={16}/> Export Excel
                     </button>
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s: any) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><BookOpen size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSubject} onChange={(e) => { setLocalSubject(e.target.value); setLocalSchool('Semua'); }}>{subjects.map((s: string) => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={16}/></div><select className="w-full md:w-48 pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-100 outline-none" value={localSchool} onChange={(e) => setLocalSchool(e.target.value)}>{availableSchools.map((s: string) => <option key={s} value={s}>{s === 'Semua' ? 'Semua Sekolah' : s}</option>)}</select></div>
                 </div>
             </div>
             <div className="overflow-x-auto">
@@ -2395,7 +2403,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
                 {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
-                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
                 {activeTab === 'atur_gelombang' && user.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
                 {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
