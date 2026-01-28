@@ -889,7 +889,10 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
                         </select>
                     )}
                     <select className="p-2 border rounded" value={selectedSession} onChange={e=>setSelectedSession(e.target.value)}>
-                        <option>Sesi 1</option><option>Sesi 2</option><option>Sesi 3</option>
+                        <option>Sesi 1</option>
+                        <option>Sesi 2</option>
+                        <option>Sesi 3</option>
+                        <option>Sesi 4</option>
                     </select>
                 </div>
                 <button onClick={handleSave} disabled={isSaving || selectedUsers.size === 0} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">
