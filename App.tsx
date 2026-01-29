@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
 import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, Clock } from 'lucide-react';
 import StudentExam from './components/StudentExam';
+import StudentSurvey from './components/StudentSurvey';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
 
-type ViewState = 'system_check' | 'login' | 'confirm' | 'exam' | 'result' | 'admin';
+type ViewState = 'system_check' | 'login' | 'confirm' | 'exam' | 'survey' | 'result' | 'admin';
 
 // Reusable Loading Overlay Component
 const LoadingOverlay = ({ message }: { message: string }) => (
@@ -35,6 +36,9 @@ function App() {
   const [startTime, setStartTime] = useState<number>(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // Survey State
+  const [activeSurveyType, setActiveSurveyType] = useState<'Survey_Karakter' | 'Survey_Lingkungan' | null>(null);
   
   // System Check State
   const [sysInfo, setSysInfo] = useState({ os: 'Unknown', device: 'Unknown', ram: 'Unknown', status: 'Checking...' });
@@ -101,9 +105,10 @@ function App() {
             } else {
                 setLoadingMessage('Memeriksa Data Ujian...');
                 const allExams = await api.getExams();
-                let filteredExams = allExams;
+                let filteredExams = allExams.filter(e => !e.id.startsWith('Survey_')); // Filter out survey types from Exam list
+                
                 if (user.active_exam && user.active_exam !== '-' && user.active_exam !== '') {
-                    filteredExams = allExams.filter(e => e.nama_ujian === user.active_exam);
+                    filteredExams = filteredExams.filter(e => e.nama_ujian === user.active_exam);
                 } else {
                     filteredExams = [];
                 }
@@ -190,14 +195,27 @@ function App() {
             alert("Waktu Ujian Telah Habis. Jawaban anda telah tersimpan secara otomatis. Sistem akan logout.");
             handleLogout();
         } else {
-            setView('result');
+            // Check for Survey Logic
+            const examName = selectedExamId.toLowerCase();
+            if (examName.includes('bahasa') || examName.includes('indo')) {
+                setActiveSurveyType('Survey_Karakter');
+                setView('survey');
+            } else if (examName.includes('matematika') || examName.includes('mtk')) {
+                setActiveSurveyType('Survey_Lingkungan');
+                setView('survey');
+            } else {
+                setView('result');
+            }
         }
     } catch (err) { alert("Gagal menyimpan jawaban. Coba lagi."); console.error(err); } finally { setLoading(false); }
   };
 
+  const handleFinishSurvey = () => {
+      setView('result');
+      setActiveSurveyType(null);
+  };
+
   const selectedExam = examList.find(e => e.id === selectedExamId);
-  
-  // Logic to check if session is valid
   const hasSession = currentUser?.session && currentUser.session !== '-' && currentUser.session.trim() !== '' && currentUser.session !== 'undefined';
 
   if (view === 'system_check') {
@@ -322,6 +340,16 @@ function App() {
         onExit={handleLogout}
       />
     );
+  }
+
+  if (view === 'survey' && currentUser && activeSurveyType) {
+      return (
+          <StudentSurvey 
+              user={currentUser} 
+              surveyType={activeSurveyType} 
+              onFinish={handleFinishSurvey} 
+          />
+      );
   }
 
   if (view === 'result') {

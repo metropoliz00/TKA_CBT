@@ -25,7 +25,7 @@ export interface Exam {
 }
 
 // 3. Tabel Questions (Bank Soal)
-export type QuestionType = 'PG' | 'PGK' | 'BS';
+export type QuestionType = 'PG' | 'PGK' | 'BS' | 'LIKERT';
 
 export interface Question {
   id: string;
@@ -90,7 +90,7 @@ export interface QuestionWithOptions extends Question {
   options: Option[];
 }
 
-export type UserAnswerValue = string | string[] | Record<string, boolean>;
+export type UserAnswerValue = string | string[] | Record<string, boolean> | number;
 
 export interface ExamSessionState {
   answers: Record<string, UserAnswerValue>;

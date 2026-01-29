@@ -12,9 +12,16 @@ const SHEET_REKAP = "Rekap_Analisis";
 const SHEET_JAWABAN = "Jawaban";      
 const SHEET_RANKING = "Rangking";     
 const SHEET_LOGS = "Logs";            
-const SHEET_SCHEDULE = "Jadwal_Sekolah"; // New Sheet
+const SHEET_SCHEDULE = "Jadwal_Sekolah";
+// New Sheets for Survey
+const SHEET_SURVEY_KARAKTER = "Survey_Karakter";
+const SHEET_SURVEY_LINGKUNGAN = "Survey_Lingkungan";
+const SHEET_REKAP_SURVEY = "Rekap_Survey";
 
-const SYSTEM_SHEETS = [SHEET_USERS, SHEET_ADMINS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS, SHEET_SCHEDULE];
+const SYSTEM_SHEETS = [
+    SHEET_USERS, SHEET_ADMINS, SHEET_CONFIG, SHEET_RESULTS, SHEET_REKAP, SHEET_JAWABAN, SHEET_RANKING, SHEET_LOGS, SHEET_SCHEDULE,
+    SHEET_REKAP_SURVEY
+];
 
 /* ENTRY POINT: doPost */
 function doPost(e) {
@@ -69,8 +76,14 @@ function processAction(action, args) {
       case 'assignTestGroup': return assignTestGroup(args[0], args[1], args[2]);
       case 'updateUserSessions': return updateUserSessions(args[0]); 
       case 'resetLogin': return resetLogin(args[0]);
-      case 'getSchoolSchedules': return getSchoolSchedules(); // New
-      case 'saveSchoolSchedules': return saveSchoolSchedules(args[0]); // New
+      case 'getSchoolSchedules': return getSchoolSchedules();
+      case 'saveSchoolSchedules': return saveSchoolSchedules(args[0]);
+      // New Survey Actions
+      case 'submitSurvey': return submitSurvey(args[0], args[1], args[2], args[3], args[4], args[5]);
+      case 'adminGetSurveyRecap': return adminGetSurveyRecap(args[0]);
+      // Dashboard Data Feeds
+      case 'getRecapData': return getRecapData(); // Changed name to match function
+      case 'getAnalysisData': return getAnalysisData(args[0]); // Changed name to match function
       default: return { error: "Action not found: " + action };
     }
 }
@@ -130,7 +143,6 @@ function loginUser(username, password) {
                  const schSheet = ss.getSheetByName(SHEET_SCHEDULE);
                  if (schSheet) {
                      const schData = schSheet.getDataRange().getDisplayValues();
-                     // Format Today: YYYY-MM-DD based on script timezone (Jakarta usually)
                      const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
                      
                      let scheduleFound = false;
@@ -148,7 +160,6 @@ function loginUser(username, password) {
                          }
                      }
 
-                     // Jika jadwal ditemukan TAPI tanggal tidak cocok, tolak login
                      if (scheduleFound && !isDateMatch) {
                          return { 
                              success: false, 
@@ -166,7 +177,7 @@ function loginUser(username, password) {
                     fullname: data[i][4], 
                     gender: data[i][5] || '-', 
                     school: schoolName,
-                    kecamatan: data[i][7] || '-' // Read from column H (Index 7)
+                    kecamatan: data[i][7] || '-'
                 }
              };
         }
@@ -188,7 +199,7 @@ function loginUser(username, password) {
         const school = data[i][6] || '-';
         const active_exam = data[i][7] || '-';
         const session = data[i][8] || '-';
-        const kecamatan = data[i][9] || '-'; // NEW FIELD
+        const kecamatan = data[i][9] || '-'; 
         
         logUserActivity(dbUser, fullname, "LOGIN", "Success");
         
@@ -323,23 +334,18 @@ function resetLogin(username) {
       const data = userSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < data.length; i++) {
           if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
-              // Column 8 (index 7) is Active_Exam. 
-              // Use clearContent() to ensure it is completely empty.
               userSheet.getRange(i + 1, 8).clearContent();
-              // Also clear Session if needed, keeping it consistent (Column 9, index 8)
               userSheet.getRange(i + 1, 9).clearContent(); 
               break; 
           }
       }
   }
 
-  // 2. Log Activity to force status OFFLINE
   logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
-  SpreadsheetApp.flush(); // Force write changes
+  SpreadsheetApp.flush(); 
   return { success: true };
 }
 
-// --- NEW FUNCTION: Get School Schedules ---
 function getSchoolSchedules() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SCHEDULE);
   if (!sheet) return [];
@@ -360,7 +366,6 @@ function getSchoolSchedules() {
   return schedules;
 }
 
-// --- NEW FUNCTION: Save School Schedules ---
 function saveSchoolSchedules(schedules) {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SCHEDULE);
   if (!sheet) {
@@ -368,7 +373,6 @@ function saveSchoolSchedules(schedules) {
     sheet.appendRow(["Nama_Sekolah", "Gelombang", "Tanggal_Ujian"]);
   }
   
-  // Clear existing data (except header)
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
@@ -401,7 +405,7 @@ function getUsers() {
           school: data[i][6],
           active_exam: data[i][7] || '-', 
           session: data[i][8] || '-',
-          kecamatan: data[i][9] || '-' // NEW COLUMN KECAMATAN
+          kecamatan: data[i][9] || '-' 
         });
       }
   }
@@ -419,7 +423,7 @@ function getUsers() {
           fullname: data[i][4],
           gender: data[i][5],
           school: data[i][6],
-          kecamatan: data[i][7] || '-', // UPDATED: Read Kecamatan for Admins
+          kecamatan: data[i][7] || '-', 
           active_exam: '-', 
           session: '-'      
         });
@@ -490,7 +494,6 @@ function adminSaveUser(userData) {
             userData.kecamatan || '-'
         ];
     } else {
-        // UPDATED: Include Kecamatan for Admins
         rowValues = [
             toSheetValue(id),
             toSheetValue(userData.username),
@@ -508,8 +511,6 @@ function adminSaveUser(userData) {
              if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
              if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
         }
-        
-        // Use rowValues.length to determine range size (Safe for variable columns)
         sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
     } else {
         sheet.appendRow(rowValues);
@@ -550,7 +551,6 @@ function adminImportUsers(usersList) {
                 u.kecamatan || '-' 
             ]);
         } else {
-            // UPDATED: Include Kecamatan for Admins Import
             admins.push([
                 toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-', u.kecamatan || '-'
             ]);
@@ -572,7 +572,6 @@ function adminImportUsers(usersList) {
             aSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_ADMINS);
             aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan"]);
         }
-        // UPDATED: Write 8 columns for Admins
         aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 8).setValues(admins);
     }
 
@@ -581,10 +580,18 @@ function adminImportUsers(usersList) {
 
 function getSubjectList() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-  const subjects = sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n));
+  const subjects = sheets.map(s => s.getName()).filter(n => !SYSTEM_SHEETS.includes(n) && n !== SHEET_SURVEY_KARAKTER && n !== SHEET_SURVEY_LINGKUNGAN);
+  
   const duration = getConfigValue('DURATION', 60);
-  const maxQuestions = getConfigValue('MAX_QUESTIONS', 0); // Default 0 means all
-  return { subjects: subjects, duration: Number(duration), maxQuestions: Number(maxQuestions) };
+  const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
+  const surveyDuration = getConfigValue('SURVEY_DURATION', 30);
+  
+  return { 
+      subjects: subjects, 
+      duration: Number(duration), 
+      maxQuestions: Number(maxQuestions),
+      surveyDuration: Number(surveyDuration)
+  };
 }
 
 function getConfigValue(key, defaultValue) {
@@ -639,6 +646,16 @@ function getQuestionsFromSheet(subject) {
        for(let j=0; j<4; j++) {
          if(data[i][4+j]) options.push({ id: `${qId}-S${j+1}`, text_jawaban: data[i][4+j] });
       }
+    } else if (type === 'LIKERT') {
+       // P1 (Col 4), P2 (Col 5), P3 (Col 6), P4 (Col 7)
+       // Map to options with values 1, 2, 3, 4 based on prompt or custom logic
+       // Usually P1=1, P2=2...
+       const pLabels = ['P1', 'P2', 'P3', 'P4'];
+       for(let j=0; j<4; j++) {
+         if(data[i][4+j]) {
+             options.push({ id: `${qId}-${pLabels[j]}`, text_jawaban: data[i][4+j] });
+         }
+       }
     }
     
     questions.push({
@@ -756,9 +773,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
       questionWeights[qId] = weight;
   }
 
-  // Determine Max Weight Basis
-  // If questionIds is provided (Random Subset displayed to user), calculate max weight of THAT subset only.
-  // Otherwise (fallback), calculate max weight of ALL questions in sheet.
   let maxWeight = 0;
   let targetIds = [];
   
@@ -768,11 +782,9 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
       targetIds = Object.keys(questionWeights);
   }
 
-  // Create a Set for fast lookup of valid questions for this student
   const validQuestionSet = new Set(targetIds);
 
   targetIds.forEach(id => {
-      // Add weight if the question exists in our DB (sheet)
       if (questionWeights[id] !== undefined) {
           maxWeight += questionWeights[id];
       }
@@ -834,10 +846,9 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
         ansStr = "-";
     }
 
-    // Only add to score (numerator) if the question was actually assigned/displayed to the student
     if (validQuestionSet.has(qId)) {
         if (isCorrect) {
-            obtainedWeight += weight; // Sum obtained weight of displayed questions
+            obtainedWeight += weight; 
             correctCount++;
         }
     }
@@ -854,7 +865,6 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
     }
   }
 
-  // Calculate Wrong Count based on Displayed Limit (if provided), otherwise total DB rows
   let wrongCount = 0;
   if (displayedCount && Number(displayedCount) > 0) {
       wrongCount = Number(displayedCount) - correctCount;
@@ -866,15 +876,12 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   while(itemAnalysisRow.length < 100) itemAnalysisRow.push("");
   while(rawAnswersRow.length < 100) rawAnswersRow.push("");
 
-  // FINAL SCORE CALCULATION
-  // Formula: (Obtained Weight / Max Possible Weight of Displayed Questions) * 100
   let finalScore = 0;
   if (maxWeight > 0) {
       finalScore = (obtainedWeight / maxWeight) * 100;
       finalScore = parseFloat(finalScore.toFixed(2));
   }
 
-  // Force username to text to preserve leading zeros
   const safeUsername = toSheetValue(username);
 
   let shNilai = ss.getSheetByName(SHEET_RESULTS);
@@ -917,6 +924,94 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   return { success: true, score: finalScore };
 }
 
+// --- SURVEY FUNCTIONS ---
+function submitSurvey(username, fullname, school, surveyType, answers, startTimeEpoch) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const now = new Date();
+  
+  // Calculate Duration
+  const startDt = new Date(Number(startTimeEpoch));
+  const diff = Math.max(0, now.getTime() - startDt.getTime());
+  const m = Math.floor(diff / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  const durationStr = `${m}m ${s}s`;
+
+  let sheet = ss.getSheetByName(SHEET_REKAP_SURVEY);
+  if (!sheet) {
+      sheet = ss.insertSheet(SHEET_REKAP_SURVEY);
+      const header = ["Timestamp", "Username", "Nama", "Sekolah", "Jenis Survey", "Durasi", "Total Skor", "Rata-rata"];
+      for(let k=1; k<=50; k++) header.push(`S${k}`);
+      sheet.appendRow(header);
+  }
+  
+  // Calculate Score (Sum of Likert 1-4)
+  let totalScore = 0;
+  let count = 0;
+  const answerValues = [];
+  
+  // Convert answers object to ordered array based on key numeric sort? 
+  // Ideally, frontend sends object {Q1: 4, Q2: 3}. We map to columns.
+  // Let's assume max 50 questions for simplicity.
+  
+  for(let i=1; i<=50; i++) {
+      // Find key that matches "S{i}" or any ID containing that.
+      // Backend sent ID as S1, S2, etc. in `getQuestionsFromSheet` for survey.
+      const key = `S${i}`;
+      if (answers[key]) {
+          const val = Number(answers[key]);
+          totalScore += val;
+          count++;
+          answerValues.push(val);
+      } else {
+          answerValues.push("");
+      }
+  }
+  
+  const avg = count > 0 ? (totalScore / count).toFixed(2) : 0;
+  
+  sheet.appendRow([
+      now, 
+      toSheetValue(username), 
+      fullname, 
+      school, 
+      surveyType.replace('Survey_', ''), // "Karakter" or "Lingkungan"
+      durationStr,
+      totalScore,
+      avg
+  ].concat(answerValues));
+  
+  logUserActivity(username, fullname, "SURVEY", surveyType);
+  return { success: true };
+}
+
+function adminGetSurveyRecap(surveyType) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_REKAP_SURVEY);
+    if (!sheet) return [];
+    
+    const data = sheet.getDataRange().getDisplayValues();
+    const results = [];
+    
+    // Filter by Survey Type (Col index 4, value 5th column)
+    const typeFilter = surveyType.replace('Survey_', '');
+    
+    for(let i=1; i<data.length; i++) {
+        if(String(data[i][4]) === typeFilter) {
+            results.push({
+                timestamp: data[i][0],
+                username: data[i][1],
+                nama: data[i][2],
+                sekolah: data[i][3],
+                durasi: data[i][5],
+                total: data[i][6],
+                rata: data[i][7]
+            });
+        }
+    }
+    return results;
+}
+
+
 function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -935,7 +1030,7 @@ function getDashboardData() {
                 username: d[i][1], 
                 fullname: d[i][4], 
                 school: d[i][6], 
-                kecamatan: d[i][9] || '-', // READ KECAMATAN FOR DASHBOARD
+                kecamatan: d[i][9] || '-', 
                 status: 'OFFLINE',
                 active_exam: d[i][7] || '-', 
                 session: d[i][8] || '-' 
@@ -958,7 +1053,6 @@ function getDashboardData() {
        let analysis = {};
        try { analysis = JSON.parse(d[i][6]); } catch(e){}
        
-       // FIX: Use username from User Sheet if available to preserve formatting (e.g. leading zeros)
        const displayUsername = users[uname] ? users[uname].username : d[i][1];
        const displayKecamatan = users[uname] ? users[uname].kecamatan : '-';
 
@@ -983,24 +1077,21 @@ function getDashboardData() {
     }
   }
 
-  // 3. Process Logs for Active Status (Skip if already FINISHED)
+  // 3. Process Logs
   const lSheet = ss.getSheetByName(SHEET_LOGS);
   const feed = [];
-  const statusSetFromLogs = new Set(); // Track users whose status is set by a more recent log
+  const statusSetFromLogs = new Set(); 
 
   if (lSheet) {
       const d = lSheet.getDataRange().getDisplayValues(); 
-      // Iterate Backwards (Newest Logs First)
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).toLowerCase();
           const act = String(d[i][3]).toUpperCase();
 
-          // STATUS LOGIC
           if (users[uname] && users[uname].status !== 'FINISHED') {
-             // Only set status based on the *latest* log encountered for this user
              if (!statusSetFromLogs.has(uname)) {
                   if (act === 'RESET') {
-                      users[uname].status = 'OFFLINE'; // Explicitly set OFFLINE on reset
+                      users[uname].status = 'OFFLINE'; 
                   } else if (act === 'START' || act === 'RESUME') {
                       users[uname].status = 'WORKING';
                   } else if (act === 'LOGIN') {
@@ -1010,10 +1101,9 @@ function getDashboardData() {
              }
           }
 
-          // FEED LOGIC
           if (feed.length < 20) {
               const school = users[uname] ? users[uname].school : '-';
-              const kecamatan = users[uname] ? users[uname].kecamatan : '-'; // NEW FIELD KECAMATAN
+              const kecamatan = users[uname] ? users[uname].kecamatan : '-'; 
 
               let subject = '-';
               if (act === 'START' || act === 'RESUME') {
@@ -1021,6 +1111,8 @@ function getDashboardData() {
               } else if (act === 'FINISH') {
                   const det = String(d[i][4]);
                   subject = det.includes(':') ? det.split(':')[0] : det;
+              } else if (act === 'SURVEY') {
+                  subject = "Survey: " + d[i][4];
               }
 
               feed.push({ 
@@ -1029,8 +1121,8 @@ function getDashboardData() {
                   fullname: d[i][2], 
                   action: act, 
                   details: d[i][4],
-                  school: school, // Add school to feed
-                  kecamatan: kecamatan, // Add kecamatan to feed
+                  school: school, 
+                  kecamatan: kecamatan, 
                   subject: subject
               });
           }
@@ -1048,7 +1140,7 @@ function getDashboardData() {
   const duration = getConfigValue('DURATION', 60);
   const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
 
-  // 4. Get Schedules for Frontend Display
+  // 4. Get Schedules
   const schedules = getSchoolSchedules();
 
   return { 
@@ -1061,6 +1153,67 @@ function getDashboardData() {
     statusCounts: counts, 
     activityFeed: feed, 
     allUsers: Object.values(users),
-    schedules: schedules // New field
+    schedules: schedules 
+  };
+}
+
+function getRecapData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_RESULTS);
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getDisplayValues();
+  const results = [];
+  
+  // Skip header (row 0)
+  for(let i=1; i<data.length; i++) {
+    // Check if row has data (timestamp at col 0)
+    if(!data[i][0]) continue;
+    
+    // SHEET_RESULTS columns: 
+    // 0: Timestamp, 1: Username, 2: Nama, 3: Kelas, 4: Mapel, 5: Nilai, 6: Analisis_JSON, 7: Durasi
+    results.push({
+      timestamp: data[i][0],
+      username: data[i][1],
+      nama: data[i][2],
+      sekolah: data[i][3],
+      mapel: data[i][4],
+      nilai: data[i][5],
+      analisis: data[i][6], // Added Analisis_JSON for Frontend compatibility
+      durasi: data[i][7]
+    });
+  }
+  return results;
+}
+
+function getAnalysisData(subject) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_RESULTS);
+  if (!sheet) return { averageScore: 0, highestScore: 0, lowestScore: 0 };
+  
+  const data = sheet.getDataRange().getDisplayValues();
+  const scores = [];
+  
+  for(let i=1; i<data.length; i++) {
+    if(!data[i][0]) continue;
+    
+    // Filter by subject
+    if(String(data[i][4]).toLowerCase() === String(subject).toLowerCase()) {
+       const s = parseFloat(data[i][5]);
+       if(!isNaN(s)) scores.push(s);
+    }
+  }
+  
+  if (scores.length === 0) return { averageScore: 0, highestScore: 0, lowestScore: 0 };
+  
+  const sum = scores.reduce((a,b) => a+b, 0);
+  const avg = (sum / scores.length).toFixed(2);
+  const max = Math.max(...scores);
+  const min = Math.min(...scores);
+  
+  return {
+    averageScore: avg,
+    highestScore: max,
+    lowestScore: min
   };
 }

@@ -1,8 +1,10 @@
 
+
+
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycby5fehYs7pYz7CvV_1SiB3jFU916M0aF2Hr-3rRGTYPP6mIOXwQNnPIPbK59UgDUTo/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyTqsIyviVD7e_wmy8Vv2dXK_R82L1QW6TcQTUJBFjJukz-MbD8_Ji_QEavbZUJ-xRv/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -87,18 +89,18 @@ export const api = {
             username: result.user.username,
             role: result.user.role,
             nama_lengkap: result.user.fullname,
-            jenis_kelamin: result.user.gender, // Map gender from backend
+            jenis_kelamin: result.user.gender, 
             kelas_id: result.user.school,
-            kecamatan: result.user.kecamatan, // Map Kecamatan
-            active_exam: result.user.active_exam, // NEW
-            session: result.user.session // NEW
+            kecamatan: result.user.kecamatan, 
+            active_exam: result.user.active_exam, 
+            session: result.user.session 
         };
     }
     
     return null;
   },
 
-  // Start Exam (Now returns { success, startTime, isResuming })
+  // Start Exam
   startExam: async (username: string, fullname: string, subject: string): Promise<any> => {
       return await callBackend('startExam', username, fullname, subject);
   },
@@ -115,14 +117,15 @@ export const api = {
     let subjects: string[] = [];
     let duration = 60;
     let maxQuestions = 0;
+    let surveyDuration = 30; 
 
-    // Handle legacy (array only) vs new response { subjects, duration }
     if (Array.isArray(response)) {
         subjects = response;
     } else if (response && response.subjects) {
         subjects = response.subjects;
         duration = response.duration || 60;
         maxQuestions = response.maxQuestions || 0;
+        surveyDuration = response.surveyDuration || 30;
     }
 
     if (subjects.length > 0) {
@@ -134,7 +137,26 @@ export const api = {
             token_akses: 'TOKEN', 
             is_active: true,
             max_questions: Number(maxQuestions)
-        }));
+        })).concat([
+            {
+                id: 'Survey_Karakter',
+                nama_ujian: 'Survey Karakter',
+                waktu_mulai: new Date().toISOString(),
+                durasi: Number(surveyDuration),
+                token_akses: '',
+                is_active: true,
+                max_questions: 0
+            },
+            {
+                id: 'Survey_Lingkungan',
+                nama_ujian: 'Survey Lingkungan Belajar',
+                waktu_mulai: new Date().toISOString(),
+                durasi: Number(surveyDuration),
+                token_akses: '',
+                is_active: true,
+                max_questions: 0
+            }
+        ]);
     }
     return [];
   },
@@ -154,7 +176,12 @@ export const api = {
       return await callBackend('saveConfig', 'DURATION', minutes);
   },
 
-  // NEW: Save Max Questions
+  // Save Survey Duration
+  saveSurveyDuration: async (minutes: number): Promise<{success: boolean}> => {
+      return await callBackend('saveConfig', 'SURVEY_DURATION', minutes);
+  },
+
+  // Save Max Questions
   saveMaxQuestions: async (amount: number): Promise<{success: boolean}> => {
       return await callBackend('saveConfig', 'MAX_QUESTIONS', amount);
   },
@@ -175,13 +202,40 @@ export const api = {
             id: o.id || `opt-${i}-${idx}`,
             question_id: q.id || `Q${i+1}`,
             text_jawaban: o.text_jawaban || o.text || "", 
-            is_correct: false // Hidden in frontend
+            is_correct: false 
         })) : []
     }));
   },
 
+  // --- SURVEY SPECIFIC ---
+  getSurveyQuestions: async (surveyType: 'Survey_Karakter' | 'Survey_Lingkungan'): Promise<QuestionWithOptions[]> => {
+      const data: any = await callBackend('getQuestionsFromSheet', surveyType);
+      if (!Array.isArray(data)) return [];
+
+      return data.map((q: any, i: number) => ({
+          id: q.id || `S${i+1}`,
+          exam_id: surveyType,
+          text_soal: q.text,
+          tipe_soal: 'LIKERT',
+          bobot_nilai: 0,
+          options: Array.isArray(q.options) ? q.options.map((o: any, idx: number) => ({
+              id: o.id,
+              question_id: q.id,
+              text_jawaban: o.text_jawaban || o.text || "",
+              is_correct: false
+          })) : []
+      }));
+  },
+
+  submitSurvey: async (payload: { user: User, surveyType: string, answers: any, startTime: number }) => {
+      return await callBackend('submitSurvey', payload.user.username, payload.user.nama_lengkap, payload.user.kelas_id, payload.surveyType, payload.answers, payload.startTime);
+  },
+
+  getSurveyRecap: async (surveyType: string): Promise<any[]> => {
+      return await callBackend('adminGetSurveyRecap', surveyType);
+  },
+
   // --- ADMIN CRUD ---
-  // Get Raw Questions (For Editor)
   getRawQuestions: async (subject: string): Promise<QuestionRow[]> => {
       const result = await callBackend('getRawQuestions', subject);
       if (Array.isArray(result)) {
@@ -190,12 +244,12 @@ export const api = {
       return [];
   },
   
-  // Save Question (Create/Update)
+  // Save Question
   saveQuestion: async (subject: string, data: QuestionRow): Promise<{success: boolean, message: string}> => {
       return await callBackend('saveQuestion', subject, data);
   },
 
-  // Import Questions (Bulk)
+  // Import Questions
   importQuestions: async (subject: string, data: QuestionRow[]): Promise<{success: boolean, message: string}> => {
       return await callBackend('importQuestions', subject, data);
   },
@@ -205,57 +259,65 @@ export const api = {
       return await callBackend('deleteQuestion', subject, id);
   },
 
-  // Get All Users (Admin)
+  // Get All Users
   getUsers: async (): Promise<any[]> => {
       return await callBackend('getUsers');
   },
 
-  // NEW: Save User (Create/Update)
+  // Save User
   saveUser: async (userData: any): Promise<{success: boolean, message: string}> => {
       return await callBackend('saveUser', userData);
   },
 
-  // NEW: Delete User
+  // Delete User
   deleteUser: async (userId: string): Promise<{success: boolean, message: string}> => {
       return await callBackend('deleteUser', userId);
   },
 
-  // NEW: Import Users from Excel
+  // Import Users
   importUsers: async (users: any[]): Promise<{success: boolean, message: string}> => {
       return await callBackend('importUsers', users);
   },
 
-  // NEW: Assign Test Group (Kelompok Tes)
+  // Assign Test Group
   assignTestGroup: async (usernames: string[], examId: string, session: string): Promise<{success: boolean}> => {
       return await callBackend('assignTestGroup', usernames, examId, session);
   },
 
-  // NEW: Update User Sessions Batch
+  // Update User Sessions
   updateUserSessions: async (updates: {username: string, session: string}[]): Promise<{success: boolean}> => {
       return await callBackend('updateUserSessions', updates);
   },
 
-  // NEW: Reset Login
+  // Reset Login
   resetLogin: async (username: string): Promise<{success: boolean}> => {
       return await callBackend('resetLogin', username);
   },
   
-  // NEW: Get School Schedules
+  // Get School Schedules
   getSchoolSchedules: async (): Promise<SchoolSchedule[]> => {
       return await callBackend('getSchoolSchedules');
   },
 
-  // NEW: Save School Schedules
+  // Save School Schedules
   saveSchoolSchedules: async (schedules: SchoolSchedule[]): Promise<{success: boolean}> => {
       return await callBackend('saveSchoolSchedules', schedules);
+  },
+
+  // Corrected function names to match Code.gs
+  getRecap: async (): Promise<any[]> => {
+      const res = await callBackend('getRecapData');
+      if (!Array.isArray(res)) return [];
+      return res;
+  },
+
+  getAnalysis: async (subject: string): Promise<any> => {
+      return await callBackend('getAnalysisData', subject);
   },
 
   // Submit Exam
   submitExam: async (payload: { user: User, subject: string, answers: any, startTime: number, displayedQuestionCount?: number, questionIds?: string[] }) => {
       const scoreInfo = { total: 0, answered: Object.keys(payload.answers).length };
-
-      // We send payload.startTime (which originated from the server).
-      // The Backend will calculate End Time (Realtime) - StartTime (Payload) = Duration.
       return await callBackend(
           'submitAnswers', 
           payload.user.username, 
@@ -265,8 +327,8 @@ export const api = {
           payload.answers, 
           scoreInfo, 
           payload.startTime,
-          payload.displayedQuestionCount || 0, // New Arg 8
-          payload.questionIds || [] // New Arg 9
+          payload.displayedQuestionCount || 0, 
+          payload.questionIds || [] 
       );
   },
   
