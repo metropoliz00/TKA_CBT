@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer } from 'lucide-react';
 import { api } from '../services/api';
@@ -105,9 +106,9 @@ const AturGelombangTab = ({ students }: { students: any[] }) => {
     const [selectedSchools, setSelectedSchools] = useState<Set<string>>(new Set());
 
     // 1. Extract Unique Schools from Students List
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(students.map(s => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [students]);
 
     // 2. Load Existing Schedules
@@ -271,9 +272,9 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
     const [resetting, setResetting] = useState<string | null>(null);
 
     // Get Unique Schools for Filter
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(students.map(s => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [students]);
 
     const filtered = useMemo(() => {
@@ -490,9 +491,9 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
     };
 
     // Extract Unique Schools for Filter
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(users.map(u => u.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [users]);
 
     // Filter Logic
@@ -837,9 +838,9 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
     const [filterSchool, setFilterSchool] = useState('all');
 
     // Get Unique Schools for Filter
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(students.map(s => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [students]);
 
     const filtered = useMemo(() => {
@@ -942,9 +943,9 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
     }, []);
 
     // Get Unique Schools for Filter
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(students.map(s => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [students]);
 
     const filtered = useMemo(() => {
@@ -1551,7 +1552,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       setTokenInput(result);
   };
 
-  const filteredStudents = useMemo(() => {
+  const filteredStudents = useMemo<any[]>(() => {
       const allStudents = dashboardData.students || [];
       if (user.role === 'admin_pusat') return allStudents;
       if (user.role === 'admin_sekolah') {
@@ -1598,8 +1599,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const OverviewTab = () => {
-    // Stats for Charts
-    const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = dashboardData.statusCounts || { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
+    // Stats Calculation with Role Filter Logic
+    const stats = useMemo(() => {
+        // Default Global Data (Admin Pusat)
+        let counts = dashboardData.statusCounts || { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
+        let total = dashboardData.totalUsers || 0;
+
+        // If Proktor (Admin Sekolah), recalculate from filtered user list
+        if (user.role === 'admin_sekolah') {
+            const mySchool = (user.kelas_id || '').toLowerCase();
+            const schoolUsers = (dashboardData.allUsers || []).filter((u: any) => 
+                (u.school || '').toLowerCase() === mySchool
+            );
+            
+            // Recalculate status counts locally for this school
+            const localCounts = { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
+            schoolUsers.forEach((u: any) => {
+                const status = u.status as keyof typeof localCounts;
+                if (localCounts[status] !== undefined) {
+                    localCounts[status]++;
+                }
+            });
+
+            counts = localCounts;
+            total = schoolUsers.length;
+        }
+
+        return { counts, total };
+    }, [dashboardData, user]);
+
+    const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = stats.counts;
+    const displayTotalUsers = stats.total;
     const totalStatus = OFFLINE + LOGGED_IN + WORKING + FINISHED;
     
     // Status Data for Pie Chart
@@ -1686,7 +1716,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             )}
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-                <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Terdaftar</p><h3 className="text-3xl font-extrabold text-slate-700 mt-1">{dashboardData.totalUsers}</h3></div>
+                <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Terdaftar</p><h3 className="text-3xl font-extrabold text-slate-700 mt-1">{displayTotalUsers}</h3></div>
                 <div className="bg-indigo-50 p-3 rounded-xl text-indigo-500"><Users size={24}/></div>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
@@ -1764,7 +1794,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded"></div> Selesai ({totalStatus > 0 ? Math.round((FINISHED/totalStatus)*100) : 0}%)</div>
                 </div>
                 {user.role === 'admin_sekolah' && (
-                    <p className="mt-4 text-[10px] text-slate-400 text-center italic">Grafik di atas menampilkan total global. Untuk detail siswa sekolah Anda, lihat daftar Aktivitas Terbaru di samping.</p>
+                    <p className="mt-4 text-[10px] text-slate-400 text-center italic">Grafik di atas menampilkan data siswa dari sekolah Anda.</p>
                 )}
             </div>
 
@@ -1854,9 +1884,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     const [filterSubject, setFilterSubject] = useState('all');
 
     // 2. Derive Unique Options based on available data
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(sortedStudents.map((s: any) => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [sortedStudents]);
 
     const uniqueSubjects = useMemo(() => {
@@ -2086,14 +2116,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
 
-    const uniqueSchools = useMemo(() => {
+    const uniqueSchools = useMemo<string[]>(() => {
         const schools = new Set(filteredStudents.map((s: any) => s.school).filter(Boolean));
-        return Array.from(schools).sort();
+        return Array.from(schools).sort() as string[];
     }, [filteredStudents]);
 
-    const uniqueKecamatans = useMemo(() => {
+    const uniqueKecamatans = useMemo<string[]>(() => {
         const kecs = new Set(filteredStudents.map((s: any) => s.kecamatan).filter(Boolean));
-        return Array.from(kecs).sort();
+        return Array.from(kecs).sort() as string[];
     }, [filteredStudents]);
 
     const rankingData = useMemo(() => {
@@ -2204,7 +2234,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
   const AnalisisTab = () => {
     // Explicit type to fix "unknown is not assignable to Key" error
-    const subjects = useMemo((): string[] => {
+    const subjects = useMemo<string[]>(() => {
         if (!dashboardData?.questionsMap) return [];
         return Object.keys(dashboardData.questionsMap) as string[];
     }, [dashboardData]);
@@ -2214,13 +2244,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
     useEffect(() => { if (!localSubject && subjects.length > 0) setLocalSubject(subjects[0]); }, [subjects, localSubject]);
 
-    const studentsBySubject = filteredStudents.filter((s: any) => s.subject === localSubject);
+    // Ensure studentsBySubject is derived from an array
+    const studentsBySubject = Array.isArray(filteredStudents) 
+        ? filteredStudents.filter((s: any) => s.subject === localSubject)
+        : [];
     
     // Explicit type to fix "unknown is not assignable to Key" error
-    const availableSchools = useMemo((): string[] => {
+    const availableSchools = useMemo<string[]>(() => {
         const schools = new Set(studentsBySubject.map((s: any) => s.school));
         const arr = Array.from(schools).filter((s): s is string => typeof s === 'string' && !!s).sort();
-        return ['Semua', ...arr] as string[];
+        return ['Semua', ...arr];
     }, [studentsBySubject]);
 
     const finalStudents = studentsBySubject.filter((s: any) => {
@@ -2245,6 +2278,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 No: i + 1,
                 "Nama Siswa": s.fullname,
                 Sekolah: s.school,
+                Kecamatan: s.kecamatan || '-', // Added Kecamatan Column
                 Nilai: s.score,
                 Predikat: getScorePredicate(s.score)
             };
@@ -2262,6 +2296,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             No: '',
             "Nama Siswa": 'JUMLAH BENAR',
             Sekolah: '',
+            Kecamatan: '',
             Nilai: ''
         };
         stats.forEach((st: any, i: number) => {
@@ -2274,6 +2309,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             No: '',
             "Nama Siswa": 'PERSENTASE',
             Sekolah: '',
+            Kecamatan: '',
             Nilai: ''
         };
         stats.forEach((st: any, i: number) => {
@@ -2300,10 +2336,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-center border-collapse">
-                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[200px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th><th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">PREDIKAT</th></tr></thead>
+                    <thead><tr><th className="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">NO</th><th className="p-3 border-b text-left bg-slate-100 font-bold text-slate-700 min-w-[300px] sticky left-0 shadow-sm z-10">NAMA SISWA <span className="text-[10px] font-normal text-slate-500 block">{localSchool !== 'Semua' ? localSchool : 'Semua Sekolah'}</span></th>{currentQuestions.map((q: any, i: number) => ( <th key={q.id} className="p-2 border-b bg-slate-50 font-bold text-slate-600 min-w-[40px] text-xs">Q{i+1}</th> ))}<th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">NILAI</th><th className="p-3 border-b bg-indigo-50 font-bold text-indigo-700 w-24">PREDIKAT</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                         {finalStudents.length === 0 ? ( <tr><td colSpan={currentQuestions.length + 4} className="p-8 text-slate-400 italic">Tidak ada data siswa untuk filter ini.</td></tr> ) : finalStudents.map((s: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors"><td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td><td className="p-2 border-r border-slate-100 text-left font-medium text-slate-800 sticky left-0 bg-white z-10">{s.fullname}<div className="text-[10px] text-slate-400 truncate w-32">{s.school}</div></td>{currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td><td className="p-2 border-l border-slate-100">{getPredicateBadge(s.score)}</td></tr>
+                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="p-2 border-r border-slate-100 text-slate-500 font-mono text-xs">{idx+1}</td>
+                                <td className="p-2 border-r border-slate-100 text-left sticky left-0 bg-white z-10 min-w-[300px]">
+                                    <div className="text-sm font-bold text-slate-800">{s.fullname}</div>
+                                    <div className="text-xs text-slate-600 mt-1">{s.school}</div>
+                                    <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1 mt-0.5"><MapPin size={10} /> {s.kecamatan || '-'}</div>
+                                </td>
+                                {currentQuestions.map((q: any) => { const val = s.itemAnalysis ? s.itemAnalysis[q.id] : undefined; const isCorrect = val == 1; return ( <td key={q.id} className="p-1 border-r border-slate-100"><div className={`w-6 h-6 mx-auto rounded flex items-center justify-center text-xs font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-700' : (val !== undefined ? 'bg-rose-100 text-rose-700' : 'bg-gray-50 text-gray-300')}`}>{val !== undefined ? val : '-'}</div></td> ) })}<td className="p-2 font-bold bg-indigo-50/30 text-indigo-700 border-l border-slate-100">{s.score}</td><td className="p-2 border-l border-slate-100">{getPredicateBadge(s.score)}</td></tr>
                         ))}
                         {finalStudents.length > 0 && ( <><tr className="bg-slate-50 border-t-2 border-slate-200"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-50 z-10">Jumlah Benar</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-slate-700">{st.correct}</td>)}<td className="bg-slate-100"></td><td className="bg-slate-100"></td></tr><tr className="bg-slate-100"><td colSpan={2} className="p-3 font-bold text-right text-slate-600 uppercase text-xs sticky left-0 bg-slate-100 z-10">Persentase</td>{stats.map((st: any, i: number) => <td key={i} className="p-2 font-bold text-xs text-blue-600">{st.pct}%</td>)}<td className="bg-slate-200"></td><td className="bg-slate-200"></td></tr></> )}
                     </tbody>
