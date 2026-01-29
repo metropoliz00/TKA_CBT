@@ -295,7 +295,8 @@ const KelompokTesTab = ({ currentUser, students, refreshData }: { currentUser: U
         if (selectedUsers.size === 0) return alert("Pilih siswa");
         setLoading(true);
         try {
-            await api.assignTestGroup(Array.from(selectedUsers), selectedExam, '');
+            // Explicitly cast or map to string to avoid type issues if Set contains 'any'
+            await api.assignTestGroup(Array.from(selectedUsers).map(String), selectedExam, '');
             alert("Berhasil set ujian aktif.");
             refreshData();
             setSelectedUsers(new Set());
@@ -453,7 +454,8 @@ const AturSesiTab = ({ currentUser, students, refreshData, isLoading }: { curren
     const handleSave = async () => {
         if (!sessionInput) return alert("Pilih sesi");
         if (selectedUsers.size === 0) return alert("Pilih siswa");
-        const updates = Array.from(selectedUsers).map(u => ({ username: u, session: sessionInput }));
+        // Fix: Explicitly map users to string to avoid type inference issues if Set<any> is used
+        const updates = Array.from(selectedUsers).map(u => ({ username: String(u), session: sessionInput }));
         await api.updateUserSessions(updates);
         alert("Sesi berhasil diupdate");
         refreshData();
@@ -1396,39 +1398,29 @@ const BankSoalTab = () => {
         const isSurvey = selectedSubject.startsWith('Survey_');
         // Update Template for Survey
         const header = isSurvey 
-            ? ["ID Soal", "Pernyataan", "P1 (Skor 1)", "P2 (Skor 2)", "P3 (Skor 3)", "P4 (Skor 4)", "Kunci Jawaban", "Bobot"]
+            ? ["ID", "Pernyataan", "Skala 1", "Skala 2", "Skala 3", "Skala 4", "Kunci", "Bobot"]
             : ["ID Soal", "Teks Soal", "Tipe Soal (PG/PGK/BS)", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"];
         
         const row = isSurvey 
             ? [
                 {
-                    "ID Soal": "S1", 
+                    "ID": "S1", 
                     "Pernyataan": "Saya merasa senang belajar hal baru.", 
-                    "P1 (Skor 1)": "Sangat Kurang Sesuai",
-                    "P2 (Skor 2)": "Kurang Sesuai",
-                    "P3 (Skor 3)": "Sesuai",
-                    "P4 (Skor 4)": "Sangat Sesuai",
-                    "Kunci Jawaban": "4",
+                    "Skala 1": "Sangat Kurang Sesuai",
+                    "Skala 2": "Kurang Sesuai",
+                    "Skala 3": "Sesuai",
+                    "Skala 4": "Sangat Sesuai",
+                    "Kunci": "4",
                     "Bobot": 1
                 },
                 {
-                    "ID Soal": "S2", 
+                    "ID": "S2", 
                     "Pernyataan": "Saya selalu mengerjakan tugas tepat waktu.", 
-                    "P1 (Skor 1)": "Sangat Kurang Sesuai",
-                    "P2 (Skor 2)": "Kurang Sesuai",
-                    "P3 (Skor 3)": "Sesuai",
-                    "P4 (Skor 4)": "Sangat Sesuai",
-                    "Kunci Jawaban": "4",
-                    "Bobot": 1
-                },
-                {
-                    "ID Soal": "S3", 
-                    "Pernyataan": "Saya berani bertanya jika belum paham.", 
-                    "P1 (Skor 1)": "Sangat Kurang Sesuai",
-                    "P2 (Skor 2)": "Kurang Sesuai",
-                    "P3 (Skor 3)": "Sesuai",
-                    "P4 (Skor 4)": "Sangat Sesuai",
-                    "Kunci Jawaban": "4",
+                    "Skala 1": "Sangat Kurang Sesuai",
+                    "Skala 2": "Kurang Sesuai",
+                    "Skala 3": "Sesuai",
+                    "Skala 4": "Sangat Sesuai",
+                    "Kunci": "4",
                     "Bobot": 1
                 }
               ]
@@ -1472,16 +1464,17 @@ const BankSoalTab = () => {
                     if (!row[0]) continue;
                     
                     if (isSurvey) {
-                         // Mapping for Survey: ID, Text, P1, P2, P3, P4, Key, Weight
+                         // Mapping for Survey based on new template:
+                         // 0:ID, 1:Pernyataan, 2:Skala 1, 3:Skala 2, 4:Skala 3, 5:Skala 4, 6:Kunci, 7:Bobot
                          parsedQuestions.push({
                             id: String(row[0]),
                             text_soal: String(row[1] || ""),
                             tipe_soal: 'LIKERT',
                             gambar: "",
-                            opsi_a: String(row[2] || ""), // P1
-                            opsi_b: String(row[3] || ""), // P2
-                            opsi_c: String(row[4] || ""), // P3
-                            opsi_d: String(row[5] || ""), // P4
+                            opsi_a: String(row[2] || ""), // Skala 1
+                            opsi_b: String(row[3] || ""), // Skala 2
+                            opsi_c: String(row[4] || ""), // Skala 3
+                            opsi_d: String(row[5] || ""), // Skala 4
                             kunci_jawaban: String(row[6] || ""), // Key
                             bobot: Number(row[7] || 1) // Weight
                         });
@@ -1572,15 +1565,16 @@ const BankSoalTab = () => {
                             <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                                 <tr>
                                     <th className="p-4 w-16">ID</th>
-                                    <th className="p-4 min-w-[200px]">Teks {isSurveyMode ? 'Pernyataan Survey' : 'Soal'}</th>
+                                    <th className="p-4 min-w-[200px]">{isSurveyMode ? 'Pernyataan Survey' : 'Teks Soal'}</th>
                                     {!isSurveyMode && <th className="p-4 w-20">Tipe</th>}
                                     {!isSurveyMode && <th className="p-4 w-20">Kunci</th>}
                                     {isSurveyMode && (
                                         <>
-                                            <th className="p-4">P1</th>
-                                            <th className="p-4">P2</th>
-                                            <th className="p-4">P3</th>
-                                            <th className="p-4">P4</th>
+                                            <th className="p-4">Skala 1</th>
+                                            <th className="p-4">Skala 2</th>
+                                            <th className="p-4">Skala 3</th>
+                                            <th className="p-4">Skala 4</th>
+                                            <th className="p-4">Kunci</th>
                                             <th className="p-4">Bobot</th>
                                         </>
                                     )}
@@ -1605,6 +1599,7 @@ const BankSoalTab = () => {
                                                 <td className="p-4 text-xs text-slate-500">{q.opsi_b}</td>
                                                 <td className="p-4 text-xs text-slate-500">{q.opsi_c}</td>
                                                 <td className="p-4 text-xs text-slate-500">{q.opsi_d}</td>
+                                                <td className="p-4 text-xs text-indigo-600 font-bold">{q.kunci_jawaban}</td>
                                                 <td className="p-4 text-xs text-slate-500">{q.bobot}</td>
                                             </>
                                         )}
@@ -1669,32 +1664,32 @@ const BankSoalTab = () => {
                                 </div>
                                 {isSurveyMode ? (
                                     <div className="space-y-4 bg-slate-50 p-6 rounded-xl border border-slate-100">
-                                        <h4 className="font-bold text-slate-700 border-b pb-2 mb-2">Konfigurasi Likert (Opsional)</h4>
+                                        <h4 className="font-bold text-slate-700 border-b pb-2 mb-2">Konfigurasi Likert (1-4)</h4>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">P1 (Skor 1)</label>
-                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_a} onChange={e => setCurrentQ({...currentQ, opsi_a: e.target.value})} placeholder="Default: Sangat Kurang Sesuai" />
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Skala 1 (Nilai 1)</label>
+                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_a} onChange={e => setCurrentQ({...currentQ, opsi_a: e.target.value})} placeholder="Sangat Kurang Sesuai" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">P2 (Skor 2)</label>
-                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_b} onChange={e => setCurrentQ({...currentQ, opsi_b: e.target.value})} placeholder="Default: Kurang Sesuai" />
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Skala 2 (Nilai 2)</label>
+                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_b} onChange={e => setCurrentQ({...currentQ, opsi_b: e.target.value})} placeholder="Kurang Sesuai" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">P3 (Skor 3)</label>
-                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_c} onChange={e => setCurrentQ({...currentQ, opsi_c: e.target.value})} placeholder="Default: Sesuai" />
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Skala 3 (Nilai 3)</label>
+                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_c} onChange={e => setCurrentQ({...currentQ, opsi_c: e.target.value})} placeholder="Sesuai" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">P4 (Skor 4)</label>
-                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_d} onChange={e => setCurrentQ({...currentQ, opsi_d: e.target.value})} placeholder="Default: Sangat Sesuai" />
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Skala 4 (Nilai 4)</label>
+                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.opsi_d} onChange={e => setCurrentQ({...currentQ, opsi_d: e.target.value})} placeholder="Sangat Sesuai" />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 mt-4">
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kunci / Target (Opsional)</label>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kunci (Target)</label>
                                                 <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.kunci_jawaban} onChange={e => setCurrentQ({...currentQ, kunci_jawaban: e.target.value})} placeholder="Misal: 4" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Bobot (Opsional)</label>
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Bobot (Default 1)</label>
                                                 <input type="number" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.bobot} onChange={e => setCurrentQ({...currentQ, bobot: Number(e.target.value)})} placeholder="1" />
                                             </div>
                                         </div>
