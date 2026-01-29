@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, QuestionWithOptions, UserAnswerValue, Exam } from '../types';
 import { Clock, Check, ChevronRight, AlertCircle, Smile, Frown, Meh, ThumbsUp } from 'lucide-react';
@@ -144,7 +145,7 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
             {/* Questions List */}
             <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-blue-800 text-sm mb-6">
-                    <strong>Petunjuk:</strong> Pilihlah jawaban yang paling menggambarkan diri atau kondisi lingkungan belajar Anda. Tidak ada jawaban benar atau salah.
+                    <strong>Petunjuk:</strong> Pilihlah jawaban yang paling menggambarkan diri atau kondisi lingkungan belajar Anda. Nilai dihitung dari 1-4 sesuai dengan pilihan Anda.
                 </div>
 
                 {questions.map((q, idx) => {
@@ -153,6 +154,7 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
 
                     if (hasDynamicOptions) {
                         // Map P1..P4 to their values 1..4, and find matching style
+                        // Value 1 matches Index 0 (P1), Value 4 matches Index 3 (P4)
                         const mapped = q.options.map((o, i) => {
                             const val = i + 1; // P1=1, P2=2...
                             const style = DEFAULT_LIKERT_OPTIONS.find(d => d.value === val) || DEFAULT_LIKERT_OPTIONS[0];
@@ -164,14 +166,14 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
                             };
                         });
                         // Reverse array to display in descending order (4 -> 1) to match UI consistency
-                        // Standard: Sangat Sesuai (4) ... Sangat Kurang Sesuai (1)
-                        optionsToRender = mapped.reverse();
+                        // Standard UI: Positive (4) ... Negative (1)
+                        optionsToRender = [...mapped].reverse();
                     }
 
                     return (
                         <div key={q.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <div className="flex gap-4 mb-4">
-                                <span className="bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded h-fit text-sm">#{idx + 1}</span>
+                                <span className="bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded h-fit text-sm">{idx + 1}</span>
                                 <p className="text-slate-800 font-medium text-lg leading-relaxed">{q.text_soal}</p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pl-0 md:pl-12">

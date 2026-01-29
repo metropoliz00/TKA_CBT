@@ -944,21 +944,38 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
       sheet.appendRow(header);
   }
   
+  // GET QUESTION IDs FROM SHEET TO ENSURE ORDER AND COMPLETENESS
+  const qSheet = ss.getSheetByName(surveyType);
+  let orderedIDs = [];
+  if (qSheet) {
+      const qData = qSheet.getDataRange().getDisplayValues();
+      for(let i=1; i<qData.length; i++) {
+          if (qData[i][0]) orderedIDs.push(String(qData[i][0]));
+      }
+  } else {
+      // Fallback if sheet missing, just use 1..50
+      for(let i=1; i<=50; i++) orderedIDs.push(`S${i}`);
+  }
+
   // Calculate Score (Sum of Likert 1-4)
   let totalScore = 0;
   let count = 0;
   const answerValues = [];
   
-  // Convert answers object to ordered array based on key numeric sort? 
-  // Ideally, frontend sends object {Q1: 4, Q2: 3}. We map to columns.
-  // Let's assume max 50 questions for simplicity.
+  // Iterate through Ordered IDs to fill columns correctly
+  // This supports custom IDs (e.g., S1, S2, K1, K2...) if defined in sheet
   
-  for(let i=1; i<=50; i++) {
-      // Find key that matches "S{i}" or any ID containing that.
-      // Backend sent ID as S1, S2, etc. in `getQuestionsFromSheet` for survey.
-      const key = `S${i}`;
+  // We need to fill columns corresponding to header S1...S50.
+  // Ideally we should just dump answerValues in order of question appearance.
+  
+  for (let i = 0; i < orderedIDs.length; i++) {
+      const key = orderedIDs[i];
       if (answers[key]) {
-          const val = Number(answers[key]);
+          let val = Number(answers[key]);
+          // Enforce 1-4 range check just in case
+          if (val < 1) val = 1;
+          if (val > 4) val = 4;
+          
           totalScore += val;
           count++;
           answerValues.push(val);
@@ -969,6 +986,9 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
   
   const avg = count > 0 ? (totalScore / count).toFixed(2) : 0;
   
+  // If we have fewer answers than header columns, pad with empty strings
+  while(answerValues.length < 50) answerValues.push("");
+
   sheet.appendRow([
       now, 
       toSheetValue(username), 
@@ -980,7 +1000,7 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
       avg
   ].concat(answerValues));
   
-  logUserActivity(username, fullname, "SURVEY", surveyType);
+  logUserActivity(username, fullname, "SURVEY", `${surveyType} (Score: ${totalScore})`);
   return { success: true };
 }
 

@@ -1398,7 +1398,7 @@ const BankSoalTab = () => {
         const isSurvey = selectedSubject.startsWith('Survey_');
         // Update Template for Survey
         const header = isSurvey 
-            ? ["ID", "Pernyataan", "Skala 1", "Skala 2", "Skala 3", "Skala 4", "Kunci", "Bobot"]
+            ? ["ID", "Pernyataan", "Skala 1 (Nilai 1)", "Skala 2 (Nilai 2)", "Skala 3 (Nilai 3)", "Skala 4 (Nilai 4)", "Kunci", "Bobot"]
             : ["ID Soal", "Teks Soal", "Tipe Soal (PG/PGK/BS)", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"];
         
         const row = isSurvey 
@@ -1406,20 +1406,10 @@ const BankSoalTab = () => {
                 {
                     "ID": "S1", 
                     "Pernyataan": "Saya merasa senang belajar hal baru.", 
-                    "Skala 1": "Sangat Kurang Sesuai",
-                    "Skala 2": "Kurang Sesuai",
-                    "Skala 3": "Sesuai",
-                    "Skala 4": "Sangat Sesuai",
-                    "Kunci": "4",
-                    "Bobot": 1
-                },
-                {
-                    "ID": "S2", 
-                    "Pernyataan": "Saya selalu mengerjakan tugas tepat waktu.", 
-                    "Skala 1": "Sangat Kurang Sesuai",
-                    "Skala 2": "Kurang Sesuai",
-                    "Skala 3": "Sesuai",
-                    "Skala 4": "Sangat Sesuai",
+                    "Skala 1 (Nilai 1)": "Sangat Kurang Sesuai",
+                    "Skala 2 (Nilai 2)": "Kurang Sesuai",
+                    "Skala 3 (Nilai 3)": "Sesuai",
+                    "Skala 4 (Nilai 4)": "Sangat Sesuai",
                     "Kunci": "4",
                     "Bobot": 1
                 }
