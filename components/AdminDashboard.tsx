@@ -2126,42 +2126,100 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         return Array.from(kecs).sort() as string[];
     }, [filteredStudents]);
 
-    const rankingData = useMemo(() => {
-        return [...filteredStudents]
-            .filter((s: any) => {
-                const matchName = s.fullname.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                  s.username.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchSchool = filterSchool === 'all' || s.school === filterSchool;
-                const matchKecamatan = filterKecamatan === 'all' || s.kecamatan === filterKecamatan;
-                return matchName && matchSchool && matchKecamatan;
-            })
-            .sort((a: any, b: any) => b.score - a.score);
+    // NEW LOGIC: AGGREGATE SCORES
+    const aggregatedRankingData = useMemo(() => {
+        const studentMap = new Map<string, any>();
+        
+        // 1. Group by Student Username
+        // filteredStudents contains *every exam attempt*. We need to consolidate.
+        // NOTE: filteredStudents already applies role filtering from parent component
+        filteredStudents.forEach((record: any) => {
+            if (!studentMap.has(record.username)) {
+                studentMap.set(record.username, {
+                    username: record.username,
+                    fullname: record.fullname,
+                    school: record.school,
+                    kecamatan: record.kecamatan,
+                    math: 0,
+                    indo: 0,
+                    hasMath: false,
+                    hasIndo: false,
+                    duration: record.duration // Keep last duration or accumulate? Keeping last for now.
+                });
+            }
+
+            const student = studentMap.get(record.username);
+            const subject = (record.subject || '').toLowerCase();
+
+            // Check Subject Type
+            if (subject.includes('matematika') || subject.includes('mtk')) {
+                // If multiple attempts, take the highest score
+                student.math = Math.max(student.math, record.score);
+                student.hasMath = true;
+            } else if (subject.includes('indonesia') || subject.includes('bahasa')) {
+                student.indo = Math.max(student.indo, record.score);
+                student.hasIndo = true;
+            }
+        });
+
+        // 2. Calculate Average and Filter
+        let processed = Array.from(studentMap.values()).map(s => {
+            // Average Logic: (Math + Indo) / 2
+            const avg = (s.math + s.indo) / 2;
+            return {
+                ...s,
+                average: parseFloat(avg.toFixed(2))
+            };
+        });
+
+        // 3. Apply Local Filters (Search, School, Kecamatan)
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            processed = processed.filter(s => 
+                s.fullname.toLowerCase().includes(lower) || 
+                s.username.toLowerCase().includes(lower)
+            );
+        }
+        if (filterSchool !== 'all') {
+            processed = processed.filter(s => s.school === filterSchool);
+        }
+        if (filterKecamatan !== 'all') {
+            processed = processed.filter(s => s.kecamatan === filterKecamatan);
+        }
+
+        // 4. Sort by Average Descending
+        return processed.sort((a, b) => b.average - a.average);
+
     }, [filteredStudents, searchTerm, filterSchool, filterKecamatan]);
 
-    const totalPages = Math.ceil(rankingData.length / rowsPerPage);
+    const totalPages = Math.ceil(aggregatedRankingData.length / rowsPerPage);
     const startIndex = (currentPage - 1) * rowsPerPage;
-    const currentData = rankingData.slice(startIndex, startIndex + rowsPerPage);
+    const currentData = aggregatedRankingData.slice(startIndex, startIndex + rowsPerPage);
 
     const handleRowsChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); };
 
     const handleExport = () => {
-        const dataToExport = rankingData.map((s: any, i: number) => ({
+        const dataToExport = aggregatedRankingData.map((s: any, i: number) => ({
             Rank: i + 1,
             Username: s.username,
             "Nama Peserta": s.fullname,
             "Asal Sekolah": s.school,
             "Kecamatan": s.kecamatan || '-',
-            Nilai: s.score,
-            Predikat: getScorePredicate(s.score),
-            Durasi: formatDurationToText(s.duration)
+            "Nilai MTK": s.hasMath ? s.math : '-',
+            "Nilai IND": s.hasIndo ? s.indo : '-',
+            "Rata-Rata": s.average,
+            Predikat: getScorePredicate(s.average)
         }));
-        exportToExcel(dataToExport, "Peringkat_Peserta", "Peringkat");
+        exportToExcel(dataToExport, "Peringkat_Peserta_TKA", "Peringkat");
     };
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in max-w-full mx-auto">
             <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center">
-                <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3>
+                <div>
+                    <h3 className="font-bold text-amber-700 flex items-center gap-2 text-xl"><Award size={24}/> Peringkat Peserta</h3>
+                    <p className="text-xs text-slate-400 mt-1">Ranking berdasarkan rata-rata nilai Matematika & B. Indonesia.</p>
+                </div>
                 <button onClick={handleExport} className="px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-bold flex items-center gap-2 transition">
                     <FileText size={16}/> Export Excel
                 </button>
@@ -2205,16 +2263,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs"><tr><th className="p-4 w-16 text-center">#</th><th className="p-4 cursor-pointer hover:text-amber-700">Username</th><th className="p-4 cursor-pointer hover:text-amber-700">Nama Lengkap</th><th className="p-4 cursor-pointer hover:text-amber-700">Sekolah</th><th className="p-4 cursor-pointer hover:text-amber-700">Kecamatan</th><th className="p-4 text-center cursor-pointer hover:text-amber-700">Nilai</th><th className="p-4 text-center">Predikat</th><th className="p-4 cursor-pointer hover:text-amber-700">Durasi</th></tr></thead>
+                    <thead className="bg-amber-50 text-amber-900/50 font-bold uppercase text-xs">
+                        <tr>
+                            <th className="p-4 w-16 text-center">#</th>
+                            <th className="p-4">Username</th>
+                            <th className="p-4">Nama Lengkap</th>
+                            <th className="p-4">Sekolah</th>
+                            <th className="p-4">Kecamatan</th>
+                            <th className="p-4 text-center">Nilai MTK</th>
+                            <th className="p-4 text-center">Nilai IND</th>
+                            <th className="p-4 text-center bg-amber-100 text-amber-800">Rata-Rata</th>
+                            <th className="p-4 text-center">Predikat</th>
+                        </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {currentData.length === 0 ? ( <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
+                        {currentData.length === 0 ? ( <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Belum ada data peringkat.</td></tr> ) : (
                             currentData.map((s, i) => {
                                 const realRank = startIndex + i + 1;
                                 let rankBadge = <span className="font-mono text-slate-400 font-bold">#{realRank}</span>;
                                 if (realRank === 1) rankBadge = <span className="text-2xl">🥇</span>;
                                 if (realRank === 2) rankBadge = <span className="text-2xl">🥈</span>;
                                 if (realRank === 3) rankBadge = <span className="text-2xl">🥉</span>;
-                                return ( <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}><td className="p-4 text-center">{rankBadge}</td><td className="p-4 font-mono font-bold text-slate-600">{s.username}</td><td className="p-4 font-bold text-slate-700">{s.fullname}</td><td className="p-4 text-slate-600">{s.school}</td><td className="p-4 text-slate-500 text-xs font-medium uppercase tracking-wide">{s.kecamatan || '-'}</td><td className="p-4 text-center"><div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${s.score >= 75 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{s.score}</div></td><td className="p-4 text-center">{getPredicateBadge(s.score)}</td><td className="p-4 text-slate-500 font-mono text-xs">{formatDurationToText(s.duration)}</td></tr> );
+                                return ( 
+                                    <tr key={i} className={`hover:bg-amber-50/30 transition ${realRank <= 3 ? 'bg-amber-50/10' : ''}`}>
+                                        <td className="p-4 text-center">{rankBadge}</td>
+                                        <td className="p-4 font-mono font-bold text-slate-600">{s.username}</td>
+                                        <td className="p-4 font-bold text-slate-700">{s.fullname}</td>
+                                        <td className="p-4 text-slate-600">{s.school}</td>
+                                        <td className="p-4 text-slate-500 text-xs font-medium uppercase tracking-wide">{s.kecamatan || '-'}</td>
+                                        <td className="p-4 text-center font-mono text-slate-600">{s.hasMath ? s.math : <span className="text-slate-300">-</span>}</td>
+                                        <td className="p-4 text-center font-mono text-slate-600">{s.hasIndo ? s.indo : <span className="text-slate-300">-</span>}</td>
+                                        <td className="p-4 text-center font-bold text-lg bg-amber-50 text-amber-700">{s.average}</td>
+                                        <td className="p-4 text-center">{getPredicateBadge(s.average)}</td>
+                                    </tr> 
+                                );
                             })
                         )}
                     </tbody>
