@@ -2126,14 +2126,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         return Array.from(kecs).sort() as string[];
     }, [filteredStudents]);
 
-    // NEW LOGIC: AGGREGATE SCORES
+    // NEW LOGIC: AGGREGATE SCORES (FIRST VALUE ONLY)
     const aggregatedRankingData = useMemo(() => {
         const studentMap = new Map<string, any>();
+
+        // Pre-sort by timestamp to ensure "First Taken" is actually the first attempt
+        const sortedByTime = [...filteredStudents].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         
         // 1. Group by Student Username
         // filteredStudents contains *every exam attempt*. We need to consolidate.
         // NOTE: filteredStudents already applies role filtering from parent component
-        filteredStudents.forEach((record: any) => {
+        sortedByTime.forEach((record: any) => {
             if (!studentMap.has(record.username)) {
                 studentMap.set(record.username, {
                     username: record.username,
@@ -2144,21 +2147,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     indo: 0,
                     hasMath: false,
                     hasIndo: false,
-                    duration: record.duration // Keep last duration or accumulate? Keeping last for now.
+                    duration: record.duration 
                 });
             }
 
             const student = studentMap.get(record.username);
             const subject = (record.subject || '').toLowerCase();
 
-            // Check Subject Type
+            // Check Subject Type and Take FIRST value only
             if (subject.includes('matematika') || subject.includes('mtk')) {
-                // If multiple attempts, take the highest score
-                student.math = Math.max(student.math, record.score);
-                student.hasMath = true;
+                // If not already set, take this one (first one due to sort)
+                if (!student.hasMath) {
+                    student.math = record.score;
+                    student.hasMath = true;
+                }
             } else if (subject.includes('indonesia') || subject.includes('bahasa')) {
-                student.indo = Math.max(student.indo, record.score);
-                student.hasIndo = true;
+                // If not already set, take this one
+                if (!student.hasIndo) {
+                    student.indo = record.score;
+                    student.hasIndo = true;
+                }
             }
         });
 
