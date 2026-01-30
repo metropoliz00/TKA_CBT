@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer, ClipboardList } from 'lucide-react';
 import { api } from '../services/api';
@@ -1399,7 +1401,8 @@ const BankSoalTab = () => {
     // --- IMPORT / EXPORT LOGIC ---
     const downloadTemplate = () => {
         const isSurvey = selectedSubject.startsWith('Survey_');
-        // Update Template for Survey
+        // Update Template for Survey to use Scale 1, 2, 3, 4
+        // A=1, B=2, C=3, D=4
         const header = isSurvey 
             ? ["ID", "Pernyataan", "Skala 1 (Nilai 1)", "Skala 2 (Nilai 2)", "Skala 3 (Nilai 3)", "Skala 4 (Nilai 4)", "Kunci", "Bobot"]
             : ["ID Soal", "Teks Soal", "Tipe Soal (PG/PGK/BS)", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"];
@@ -1457,17 +1460,17 @@ const BankSoalTab = () => {
                     if (!row[0]) continue;
                     
                     if (isSurvey) {
-                         // Mapping for Survey based on new template:
+                         // Mapping for Survey based on new template (Scale 1 up to 4):
                          // 0:ID, 1:Pernyataan, 2:Skala 1, 3:Skala 2, 4:Skala 3, 5:Skala 4, 6:Kunci, 7:Bobot
                          parsedQuestions.push({
                             id: String(row[0]),
                             text_soal: String(row[1] || ""),
                             tipe_soal: 'LIKERT',
                             gambar: "",
-                            opsi_a: String(row[2] || ""), // Skala 1
-                            opsi_b: String(row[3] || ""), // Skala 2
-                            opsi_c: String(row[4] || ""), // Skala 3
-                            opsi_d: String(row[5] || ""), // Skala 4
+                            opsi_a: String(row[2] || ""), // Skala 1 (Nilai 1)
+                            opsi_b: String(row[3] || ""), // Skala 2 (Nilai 2)
+                            opsi_c: String(row[4] || ""), // Skala 3 (Nilai 3)
+                            opsi_d: String(row[5] || ""), // Skala 4 (Nilai 4)
                             kunci_jawaban: String(row[6] || ""), // Key
                             bobot: Number(row[7] || 1) // Weight
                         });
@@ -1567,7 +1570,7 @@ const BankSoalTab = () => {
                                             <th className="p-4">Skala 2</th>
                                             <th className="p-4">Skala 3</th>
                                             <th className="p-4">Skala 4</th>
-                                            <th className="p-4">Kunci</th>
+                                            <th className="p-4">Target</th>
                                             <th className="p-4">Bobot</th>
                                         </>
                                     )}
@@ -1657,7 +1660,7 @@ const BankSoalTab = () => {
                                 </div>
                                 {isSurveyMode ? (
                                     <div className="space-y-4 bg-slate-50 p-6 rounded-xl border border-slate-100">
-                                        <h4 className="font-bold text-slate-700 border-b pb-2 mb-2">Konfigurasi Likert (1-4)</h4>
+                                        <h4 className="font-bold text-slate-700 border-b pb-2 mb-2">Konfigurasi Likert (1, 2, 3, 4)</h4>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Skala 1 (Nilai 1)</label>
@@ -1678,8 +1681,8 @@ const BankSoalTab = () => {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 mt-4">
                                             <div>
-                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kunci (Target)</label>
-                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.kunci_jawaban} onChange={e => setCurrentQ({...currentQ, kunci_jawaban: e.target.value})} placeholder="Misal: 4" />
+                                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target (Misal: 4)</label>
+                                                <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.kunci_jawaban} onChange={e => setCurrentQ({...currentQ, kunci_jawaban: e.target.value})} placeholder="4" />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Bobot (Default 1)</label>

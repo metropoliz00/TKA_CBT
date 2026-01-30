@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { User, QuestionWithOptions, UserAnswerValue, Exam } from '../types';
 import { Clock, Check, ChevronRight, AlertCircle, Smile, Frown, Meh, ThumbsUp } from 'lucide-react';
@@ -153,10 +154,10 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
                     let optionsToRender = DEFAULT_LIKERT_OPTIONS;
 
                     if (hasDynamicOptions) {
-                        // Map P1..P4 to their values 1..4, and find matching style
-                        // Value 1 matches Index 0 (P1), Value 4 matches Index 3 (P4)
+                        // Update: Fixed mapping A=1, B=2, C=3, D=4
+                        // Index 0 (A) = 1, Index 1 (B) = 2, Index 2 (C) = 3, Index 3 (D) = 4
                         const mapped = q.options.map((o, i) => {
-                            const val = i + 1; // P1=1, P2=2...
+                            const val = i + 1; 
                             const style = DEFAULT_LIKERT_OPTIONS.find(d => d.value === val) || DEFAULT_LIKERT_OPTIONS[0];
                             return { 
                                 value: val, 
@@ -165,9 +166,8 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
                                 color: style.color
                             };
                         });
-                        // Reverse array to display in descending order (4 -> 1) to match UI consistency
-                        // Standard UI: Positive (4) ... Negative (1)
-                        optionsToRender = [...mapped].reverse();
+                        // Use mapped directly (A..D) without shuffling
+                        optionsToRender = mapped;
                     }
 
                     return (
