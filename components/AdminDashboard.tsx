@@ -652,7 +652,7 @@ const RekapTab = ({ students }: { students: any[] }) => {
                      </select>
                      <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
                         <option value="all">Semua Sekolah</option>
-                        {uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>
                      <button onClick={() => exportToExcel(filteredData, "Rekap_Nilai_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
                         <FileText size={16}/> Export
