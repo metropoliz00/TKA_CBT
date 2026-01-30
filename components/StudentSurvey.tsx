@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { User, QuestionWithOptions, UserAnswerValue, Exam } from '../types';
 import { Clock, Check, ChevronRight, AlertCircle, Smile, Frown, Meh, ThumbsUp } from 'lucide-react';
@@ -126,9 +124,18 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
             {/* Header */}
             <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <div>
-                        <h1 className="font-bold text-slate-800 text-lg">{title}</h1>
-                        <p className="text-xs text-slate-500">{user.nama_lengkap}</p>
+                    <div className="flex items-center gap-3">
+                        {user.photo_url ? (
+                            <img src={user.photo_url} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm bg-white" alt="Profile" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold border border-indigo-200">
+                                {user.nama_lengkap.charAt(0)}
+                            </div>
+                        )}
+                        <div>
+                            <h1 className="font-bold text-slate-800 text-lg">{title}</h1>
+                            <p className="text-xs text-slate-500">{user.nama_lengkap}</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-bold ${timeLeft < 60 ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>

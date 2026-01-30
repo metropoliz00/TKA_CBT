@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
@@ -9,6 +8,7 @@ interface StudentExamProps {
   questions: QuestionWithOptions[];
   userFullName: string;
   username: string; // Needed for unique local storage key
+  userPhoto?: string;
   startTime: number; // Absolute start time from server
   onFinish: (answers: Record<string, UserAnswerValue>, questionCount: number, questionIds: string[], isTimeout?: boolean) => Promise<void> | void;
   onExit: () => void;
@@ -138,7 +138,7 @@ const ImageViewer = ({ src, onClose }: { src: string; onClose: () => void }) => 
     );
 };
 
-const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName, username, startTime, onFinish, onExit }) => {
+const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName, username, userPhoto, startTime, onFinish, onExit }) => {
   const [examQuestions, setExamQuestions] = useState<QuestionWithOptions[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, UserAnswerValue>>({});
@@ -357,7 +357,19 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
             <Clock size={16} className="text-indigo-600" />
             <span className={`font-mono font-bold text-sm md:text-base ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>{formatTime(timeLeft)}</span>
           </div>
-          <div className="hidden md:block text-right"><div className="text-sm font-bold text-slate-800">{userFullName}</div><div className="text-xs text-slate-500">{exam.nama_ujian}</div></div>
+          <div className="hidden md:flex items-center gap-3 text-right">
+              <div>
+                  <div className="text-sm font-bold text-slate-800">{userFullName}</div>
+                  <div className="text-xs text-slate-500">{exam.nama_ujian}</div>
+              </div>
+              {userPhoto ? (
+                  <img src={userPhoto} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm bg-white" alt="Profile" />
+              ) : (
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                      {userFullName.charAt(0)}
+                  </div>
+              )}
+          </div>
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow transition"><LayoutDashboard size={18} /> <span className="hidden md:inline text-sm font-bold">Daftar Soal</span></button>
         </div>
       </header>

@@ -1,4 +1,6 @@
 
+
+
 // 1. Tabel Users
 export interface User {
   id: string;
@@ -11,6 +13,7 @@ export interface User {
   kecamatan?: string; // New Field: Kecamatan
   active_exam?: string; // Assigned Exam
   session?: string; // Assigned Session
+  photo_url?: string; // New Field: Profile Photo URL
 }
 
 // 2. Tabel Exams (Ujian)

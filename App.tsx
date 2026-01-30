@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
 import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, Clock } from 'lucide-react';
@@ -278,7 +277,14 @@ function App() {
                 <header className="bg-white border-b border-slate-200 h-16 flex items-center px-6 md:px-10 justify-between sticky top-0 z-30"><div className="flex items-center gap-2 text-blue-700 font-bold text-lg"><School size={24}/> <span>Konfirmasi Data</span></div><div className="flex items-center gap-4"><div className="text-slate-500 text-sm font-mono bg-slate-100 px-3 py-1 rounded">V.2.0</div><button onClick={handleLogout} className="text-red-500 hover:text-red-700 flex items-center gap-1 font-bold text-sm bg-red-50 px-3 py-1 rounded transition hover:bg-red-100"><LogOut size={16}/> Logout</button></div></header>
                 <div className="flex-1 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden border border-slate-100">
-                        <div className="bg-blue-50 p-6 border-b border-blue-100 flex items-center gap-4"><div className="bg-blue-600 text-white p-3 rounded-xl shadow-md"><UserIcon size={32}/></div><div><h2 className="text-xl font-bold text-slate-800">Profil Peserta</h2><p className="text-slate-500 text-sm">Pastikan data user di bawah ini benar.</p></div></div>
+                        <div className="bg-blue-50 p-6 border-b border-blue-100 flex items-center gap-4">
+                            {currentUser?.photo_url ? (
+                                <img src={currentUser.photo_url} className="w-16 h-16 rounded-xl object-cover shadow-md border-2 border-white bg-white" alt="Profile" />
+                            ) : (
+                                <div className="bg-blue-600 text-white p-3 rounded-xl shadow-md"><UserIcon size={32}/></div>
+                            )}
+                            <div><h2 className="text-xl font-bold text-slate-800">Profil Peserta</h2><p className="text-slate-500 text-sm">Pastikan data user di bawah ini benar.</p></div>
+                        </div>
                         <div className="p-8 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Username</label><div className="font-mono text-lg font-bold text-slate-700 bg-slate-50 p-2 rounded border border-slate-200">{currentUser?.username}</div></div><div className="space-y-1"><label className="text-xs font-bold text-slate-400 uppercase">Mata Ujian</label>{examList.length > 0 ? (<select className="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-blue-700 font-bold outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500" value={selectedExamId} onChange={e=>setSelectedExamId(e.target.value)} disabled={examList.length === 1}>{examList.map(s=><option key={s.id} value={s.id}>{s.nama_ujian}</option>)}</select>) : (<div className="p-2.5 bg-red-50 border border-red-200 text-red-500 rounded-lg text-sm font-bold flex items-center gap-2"><AlertCircle size={16}/>{currentUser?.active_exam && currentUser.active_exam !== '-' ? `Ujian "${currentUser.active_exam}" belum aktif/tersedia.` : "Belum ada ujian yang diaktifkan untuk User ini."}</div>)}</div></div>
                             <div className="h-px bg-slate-100"></div>
@@ -335,6 +341,7 @@ function App() {
         questions={questions}
         userFullName={currentUser.nama_lengkap}
         username={currentUser.username}
+        userPhoto={currentUser.photo_url}
         startTime={startTime}
         onFinish={handleFinishExam}
         onExit={handleLogout}

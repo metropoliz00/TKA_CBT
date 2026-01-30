@@ -1,5 +1,9 @@
 
 
+
+
+
+
 /* 
   CONFIGURATION
   Pastikan nama Sheet (Tab) di Google Spreadsheet sesuai dengan variabel di bawah ini.
@@ -103,6 +107,53 @@ function toSheetValue(val) {
   return val;
 }
 
+// --- HELPER: Save Image to Drive ---
+function saveImageToDrive(base64Data, filename) {
+  try {
+    if (!base64Data || !base64Data.includes(",")) {
+        console.error("Invalid base64 data");
+        return "";
+    }
+    
+    // Prepare Folder
+    const folderName = "CBT_User_Photos";
+    let folder;
+    const folders = DriveApp.getFoldersByName(folderName);
+    
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder(folderName);
+      // Set Public Permission for the folder (optional but good for inheritance)
+      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+
+    // Logic split requested: Get type and data
+    const splitData = base64Data.split(",");
+    const type = splitData[0].split(':')[1].split(';')[0]; // e.g. image/jpeg
+    const base64Content = splitData[1];
+
+    // Create Blob using Utilities
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(base64Content),
+      type,
+      filename
+    );
+    
+    // Create File
+    const file = folder.createFile(blob);
+    
+    // Set Permission: Anyone with link can view
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // Return Direct Link
+    return "https://drive.google.com/uc?export=view&id=" + file.getId();
+  } catch (e) {
+    console.error("Image upload failed: " + e.toString());
+    return "";
+  }
+}
+
 // --- LOGGING ---
 function logUserActivity(username, fullname, action, details) {
   try {
@@ -177,7 +228,8 @@ function loginUser(username, password) {
                     fullname: data[i][4], 
                     gender: data[i][5] || '-', 
                     school: schoolName,
-                    kecamatan: data[i][7] || '-'
+                    kecamatan: data[i][7] || '-',
+                    photo_url: data[i][8] || ''
                 }
              };
         }
@@ -200,6 +252,7 @@ function loginUser(username, password) {
         const active_exam = data[i][7] || '-';
         const session = data[i][8] || '-';
         const kecamatan = data[i][9] || '-'; 
+        const photo_url = data[i][10] || '';
         
         logUserActivity(dbUser, fullname, "LOGIN", "Success");
         
@@ -213,7 +266,8 @@ function loginUser(username, password) {
               school: school, 
               kecamatan: kecamatan,
               active_exam: active_exam,
-              session: session
+              session: session,
+              photo_url: photo_url
           }
         };
       }
@@ -405,7 +459,8 @@ function getUsers() {
           school: data[i][6],
           active_exam: data[i][7] || '-', 
           session: data[i][8] || '-',
-          kecamatan: data[i][9] || '-' 
+          kecamatan: data[i][9] || '-',
+          photo_url: data[i][10] || '' 
         });
       }
   }
@@ -425,7 +480,8 @@ function getUsers() {
           school: data[i][6],
           kecamatan: data[i][7] || '-', 
           active_exam: '-', 
-          session: '-'      
+          session: '-',
+          photo_url: data[i][8] || ''      
         });
       }
   }
@@ -455,9 +511,9 @@ function adminSaveUser(userData) {
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(targetSheetName);
         if (isStudent) {
-            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan"]);
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo"]);
         } else {
-            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan"]);
+            sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan", "Photo"]);
         }
     }
 
@@ -468,6 +524,7 @@ function adminSaveUser(userData) {
     const data = sheet.getDataRange().getDisplayValues();
     let rowIndex = -1;
 
+    // Find if user already exists (Editing)
     if (userData.id) {
         for (let i = 1; i < data.length; i++) {
             if (String(data[i][0]) === String(userData.id)) {
@@ -479,6 +536,26 @@ function adminSaveUser(userData) {
 
     const id = userData.id || (isStudent ? 'U' : 'A') + new Date().getTime();
     
+    // --- PHOTO LOGIC ---
+    let photoUrl = "";
+    
+    // Case 1: Uploading New Photo (Base64 String Present)
+    if (userData.photo && userData.photo.startsWith("data:image")) {
+        const fileName = `${id}_${userData.username}.jpg`;
+        photoUrl = saveImageToDrive(userData.photo, fileName);
+    } 
+    // Case 2: Existing Photo URL (passed from frontend)
+    else if (userData.photo_url) {
+        photoUrl = userData.photo_url;
+    }
+    // Case 3: Editing existing row, but no new photo uploaded. Keep DB value if exists.
+    else if (rowIndex > 0) {
+        const colIndex = isStudent ? 10 : 8; // Index in array (0-based) for Photo column
+        if (data[rowIndex - 1][colIndex]) {
+            photoUrl = data[rowIndex - 1][colIndex];
+        }
+    }
+
     let rowValues = [];
     if (isStudent) {
         rowValues = [
@@ -491,7 +568,8 @@ function adminSaveUser(userData) {
             userData.school || '-',
             userData.active_exam || '-',
             userData.session || '-',
-            userData.kecamatan || '-'
+            userData.kecamatan || '-',
+            photoUrl
         ];
     } else {
         rowValues = [
@@ -502,12 +580,14 @@ function adminSaveUser(userData) {
             userData.fullname,
             userData.gender || '-',
             userData.school || '-',
-            userData.kecamatan || '-'
+            userData.kecamatan || '-',
+            photoUrl
         ];
     }
 
     if (rowIndex > 0) {
         if (isStudent) {
+             // Preserve Exam status if not provided in update
              if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7];
              if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8];
         }
@@ -548,11 +628,12 @@ function adminImportUsers(usersList) {
                 u.school || '-', 
                 '-', 
                 '-', 
-                u.kecamatan || '-' 
+                u.kecamatan || '-',
+                u.photo_url || '' // Changed from '' to u.photo_url || ''
             ]);
         } else {
             admins.push([
-                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-', u.kecamatan || '-'
+                toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-', u.kecamatan || '-', ''
             ]);
         }
     });
@@ -561,18 +642,18 @@ function adminImportUsers(usersList) {
         let sSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
         if (!sSheet) {
             sSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS);
-            sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan"]);
+            sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo"]);
         }
-        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 10).setValues(students);
+        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 11).setValues(students);
     }
 
     if (admins.length > 0) {
         let aSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ADMINS);
         if (!aSheet) {
             aSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_ADMINS);
-            aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan"]);
+            aSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan", "Photo"]);
         }
-        aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 8).setValues(admins);
+        aSheet.getRange(aSheet.getLastRow() + 1, 1, admins.length, 9).setValues(admins);
     }
 
     return { success: true, message: `Berhasil mengimpor ${students.length} siswa dan ${admins.length} admin.` };

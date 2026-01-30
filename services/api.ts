@@ -1,7 +1,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzbySyYWtay-0KgraJ2pMVRfv0g9HuB82SXAvGIc3FXRzCh9LX-SjdxaAF3oHjh5ego/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbz7-9jqoOpNmHL5_84CIEXMvd62fSRF9qPHYh0vq-jpR3enWed5s-Uhoj4SilIZIH2_/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -90,7 +90,8 @@ export const api = {
             kelas_id: result.user.school,
             kecamatan: result.user.kecamatan, 
             active_exam: result.user.active_exam, 
-            session: result.user.session 
+            session: result.user.session,
+            photo_url: result.user.photo_url 
         };
     }
     
