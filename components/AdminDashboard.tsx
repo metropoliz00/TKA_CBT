@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Users, BookOpen, BarChart3, Settings, LogOut, Home, LayoutDashboard, Award, Activity, FileText, RefreshCw, Key, FileQuestion, Plus, Trash2, Edit, Save, X, Search, CheckCircle2, AlertCircle, Clock, PlayCircle, Filter, ChevronLeft, ChevronRight, School, UserCheck, GraduationCap, Shield, Loader2, Upload, Download, Group, Menu, ArrowUpDown, Monitor, List, Layers, Calendar, MapPin, Printer, ClipboardList } from 'lucide-react';
 import { api } from '../services/api';
@@ -1275,12 +1277,13 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
     );
 };
 
-const RilisTokenTab = ({ token, duration, maxQuestions, refreshData, isRefreshing }: { token: string, duration: number, maxQuestions: number, refreshData: () => void, isRefreshing: boolean }) => {
+const RilisTokenTab = ({ token, duration, maxQuestions, surveyDuration, refreshData, isRefreshing }: { token: string, duration: number, maxQuestions: number, surveyDuration: number, refreshData: () => void, isRefreshing: boolean }) => {
     const [localMaxQ, setLocalMaxQ] = useState(maxQuestions);
     const [isSavingQ, setIsSavingQ] = useState(false);
-    const [surveyDur, setSurveyDur] = useState(30);
+    const [surveyDur, setSurveyDur] = useState(surveyDuration || 30);
 
     useEffect(() => { setLocalMaxQ(maxQuestions); }, [maxQuestions]);
+    useEffect(() => { setSurveyDur(surveyDuration || 30); }, [surveyDuration]);
 
     const handleSaveMaxQ = async () => {
         setIsSavingQ(true);
@@ -1809,6 +1812,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       token: 'TOKEN',
       duration: 60,
       maxQuestions: 0, 
+      surveyDuration: 30, // Initialize
       statusCounts: { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 },
       activityFeed: [],
       allUsers: [], 
@@ -2198,7 +2202,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
                 {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
                 {activeTab === 'atur_gelombang' && user.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
-                {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} refreshData={fetchData} isRefreshing={isRefreshing} />}
+                {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} surveyDuration={dashboardData.surveyDuration} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
                 {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab students={dashboardData.allUsers} />}
                 {activeTab === 'rekap_survey' && user.role === 'admin_pusat' && <RekapSurveyTab />}

@@ -1159,6 +1159,7 @@ function getDashboardData() {
   const token = getConfigValue('TOKEN', 'TOKEN');
   const duration = getConfigValue('DURATION', 60);
   const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
+  const surveyDuration = getConfigValue('SURVEY_DURATION', 30); // Added retrieval for survey duration
 
   // 4. Get Schedules
   const schedules = getSchoolSchedules();
@@ -1170,6 +1171,7 @@ function getDashboardData() {
     token: token, 
     duration: duration,
     maxQuestions: maxQuestions,
+    surveyDuration: surveyDuration, // Include survey duration in response
     statusCounts: counts, 
     activityFeed: feed, 
     allUsers: Object.values(users),
