@@ -173,7 +173,7 @@ const StudentSurvey: React.FC<StudentSurveyProps> = ({ user, surveyType, onFinis
                     return (
                         <div key={q.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <div className="flex gap-4 mb-4">
-                                <span className="bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded h-fit text-sm">#{idx + 1}</span>
+                                <span className="bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded h-fit text-sm">{idx + 1}</span>
                                 <p className="text-slate-800 font-medium text-lg leading-relaxed">{q.text_soal}</p>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pl-0 md:pl-12">

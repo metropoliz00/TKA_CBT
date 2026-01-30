@@ -79,7 +79,7 @@ function processAction(action, args) {
       case 'getSchoolSchedules': return getSchoolSchedules();
       case 'saveSchoolSchedules': return saveSchoolSchedules(args[0]);
       // New Survey Actions
-      case 'submitSurvey': return submitSurvey(args[0], args[1], args[2], args[3], args[4], args[5]);
+      case 'submitSurvey': return submitSurvey(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
       case 'adminGetSurveyRecap': return adminGetSurveyRecap(args[0]);
       // Dashboard Data Feeds
       case 'getRecapData': return getRecapData(); // Changed name to match function
@@ -925,7 +925,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
 }
 
 // --- SURVEY FUNCTIONS ---
-function submitSurvey(username, fullname, school, surveyType, answers, startTimeEpoch) {
+function submitSurvey(username, fullname, school, kecamatan, surveyType, answers, startTimeEpoch) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date();
   
@@ -939,7 +939,8 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
   let sheet = ss.getSheetByName(SHEET_REKAP_SURVEY);
   if (!sheet) {
       sheet = ss.insertSheet(SHEET_REKAP_SURVEY);
-      const header = ["Timestamp", "Username", "Nama", "Sekolah", "Jenis Survey", "Durasi", "Total Skor", "Rata-rata"];
+      // Added "Kecamatan" to header
+      const header = ["Timestamp", "Username", "Nama", "Sekolah", "Kecamatan", "Jenis Survey", "Durasi", "Total Skor", "Rata-rata"];
       for(let k=1; k<=50; k++) header.push(`S${k}`);
       sheet.appendRow(header);
   }
@@ -963,11 +964,6 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
   const answerValues = [];
   
   // Iterate through Ordered IDs to fill columns correctly
-  // This supports custom IDs (e.g., S1, S2, K1, K2...) if defined in sheet
-  
-  // We need to fill columns corresponding to header S1...S50.
-  // Ideally we should just dump answerValues in order of question appearance.
-  
   for (let i = 0; i < orderedIDs.length; i++) {
       const key = orderedIDs[i];
       if (answers[key]) {
@@ -993,7 +989,8 @@ function submitSurvey(username, fullname, school, surveyType, answers, startTime
       now, 
       toSheetValue(username), 
       fullname, 
-      school, 
+      school,
+      kecamatan, // Added Kecamatan value
       surveyType.replace('Survey_', ''), // "Karakter" or "Lingkungan"
       durationStr,
       totalScore,
@@ -1010,21 +1007,44 @@ function adminGetSurveyRecap(surveyType) {
     if (!sheet) return [];
     
     const data = sheet.getDataRange().getDisplayValues();
-    const results = [];
+    if(data.length < 2) return []; 
     
-    // Filter by Survey Type (Col index 4, value 5th column)
+    const header = data[0]; 
     const typeFilter = surveyType.replace('Survey_', '');
     
+    // Dynamic Header Map to find column indices by name
+    const h = {};
+    header.forEach((val, idx) => { h[val] = idx; });
+    
+    const results = [];
+    
+    // Safety check: Ensure critical column exists
+    const idxJenis = h["Jenis Survey"];
+    if (idxJenis === undefined) return [];
+
     for(let i=1; i<data.length; i++) {
-        if(String(data[i][4]) === typeFilter) {
+        const rowType = String(data[i][idxJenis]);
+        
+        if(rowType === typeFilter) {
+            const items = {};
+            // Scan header for columns starting with "S" (e.g., S1, S2, S50)
+            header.forEach((colName, colIdx) => {
+                if(colName && /^S\d+$/.test(colName)) {
+                    // Use colIdx to fetch data from the current row
+                    items[colName] = (data[i].length > colIdx) ? data[i][colIdx] : "";
+                }
+            });
+
             results.push({
-                timestamp: data[i][0],
-                username: data[i][1],
-                nama: data[i][2],
-                sekolah: data[i][3],
-                durasi: data[i][5],
-                total: data[i][6],
-                rata: data[i][7]
+                timestamp: h["Timestamp"] !== undefined ? data[i][h["Timestamp"]] : "",
+                username: h["Username"] !== undefined ? data[i][h["Username"]] : "",
+                nama: h["Nama"] !== undefined ? data[i][h["Nama"]] : "",
+                sekolah: h["Sekolah"] !== undefined ? data[i][h["Sekolah"]] : "",
+                kecamatan: h["Kecamatan"] !== undefined ? data[i][h["Kecamatan"]] : "-",
+                durasi: h["Durasi"] !== undefined ? data[i][h["Durasi"]] : "",
+                total: h["Total Skor"] !== undefined ? data[i][h["Total Skor"]] : "0",
+                rata: h["Rata-rata"] !== undefined ? data[i][h["Rata-rata"]] : "0",
+                items: items 
             });
         }
     }
@@ -1170,7 +1190,7 @@ function getDashboardData() {
     totalUsers, 
     token: token, 
     duration: duration,
-    maxQuestions: maxQuestions,
+    maxQuestions: maxQuestions, 
     surveyDuration: surveyDuration, // Include survey duration in response
     statusCounts: counts, 
     activityFeed: feed, 

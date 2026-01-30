@@ -1,10 +1,7 @@
-
-
-
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbyv3iJsSYKluyxnE57P8sHASIZvcvpRrND2ZnjaDRA57fX_IfMcVpN90GVpSL-WatE/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzbySyYWtay-0KgraJ2pMVRfv0g9HuB82SXAvGIc3FXRzCh9LX-SjdxaAF3oHjh5ego/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -228,7 +225,7 @@ export const api = {
   },
 
   submitSurvey: async (payload: { user: User, surveyType: string, answers: any, startTime: number }) => {
-      return await callBackend('submitSurvey', payload.user.username, payload.user.nama_lengkap, payload.user.kelas_id, payload.surveyType, payload.answers, payload.startTime);
+      return await callBackend('submitSurvey', payload.user.username, payload.user.nama_lengkap, payload.user.kelas_id, payload.user.kecamatan || '-', payload.surveyType, payload.answers, payload.startTime);
   },
 
   getSurveyRecap: async (surveyType: string): Promise<any[]> => {
