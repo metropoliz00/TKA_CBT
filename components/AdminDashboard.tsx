@@ -578,7 +578,10 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
     const [filterKecamatan, setFilterKecamatan] = useState('all');
 
     useEffect(() => {
-        api.getExams().then(setExams);
+        // Filter out surveys from Mata Pelajaran list
+        api.getExams().then(res => {
+            setExams(res.filter(e => !e.id.startsWith('Survey_')));
+        });
     }, []);
 
     const uniqueSchools = useMemo(() => {
@@ -640,7 +643,7 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Cetak Absensi</title>
+                <title>Cetak Absensi_TKA 2026</title>
                 <style>
                     body { font-family: 'Times New Roman', serif; padding: 20px; color: #000; }
                     .header { text-align: center; margin-bottom: 20px; line-height: 1.5; }
@@ -662,8 +665,8 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
             <body>
                 <div class="header">
                     <h2>DAFTAR HADIR</h2>
-                    <h2>PESERTA TKA TAHUN 2026</h2>
-                    <h3>${schoolName} ${kecamatanName !== '-' ? `- ${kecamatanName}` : ''}</h3>
+                    <h2>PESERTA TRY OUT TKA TAHUN 2026</h2>
+                    <h3>${schoolName} ${kecamatanName !== '-' ? `- Kecamatan ${kecamatanName}` : ''}</h3>
                 </div>
 
                 <table class="info-table">
@@ -880,6 +883,8 @@ const RekapTab = ({ students }: { students: any[] }) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs">
                         <tr>
+                            <th className="p-4 w-12 text-center">No</th>
+                            <th className="p-4">Username</th>
                             <th className="p-4">Nama Peserta</th>
                             <th className="p-4">Sekolah</th>
                             <th className="p-4">Kecamatan</th>
@@ -889,12 +894,14 @@ const RekapTab = ({ students }: { students: any[] }) => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
-                            <tr><td colSpan={5} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data nilai...</td></tr>
+                            <tr><td colSpan={7} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data nilai...</td></tr>
                         ) : filteredData.length === 0 ? (
-                            <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan untuk filter ini.</td></tr>
+                            <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan untuk filter ini.</td></tr>
                         ) : (
                             filteredData.map((d, i) => (
                                 <tr key={i} className="hover:bg-slate-50 transition">
+                                    <td className="p-4 text-center text-slate-500">{i + 1}</td>
+                                    <td className="p-4 font-mono text-slate-600">{d.username}</td>
                                     <td className="p-4 font-bold text-slate-700">{d.nama}</td>
                                     <td className="p-4 text-slate-600">{d.sekolah}</td>
                                     <td className="p-4 text-slate-600">{d.kecamatan}</td>
@@ -1043,7 +1050,11 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
         students.forEach(s => map[s.username] = s);
         return map;
     }, [students]);
-    useEffect(() => { api.getExams().then(setExams); }, []);
+    useEffect(() => { 
+        api.getExams().then(res => {
+            setExams(res.filter(e => !e.id.startsWith('Survey_')));
+        }); 
+    }, []);
     useEffect(() => {
         if (!selectedExam) return;
         setLoading(true);
@@ -1114,6 +1125,8 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
                 <table className="w-full text-xs text-left whitespace-nowrap">
                     <thead className="bg-slate-50 font-bold text-slate-600 uppercase">
                         <tr>
+                            <th className="p-3 w-10 text-center border-r border-slate-200">No</th>
+                            <th className="p-3 border-r border-slate-200">Username</th>
                             <th className="p-3 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Nama Peserta</th>
                             <th className="p-3">Sekolah</th>
                             <th className="p-3">Kecamatan</th>
@@ -1122,7 +1135,16 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {loading ? (<tr><td colSpan={4 + questionIds.length} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data analisis...</td></tr>) : filteredParsedData.length === 0 ? (<tr><td colSpan={4 + questionIds.length} className="p-8 text-center text-slate-400 italic">Silakan pilih ujian untuk melihat data.</td></tr>) : (filteredParsedData.map((d, i) => (<tr key={i} className="hover:bg-slate-50 transition"><td className="p-3 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100">{d.nama}</td><td className="p-3 text-slate-600">{d.sekolah}</td><td className="p-3 text-slate-600">{userMap[d.username]?.kecamatan || '-'}</td><td className="p-3 font-bold text-indigo-600 border-r border-slate-100">{d.nilai}</td>{questionIds.map(q => { const val = d.ansMap[q]; const isCorrect = val === 1; return (<td key={q} className={`p-1 text-center font-bold border-l border-slate-50 ${val === undefined ? 'text-slate-300' : isCorrect ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{val === undefined ? '-' : val}</td>); })}</tr>)))}
+                        {loading ? (<tr><td colSpan={6 + questionIds.length} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data analisis...</td></tr>) : filteredParsedData.length === 0 ? (<tr><td colSpan={6 + questionIds.length} className="p-8 text-center text-slate-400 italic">Silakan pilih ujian untuk melihat data.</td></tr>) : (filteredParsedData.map((d, i) => (
+                        <tr key={i} className="hover:bg-slate-50 transition">
+                            <td className="p-3 text-center text-slate-500 border-r border-slate-100">{i + 1}</td>
+                            <td className="p-3 font-mono text-slate-600 border-r border-slate-100">{d.username}</td>
+                            <td className="p-3 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100">{d.nama}</td>
+                            <td className="p-3 text-slate-600">{d.sekolah}</td>
+                            <td className="p-3 text-slate-600">{userMap[d.username]?.kecamatan || '-'}</td>
+                            <td className="p-3 font-bold text-indigo-600 border-r border-slate-100">{d.nilai}</td>
+                            {questionIds.map(q => { const val = d.ansMap[q]; const isCorrect = val === 1; return (<td key={q} className={`p-1 text-center font-bold border-l border-slate-50 ${val === undefined ? 'text-slate-300' : isCorrect ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{val === undefined ? '-' : val}</td>); })}
+                        </tr>)))}
                     </tbody>
                 </table>
             </div>
@@ -1837,6 +1859,8 @@ const RekapSurveyTab = () => {
                  <table className="w-full text-sm text-left">
                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                          <tr>
+                             <th className="p-4 w-12 text-center border-r border-slate-200">No</th>
+                             <th className="p-4 border-r border-slate-200">Username</th>
                              <th className="p-4 sticky left-0 bg-slate-50 border-r border-slate-200 z-10 min-w-[150px]">Nama</th>
                              <th className="p-4 min-w-[120px]">Sekolah</th>
                              <th className="p-4 min-w-[120px]">Kecamatan</th>
@@ -1850,13 +1874,15 @@ const RekapSurveyTab = () => {
                      </thead>
                      <tbody className="divide-y divide-slate-50">
                          {loading ? (
-                             <tr><td colSpan={6 + questionKeys.length} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat...</td></tr>
+                             <tr><td colSpan={8 + questionKeys.length} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat...</td></tr>
                          ) : data.length === 0 ? (
-                             <tr><td colSpan={6 + questionKeys.length} className="p-8 text-center text-slate-400">Belum ada data survey ini.</td></tr>
+                             <tr><td colSpan={8 + questionKeys.length} className="p-8 text-center text-slate-400">Belum ada data survey ini.</td></tr>
                          ) : data.map((d, i) => {
                              const pred = getSurveyPredicate(d.rata);
                              return (
                              <tr key={i} className="hover:bg-slate-50 transition">
+                                 <td className="p-4 text-center text-slate-500 border-r border-slate-100">{i + 1}</td>
+                                 <td className="p-4 font-mono text-slate-600 border-r border-slate-100">{d.username}</td>
                                  <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100 shadow-sm">{d.nama}</td>
                                  <td className="p-4 text-slate-600 text-xs">{d.sekolah}</td>
                                  <td className="p-4 text-slate-600 text-xs">{d.kecamatan}</td>
