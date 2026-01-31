@@ -265,16 +265,60 @@ function App() {
   if (view === 'system_check') {
       const isOffline = sysInfo.status === 'Offline';
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans fade-in" onClick={enterFullscreen}>
-            <div className="bg-white max-w-md w-full rounded-2xl p-8 shadow-xl border border-slate-100 relative overflow-hidden">
+        <div className="min-h-screen relative flex items-center justify-center p-4 font-sans fade-in overflow-hidden" onClick={enterFullscreen}>
+            {/* Background Image Layer with 60% Opacity */}
+            <div 
+                className="absolute inset-0 z-0 bg-cover bg-center"
+                style={{ 
+                    backgroundImage: 'url("https://image2url.com/r2/default/images/1769879601173-bc7ec22d-7bb8-4ed8-91d7-b6407193627b.jpg")',
+                    opacity: 0.6
+                }}
+            />            
+            {/* Content Container */}
+            <div className="bg-white/95 backdrop-blur-sm max-w-md w-full rounded-2xl p-8 shadow-2xl border border-white/20 relative z-10 overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-                <div className="text-center mb-8"><div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse"><Monitor size={32} /></div><h2 className="text-2xl font-extrabold text-slate-800">System Check</h2><p className="text-slate-500 text-sm mt-1">Memeriksa kompatibilitas perangkat...</p></div>
-                <div className="space-y-4 mb-8">
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200"><div className="flex items-center gap-3"><Smartphone className="text-slate-400" size={20} /><div><p className="text-xs font-bold text-slate-400 uppercase">Device / OS</p><p className="font-bold text-slate-700">{sysInfo.device} / {sysInfo.os}</p></div></div><Check size={20} className="text-green-500" /></div>
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200"><div className="flex items-center gap-3"><Cpu className="text-slate-400" size={20} /><div><p className="text-xs font-bold text-slate-400 uppercase">RAM</p><p className="font-bold text-slate-700">{sysInfo.ram}</p></div></div><Check size={20} className="text-green-500" /></div>
-                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isOffline ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}><div className="flex items-center gap-3">{isOffline ? <WifiOff className="text-red-400" size={20} /> : <Wifi className="text-slate-400" size={20} />}<div><p className={`text-xs font-bold uppercase ${isOffline ? 'text-red-400' : 'text-slate-400'}`}>Status Device</p><p className={`font-bold ${isOffline ? 'text-red-600' : 'text-emerald-600'}`}>{sysInfo.status}</p></div></div><div className={`w-3 h-3 rounded-full ${isOffline ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div></div>
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <Monitor size={32} />
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-slate-800">System Check</h2>
+                    <p className="text-slate-500 text-sm mt-1">Memeriksa kompatibilitas perangkat...</p>
                 </div>
-                <button onClick={() => { enterFullscreen(); setView('login'); }} disabled={isOffline} className={`w-full font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 group ${isOffline ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'}`}>{isOffline ? "KONEKSI TERPUTUS" : (<>LANJUTKAN <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>)}</button>
+                <div className="space-y-4 mb-8">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3">
+                            <Smartphone className="text-slate-400" size={20} />
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Device / OS</p>
+                                <p className="font-bold text-slate-700">{sysInfo.device} / {sysInfo.os}</p>
+                            </div>
+                        </div>
+                        <Check size={20} className="text-green-500" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3">
+                            <Cpu className="text-slate-400" size={20} />
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 uppercase">RAM</p>
+                                <p className="font-bold text-slate-700">{sysInfo.ram}</p>
+                            </div>
+                        </div>
+                        <Check size={20} className="text-green-500" />
+                    </div>
+                    <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isOffline ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex items-center gap-3">
+                            {isOffline ? <WifiOff className="text-red-400" size={20} /> : <Wifi className="text-slate-400" size={20} />}
+                            <div>
+                                <p className={`text-xs font-bold uppercase ${isOffline ? 'text-red-400' : 'text-slate-400'}`}>Status Device</p>
+                                <p className={`font-bold ${isOffline ? 'text-red-600' : 'text-emerald-600'}`}>{sysInfo.status}</p>
+                            </div>
+                        </div>
+                        <div className={`w-3 h-3 rounded-full ${isOffline ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></div>
+                    </div>
+                </div>
+                <button onClick={() => { enterFullscreen(); setView('login'); }} disabled={isOffline} className={`w-full font-bold py-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 group ${isOffline ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/30'}`}>
+                    {isOffline ? "KONEKSI TERPUTUS" : (<>LANJUTKAN <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>)}
+                </button>
                 <p className="text-center text-[10px] text-slate-400 mt-6">Klik "LANJUTKAN" untuk masuk ke halaman Login.</p>
             </div>
         </div>
@@ -286,10 +330,15 @@ function App() {
         <>
             {loading && <LoadingOverlay message={loadingMessage} />}
             <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans overflow-hidden relative" onClick={enterFullscreen}>
-                <div className="absolute inset-0 z-0">
-                    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-200/40 rounded-full blur-3xl animate-pulse"></div>
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-200/40 rounded-full blur-3xl animate-pulse" style={{animationDelay:'2s'}}></div>
-                </div>
+                {/* Background Image Layer with 20% Opacity */}
+                <div 
+                    className="absolute inset-0 z-0 bg-cover bg-center"
+                    style={{ 
+                        backgroundImage: 'url("https://image2url.com/r2/default/images/1769880312544-946f6b70-4512-4c82-bb6a-cc432cd620fe.jpg")',
+                        opacity: 0.2
+                    }}
+                />
+                
                 <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row z-10 fade-in border border-white/50">
                     <div className="md:w-1/2 relative bg-slate-900 flex flex-col justify-center items-center text-white p-12 overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/50 to-indigo-900/60 z-10"></div>
