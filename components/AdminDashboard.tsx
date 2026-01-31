@@ -607,7 +607,8 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
         const sesiName = selectedSession || 'Semua Sesi';
         const examName = exams.find(e => e.id === selectedExamId)?.nama_ujian || '...........................';
         
-        const dateNow = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Update: Added 'weekday: long' to show day name (e.g. Sabtu, 30 Januari 2025)
+        const dateNow = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const signatureDate = `Tuban, ${dateNow}`;
         const proktorName = currentUser.nama_lengkap || "...........................";
 
