@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { School, Users, PlayCircle, CheckCircle2, AlertCircle, Key, ClipboardList, Activity, Calendar, MapPin, Clock } from 'lucide-react';
+import { School, Users, PlayCircle, CheckCircle2, AlertCircle, Key, ClipboardList, Activity, Calendar, MapPin, Clock, ArrowRight } from 'lucide-react';
 import { User } from '../../types';
 import { SimpleDonutChart } from '../../utils/adminHelpers';
 
@@ -53,15 +53,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
     const filteredFeed = useMemo(() => {
         const feed = dashboardData.activityFeed || [];
         if (currentUserState.role === 'admin_sekolah') {
-            const mySchool = (currentUserState.kelas_id || '').toLowerCase();
-            return feed.filter((log: any) => (log.school || '').toLowerCase() === mySchool);
+            // FIX: Robust matching with trim()
+            const mySchool = (currentUserState.kelas_id || '').trim().toLowerCase();
+            return feed.filter((log: any) => (log.school || '').trim().toLowerCase() === mySchool);
         }
         return feed;
     }, [dashboardData.activityFeed, currentUserState]);
 
     const mySchedule = useMemo(() => {
         if (currentUserState.role === 'admin_sekolah' && dashboardData.schedules) {
-            return dashboardData.schedules.find((s:any) => s.school === currentUserState.kelas_id);
+            // FIX: Case-insensitive matching + trim to ensure schedule is found
+            const mySchoolName = (currentUserState.kelas_id || '').trim().toLowerCase();
+            return dashboardData.schedules.find((s:any) => (s.school || '').trim().toLowerCase() === mySchoolName);
         }
         return null;
     }, [currentUserState, dashboardData.schedules]);
@@ -107,17 +110,25 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                     </div>
                  </div>
                  <div className="flex flex-wrap gap-4 text-center justify-center w-full lg:w-auto">
-                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[220px]">
-                        <p className="text-[10px] uppercase font-bold text-indigo-200 mb-1">Tanggal Pelaksanaan</p>
+                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[280px] flex flex-col justify-center">
+                        <p className="text-[10px] uppercase font-bold text-indigo-200 mb-2">Tanggal Pelaksanaan</p>
                         {mySchedule.tanggal_selesai && mySchedule.tanggal_selesai !== mySchedule.tanggal ? (
-                             <div className="flex flex-col gap-1">
-                                <p className="text-sm font-bold leading-tight">{formatDateFull(mySchedule.tanggal)}</p>
-                                <p className="text-[10px] text-indigo-300">Sampai Dengan</p>
-                                <p className="text-sm font-bold leading-tight">{formatDateFull(mySchedule.tanggal_selesai)}</p>
+                             <div className="flex flex-col items-center w-full">
+                                <div className="w-full bg-black/20 rounded-t-lg px-3 py-1.5 text-sm font-bold text-white border border-white/10 border-b-0">
+                                    {formatDateFull(mySchedule.tanggal)}
+                                </div>
+                                <div className="w-full bg-black/30 px-3 py-0.5 text-[10px] font-bold text-indigo-200 border-x border-white/10 flex items-center justify-center gap-2">
+                                    <div className="h-px bg-white/20 flex-1"></div>
+                                    <span className="uppercase tracking-wider">s.d</span>
+                                    <div className="h-px bg-white/20 flex-1"></div>
+                                </div>
+                                <div className="w-full bg-black/20 rounded-b-lg px-3 py-1.5 text-sm font-bold text-white border border-white/10 border-t-0">
+                                    {formatDateFull(mySchedule.tanggal_selesai)}
+                                </div>
                              </div>
                         ) : (
-                             <div>
-                                <p className="text-lg font-bold leading-tight">{formatDateFull(mySchedule.tanggal)}</p>
+                             <div className="w-full bg-black/20 rounded px-3 py-2 text-lg font-bold text-white border border-white/10">
+                                {formatDateFull(mySchedule.tanggal)}
                              </div>
                         )}
                     </div>
