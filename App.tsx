@@ -42,6 +42,39 @@ function App() {
   // System Check State
   const [sysInfo, setSysInfo] = useState({ os: 'Unknown', device: 'Unknown', ram: 'Unknown', status: 'Checking...' });
 
+  // 1. Restore Session on Mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('cbt_user');
+    if (savedUser) {
+        try {
+            const parsedUser = JSON.parse(savedUser);
+            setCurrentUser(parsedUser);
+            
+            // Determine View based on Role
+            if (parsedUser.role === 'admin_pusat' || parsedUser.role === 'admin_sekolah') {
+                setView('admin');
+            } else {
+                // Restore logic for student (fetch exams)
+                setView('confirm');
+                // We need to fetch exams silently to populate the list
+                api.getExams().then(allExams => {
+                    let filteredExams = allExams.filter(e => !e.id.startsWith('Survey_'));
+                    if (parsedUser.active_exam && parsedUser.active_exam !== '-' && parsedUser.active_exam !== '') {
+                        filteredExams = filteredExams.filter(e => e.nama_ujian === parsedUser.active_exam);
+                    } else {
+                        filteredExams = [];
+                    }
+                    setExamList(filteredExams);
+                    if (filteredExams.length > 0) setSelectedExamId(filteredExams[0].id);
+                }).catch(console.error);
+            }
+        } catch (e) {
+            console.error("Failed to restore session", e);
+            localStorage.removeItem('cbt_user');
+        }
+    }
+  }, []);
+
   const enterFullscreen = async () => {
       const el = document.documentElement;
       if (!document.fullscreenElement) {
@@ -99,6 +132,9 @@ function App() {
         const user = await api.login(loginForm.username.trim(), loginForm.password.trim());
         if (user) {
             setCurrentUser(user);
+            // SAVE SESSION
+            localStorage.setItem('cbt_user', JSON.stringify(user));
+
             if (user.role === 'admin_pusat' || user.role === 'admin_sekolah') {
                 setView('admin');
             } else {
@@ -163,6 +199,10 @@ function App() {
   };
 
   const handleLogout = () => {
+    // CLEAR SESSION
+    localStorage.removeItem('cbt_user');
+    localStorage.removeItem('cbt_admin_tab'); // Clear admin tab preference
+
     setCurrentUser(null);
     setLoginForm({ username: '', password: '' });
     setInputToken('');
