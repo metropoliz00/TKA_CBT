@@ -1993,11 +1993,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // FIX: Local state for current user to allow updates without re-login
+  const [currentUserState, setCurrentUserState] = useState<User>(user);
+
+  useEffect(() => {
+    setCurrentUserState(user);
+  }, [user]);
+
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
         const data = await api.getDashboardData();
         setDashboardData(data);
+        
+        // FIX: Sync current user data if found in dashboard data
+        if (data.allUsers && Array.isArray(data.allUsers)) {
+            const freshUser = data.allUsers.find((u: any) => u.username === user.username);
+            if (freshUser) {
+                setCurrentUserState(prev => ({ ...prev, ...freshUser }));
+            }
+        }
     } catch (e) {
         console.error(e);
     } finally {
@@ -2034,8 +2049,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         let counts = dashboardData.statusCounts || { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
         let total = dashboardData.totalUsers || 0;
 
-        if (user.role === 'admin_sekolah') {
-            const mySchool = (user.kelas_id || '').toLowerCase();
+        if (currentUserState.role === 'admin_sekolah') {
+            const mySchool = (currentUserState.kelas_id || '').toLowerCase();
             const schoolUsers = (dashboardData.allUsers || []).filter((u: any) => 
                 (u.school || '').toLowerCase() === mySchool
             );
@@ -2053,7 +2068,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         }
 
         return { counts, total };
-    }, [dashboardData, user]);
+    }, [dashboardData, currentUserState]);
 
     const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = stats.counts;
     const displayTotalUsers = stats.total;
@@ -2068,19 +2083,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     
     const filteredFeed = useMemo(() => {
         const feed = dashboardData.activityFeed || [];
-        if (user.role === 'admin_sekolah') {
-            const mySchool = (user.kelas_id || '').toLowerCase();
+        if (currentUserState.role === 'admin_sekolah') {
+            const mySchool = (currentUserState.kelas_id || '').toLowerCase();
             return feed.filter((log: any) => (log.school || '').toLowerCase() === mySchool);
         }
         return feed;
-    }, [dashboardData.activityFeed]);
+    }, [dashboardData.activityFeed, currentUserState]);
 
     const mySchedule = useMemo(() => {
-        if (user.role === 'admin_sekolah' && dashboardData.schedules) {
-            return dashboardData.schedules.find((s:any) => s.school === user.kelas_id);
+        if (currentUserState.role === 'admin_sekolah' && dashboardData.schedules) {
+            return dashboardData.schedules.find((s:any) => s.school === currentUserState.kelas_id);
         }
         return null;
-    }, [user, dashboardData.schedules]);
+    }, [currentUserState, dashboardData.schedules]);
 
     const uniqueSchoolsCount = useMemo(() => {
         if (!dashboardData.allUsers) return 0;
@@ -2090,19 +2105,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
-        {user.role === 'admin_sekolah' && (
+        {currentUserState.role === 'admin_sekolah' && (
             <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3 justify-between">
                 <div className="flex items-center gap-3">
                     <div className="bg-blue-200 p-2 rounded-lg"><School size={20}/></div>
                     <div>
                         <h3 className="font-bold text-sm uppercase tracking-wide">Mode Proktor</h3>
-                        <p className="text-sm">Menampilkan data untuk: <b>{user.kelas_id}</b></p>
+                        <p className="text-sm">Menampilkan data untuk: <b>{currentUserState.kelas_id}</b></p>
                     </div>
                 </div>
             </div>
         )}
 
-        {user.role === 'admin_sekolah' && mySchedule && (
+        {currentUserState.role === 'admin_sekolah' && mySchedule && (
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
                  <div className="flex items-center gap-4">
                     <div className="bg-white/20 p-3 rounded-full"><Calendar size={32}/></div>
@@ -2124,8 +2139,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
         )}
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${user.role === 'admin_pusat' ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-6`}>
-            {user.role === 'admin_pusat' && (
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUserState.role === 'admin_pusat' ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-6`}>
+            {currentUserState.role === 'admin_pusat' && (
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
                         <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Sekolah</p>
@@ -2244,7 +2259,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="p-6 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">Management System <span className="text-indigo-600">Center</span></h1>
-            <p className="text-xs text-slate-400 mt-1">{user.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel</p>
+            <p className="text-xs text-slate-400 mt-1">{currentUserState.role === 'admin_pusat' ? 'ADMIN' : 'PROKTOR'} Control Panel</p>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600"><X size={24} /></button>
         </div>
@@ -2255,14 +2270,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           <button onClick={() => { setActiveTab('kelompok_tes'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'kelompok_tes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Group size={20} /> Kelompok Tes</button>
           <button onClick={() => { setActiveTab('atur_sesi'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'atur_sesi' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Clock size={20} /> Atur Sesi</button>
           <button onClick={() => { setActiveTab('cetak_absensi'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'cetak_absensi' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Printer size={20} /> Cetak Absensi</button>
-          {(user.role === 'admin_pusat' || user.role === 'admin_sekolah') && (
+          {(currentUserState.role === 'admin_pusat' || currentUserState.role === 'admin_sekolah') && (
             <button onClick={() => { setActiveTab('data_user'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'data_user' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><List size={20} /> Daftar Peserta</button>
           )}
-          {user.role === 'admin_pusat' && (
+          {currentUserState.role === 'admin_pusat' && (
               <button onClick={() => { setActiveTab('atur_gelombang'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'atur_gelombang' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Calendar size={20} /> Atur Gelombang</button>
           )}
           <button onClick={() => { setActiveTab('rilis_token'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'rilis_token' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><Key size={20} /> Rilis Token</button>
-          {user.role === 'admin_pusat' && (
+          {currentUserState.role === 'admin_pusat' && (
              <>
                 <div className="pt-4 pb-2 pl-4 text-xs font-extrabold text-slate-400 uppercase tracking-wider">Laporan & Data</div>
                 <button onClick={() => { setActiveTab('bank_soal'); setIsSidebarOpen(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold transition ${activeTab === 'bank_soal' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`}><FileQuestion size={20} /> Bank Soal & Survey</button>
@@ -2277,14 +2292,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">User Profile</p>
                 <div className="flex items-center gap-2">
-                    {user.photo_url ? (
-                        <img src={user.photo_url} className="w-8 h-8 rounded-full object-cover border border-slate-300 bg-white" alt="Profile" />
+                    {currentUserState.photo_url ? (
+                        <img src={currentUserState.photo_url} className="w-8 h-8 rounded-full object-cover border border-slate-300 bg-white" alt="Profile" />
                     ) : (
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold border border-indigo-200">{user.username.charAt(0).toUpperCase()}</div>
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold border border-indigo-200">{currentUserState.username.charAt(0).toUpperCase()}</div>
                     )}
-                    <p className="text-sm font-bold text-slate-800 leading-tight break-words flex-1">{user.nama_lengkap || user.username}</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight break-words flex-1">{currentUserState.nama_lengkap || currentUserState.username}</p>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${user.role === 'admin_pusat' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-700'}`}>{user.role === 'admin_pusat' ? 'Administrator' : 'Proktor'}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${currentUserState.role === 'admin_pusat' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-700'}`}>{currentUserState.role === 'admin_pusat' ? 'Administrator' : 'Proktor'}</span>
             </div>
             <button onClick={onLogout} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition"><LogOut size={20} /> Logout</button>
         </div>
@@ -2300,28 +2315,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
               <button onClick={fetchData} disabled={isRefreshing || loading} title="Refresh Data" className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition relative disabled:opacity-70 disabled:cursor-wait">
                 <RefreshCw size={20} className={isRefreshing || loading ? "animate-spin" : ""} />
               </button>
-              {user.photo_url ? (
-                  <img src={user.photo_url} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-105 transition-transform bg-white" alt="Profile Header" />
+              {currentUserState.photo_url ? (
+                  <img src={currentUserState.photo_url} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-105 transition-transform bg-white" alt="Profile Header" />
               ) : (
-                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm cursor-pointer hover:bg-indigo-200 transition-colors">{user.username.charAt(0).toUpperCase()}</div>
+                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm cursor-pointer hover:bg-indigo-200 transition-colors">{currentUserState.username.charAt(0).toUpperCase()}</div>
               )}
             </div>
           </div>
           {loading ? <DashboardSkeleton /> : (
              <>
                 {activeTab === 'overview' && <OverviewTab />}
-                {activeTab === 'status_tes' && <StatusTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
-                {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} />}
-                {activeTab === 'atur_sesi' && <AturSesiTab currentUser={user} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
-                {activeTab === 'cetak_absensi' && <CetakAbsensiTab currentUser={user} students={dashboardData.allUsers || []} />}
-                {activeTab === 'data_user' && (user.role === 'admin_pusat' || user.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={user} onDataChange={fetchData} />}
-                {activeTab === 'atur_gelombang' && user.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
+                {activeTab === 'status_tes' && <StatusTesTab currentUser={currentUserState} students={dashboardData.allUsers || []} refreshData={fetchData} />}
+                {activeTab === 'kelompok_tes' && <KelompokTesTab currentUser={currentUserState} students={dashboardData.allUsers || []} refreshData={fetchData} />}
+                {activeTab === 'atur_sesi' && <AturSesiTab currentUser={currentUserState} students={dashboardData.allUsers || []} refreshData={fetchData} isLoading={isRefreshing} />}
+                {activeTab === 'cetak_absensi' && <CetakAbsensiTab currentUser={currentUserState} students={dashboardData.allUsers || []} />}
+                {activeTab === 'data_user' && (currentUserState.role === 'admin_pusat' || currentUserState.role === 'admin_sekolah') && <DaftarPesertaTab currentUser={currentUserState} onDataChange={fetchData} />}
+                {activeTab === 'atur_gelombang' && currentUserState.role === 'admin_pusat' && <AturGelombangTab students={dashboardData.allUsers || []} />}
                 {activeTab === 'rilis_token' && <RilisTokenTab token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} surveyDuration={dashboardData.surveyDuration} refreshData={fetchData} isRefreshing={isRefreshing} />}
-                {activeTab === 'bank_soal' && user.role === 'admin_pusat' && <BankSoalTab />}
-                {activeTab === 'rekap' && user.role === 'admin_pusat' && <RekapTab students={dashboardData.allUsers} />}
-                {activeTab === 'rekap_survey' && user.role === 'admin_pusat' && <RekapSurveyTab />}
-                {activeTab === 'ranking' && user.role === 'admin_pusat' && <RankingTab students={dashboardData.allUsers} />}
-                {activeTab === 'analisis' && user.role === 'admin_pusat' && <AnalisisTab students={dashboardData.allUsers} />}
+                {activeTab === 'bank_soal' && currentUserState.role === 'admin_pusat' && <BankSoalTab />}
+                {activeTab === 'rekap' && currentUserState.role === 'admin_pusat' && <RekapTab students={dashboardData.allUsers} />}
+                {activeTab === 'rekap_survey' && currentUserState.role === 'admin_pusat' && <RekapSurveyTab />}
+                {activeTab === 'ranking' && currentUserState.role === 'admin_pusat' && <RankingTab students={dashboardData.allUsers} />}
+                {activeTab === 'analisis' && currentUserState.role === 'admin_pusat' && <AnalisisTab students={dashboardData.allUsers} />}
              </>
           )}
         </div>

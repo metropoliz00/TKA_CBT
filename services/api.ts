@@ -1,10 +1,31 @@
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbz7-9jqoOpNmHL5_84CIEXMvd62fSRF9qPHYh0vq-jpR3enWed5s-Uhoj4SilIZIH2_/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbx2FfeVVBVP5OgipsA7Pu7YmWpDdbHRwxxUfD5ya6y_RvJnx_ck63uA3f8QurdXXwX2/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
+
+// Helper to format Google Drive URLs to direct image links
+const formatGoogleDriveUrl = (url?: string): string | undefined => {
+    if (!url) return undefined;
+    if (typeof url !== 'string') return url;
+    try {
+        // Handle Google Drive / Docs links
+        if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+            // Regex to find ID (alphanumeric, -, _, length 25+)
+            const match = url.match(/[-\w]{25,}/);
+            if (match) {
+                // Alternative Method: Use thumbnail endpoint which is often more reliable for <img> tags
+                // &sz=s1000 requests a size of 1000px (width or height)
+                return `https://drive.google.com/thumbnail?id=${match[0]}&sz=s1000`;
+            }
+        }
+    } catch (e) { 
+        return url; 
+    }
+    return url;
+};
 
 // Helper to call backend functions with RETRY Logic
 const callBackend = async (fnName: string, ...args: any[]) => {
@@ -91,7 +112,7 @@ export const api = {
             kecamatan: result.user.kecamatan, 
             active_exam: result.user.active_exam, 
             session: result.user.session,
-            photo_url: result.user.photo_url 
+            photo_url: formatGoogleDriveUrl(result.user.photo_url) 
         };
     }
     
@@ -195,11 +216,11 @@ export const api = {
         text_soal: q.text || "Pertanyaan tanpa teks",
         tipe_soal: q.type || 'PG',
         bobot_nilai: 10,
-        gambar: q.image || undefined,
+        gambar: formatGoogleDriveUrl(q.image) || undefined,
         options: Array.isArray(q.options) ? q.options.map((o: any, idx: number) => ({
             id: o.id || `opt-${i}-${idx}`,
             question_id: q.id || `Q${i+1}`,
-            text_jawaban: o.text_jawaban || o.text || "", 
+            text_jawaban: formatGoogleDriveUrl(o.text_jawaban || o.text || "") || "", 
             is_correct: false 
         })) : []
     }));
@@ -259,7 +280,14 @@ export const api = {
 
   // Get All Users
   getUsers: async (): Promise<any[]> => {
-      return await callBackend('getUsers');
+      const users: any = await callBackend('getUsers');
+      if (Array.isArray(users)) {
+          return users.map((u: any) => ({
+              ...u,
+              photo_url: formatGoogleDriveUrl(u.photo_url)
+          }));
+      }
+      return [];
   },
 
   // Save User
@@ -332,6 +360,13 @@ export const api = {
   
   // Dashboard Data
   getDashboardData: async () => {
-      return await callBackend('getDashboardData');
+      const data: any = await callBackend('getDashboardData');
+      if (data && Array.isArray(data.allUsers)) {
+          data.allUsers = data.allUsers.map((u: any) => ({
+              ...u,
+              photo_url: formatGoogleDriveUrl(u.photo_url)
+          }));
+      }
+      return data;
   }
 };
