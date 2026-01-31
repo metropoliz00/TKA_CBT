@@ -78,12 +78,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
     // Helper to format full date: Hari, Tanggal Bulan Tahun
     const formatDateFull = (dateStr: string) => {
         if (!dateStr) return '';
-        return new Date(dateStr).toLocaleDateString('id-ID', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-        });
+        // FIX: Manual parsing to prevent UTC timezone shift
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            return date.toLocaleDateString('id-ID', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+        }
+        return dateStr;
     };
 
     return (
@@ -110,27 +116,21 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                     </div>
                  </div>
                  <div className="flex flex-wrap gap-4 text-center justify-center w-full lg:w-auto">
-                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[280px] flex flex-col justify-center">
+                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[300px] flex flex-col justify-center">
                         <p className="text-[10px] uppercase font-bold text-indigo-200 mb-2">Tanggal Pelaksanaan</p>
-                        {mySchedule.tanggal_selesai && mySchedule.tanggal_selesai !== mySchedule.tanggal ? (
-                             <div className="flex flex-col items-center w-full">
-                                <div className="w-full bg-black/20 rounded-t-lg px-3 py-1.5 text-sm font-bold text-white border border-white/10 border-b-0">
+                        <div className="w-full bg-black/20 rounded-xl px-4 py-3 border border-white/10 text-center backdrop-blur-sm">
+                            {mySchedule.tanggal_selesai && mySchedule.tanggal_selesai !== mySchedule.tanggal ? (
+                                <div className="text-sm font-bold text-white leading-tight flex flex-col gap-1.5">
+                                    <span>{formatDateFull(mySchedule.tanggal)}</span>
+                                    <span className="text-indigo-300 text-xs font-bold">-</span>
+                                    <span>{formatDateFull(mySchedule.tanggal_selesai)}</span>
+                                </div>
+                            ) : (
+                                <div className="text-lg font-bold text-white">
                                     {formatDateFull(mySchedule.tanggal)}
                                 </div>
-                                <div className="w-full bg-black/30 px-3 py-0.5 text-[10px] font-bold text-indigo-200 border-x border-white/10 flex items-center justify-center gap-2">
-                                    <div className="h-px bg-white/20 flex-1"></div>
-                                    <span className="uppercase tracking-wider">s.d</span>
-                                    <div className="h-px bg-white/20 flex-1"></div>
-                                </div>
-                                <div className="w-full bg-black/20 rounded-b-lg px-3 py-1.5 text-sm font-bold text-white border border-white/10 border-t-0">
-                                    {formatDateFull(mySchedule.tanggal_selesai)}
-                                </div>
-                             </div>
-                        ) : (
-                             <div className="w-full bg-black/20 rounded px-3 py-2 text-lg font-bold text-white border border-white/10">
-                                {formatDateFull(mySchedule.tanggal)}
-                             </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                     <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md min-w-[140px] flex flex-col justify-center">
                         <p className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Sesi Gelombang</p>
