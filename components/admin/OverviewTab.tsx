@@ -72,6 +72,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
         return schools.size;
     }, [dashboardData.allUsers]);
 
+    // Helper to format full date: Hari, Tanggal Bulan Tahun
+    const formatDateFull = (dateStr: string) => {
+        if (!dateStr) return '';
+        return new Date(dateStr).toLocaleDateString('id-ID', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        });
+    };
+
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
         {currentUserState.role === 'admin_sekolah' && (
@@ -96,17 +107,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                     </div>
                  </div>
                  <div className="flex flex-wrap gap-4 text-center justify-center w-full lg:w-auto">
-                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[140px]">
+                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[220px]">
                         <p className="text-[10px] uppercase font-bold text-indigo-200 mb-1">Tanggal Pelaksanaan</p>
-                        <p className="text-lg font-bold leading-tight">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                        <p className="text-xs opacity-75">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { weekday: 'long' })}</p>
+                        {mySchedule.tanggal_selesai && mySchedule.tanggal_selesai !== mySchedule.tanggal ? (
+                             <div className="flex flex-col gap-1">
+                                <p className="text-sm font-bold leading-tight">{formatDateFull(mySchedule.tanggal)}</p>
+                                <p className="text-[10px] text-indigo-300">Sampai Dengan</p>
+                                <p className="text-sm font-bold leading-tight">{formatDateFull(mySchedule.tanggal_selesai)}</p>
+                             </div>
+                        ) : (
+                             <div>
+                                <p className="text-lg font-bold leading-tight">{formatDateFull(mySchedule.tanggal)}</p>
+                             </div>
+                        )}
                     </div>
-                    <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md min-w-[140px]">
+                    <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md min-w-[140px] flex flex-col justify-center">
                         <p className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Sesi Gelombang</p>
                         <p className="text-xl font-extrabold">{mySchedule.gelombang}</p>
                     </div>
-                    {/* NEW: Total Duration Display */}
-                    <div className="bg-emerald-500/20 px-6 py-3 rounded-xl border border-emerald-400/30 backdrop-blur-sm min-w-[140px]">
+                    {/* Total Duration Display */}
+                    <div className="bg-emerald-500/20 px-6 py-3 rounded-xl border border-emerald-400/30 backdrop-blur-sm min-w-[140px] flex flex-col justify-center">
                         <p className="text-[10px] uppercase font-bold text-emerald-100 flex items-center justify-center gap-1 mb-1"><Clock size={10}/> Total Durasi</p>
                         <p className="text-xl font-extrabold text-white leading-none">{totalDuration} <span className="text-xs font-normal opacity-80">Menit</span></p>
                         <p className="text-[9px] text-emerald-100 mt-1 bg-black/20 px-2 py-0.5 rounded-full inline-block">Ujian {examDuration} + Survey {surveyDuration}</p>
@@ -180,6 +200,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                             }
 
                             const hasSubject = log.subject && log.subject !== '-' && log.subject !== 'Success';
+                            
+                            // CLEANUP SCORE DISPLAY FOR SURVEYS
+                            let displaySubject = log.subject;
+                            if (log.action === 'SURVEY' && displaySubject) {
+                                // Removes "(Score: 80)" from "Survey: Survey_Karakter (Score: 80)"
+                                displaySubject = displaySubject.replace(/\s*\(Score:.*?\)/i, '');
+                            }
 
                             return (
                                 <div key={i} className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition border-b border-slate-50 last:border-0">
@@ -191,23 +218,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                                             <p className="text-sm font-bold text-slate-700 truncate">{log.fullname}</p>
                                             <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-2">{new Date(log.timestamp).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', hour12: false})}</span>
                                         </div>
-                                        <div className="text-xs text-slate-500 mb-2 space-y-1">
-                                            <div className="flex items-center gap-1">
-                                                <School size={12} className="text-slate-400"/>
-                                                <span className="truncate font-medium">{log.school || '-'}</span>
+                                        
+                                        {/* Sekolah & Kecamatan Display */}
+                                        <div className="text-xs text-slate-500 mb-2 flex flex-col gap-1 mt-1">
+                                            <div className="flex items-center gap-2" title="Sekolah">
+                                                <School size={13} className="text-indigo-400 shrink-0"/>
+                                                <span className="truncate font-semibold text-slate-600">{log.school || '-'}</span>
                                             </div>
-                                            <div className="flex items-center gap-1">
-                                                <MapPin size={12} className="text-slate-400"/>
-                                                <span className="truncate font-medium">{log.kecamatan || '-'}</span>
+                                            <div className="flex items-center gap-2" title="Kecamatan">
+                                                <MapPin size={13} className="text-emerald-500 shrink-0"/>
+                                                <span className="truncate text-slate-500">{log.kecamatan || '-'}</span>
                                             </div>
                                         </div>
+
                                         <div className="flex flex-wrap gap-2">
                                             <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${colorClass.replace('text-', 'text-').replace('bg-', 'bg-opacity-20 ')}`}>
                                                 {statusText}
                                             </span>
                                             {hasSubject && (
                                                 <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
-                                                    {log.subject}
+                                                    {displaySubject}
                                                 </span>
                                             )}
                                         </div>

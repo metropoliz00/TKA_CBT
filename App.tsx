@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { User, Exam, QuestionWithOptions } from './types';
-import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, Clock } from 'lucide-react';
+import { Key, User as UserIcon, Monitor, AlertCircle, School, LogOut, Check, Eye, EyeOff, Smartphone, Cpu, Wifi, ArrowRight, Loader2, WifiOff, X, Maximize, Activity, Clock, ClipboardList } from 'lucide-react';
 import StudentExam from './components/StudentExam';
 import StudentSurvey from './components/StudentSurvey';
 import AdminDashboard from './components/AdminDashboard';
 import { api } from './services/api';
 
-type ViewState = 'system_check' | 'login' | 'confirm' | 'exam' | 'survey' | 'result' | 'admin';
+type ViewState = 'system_check' | 'login' | 'confirm' | 'exam' | 'survey_confirm' | 'survey' | 'result' | 'admin';
 
 // Reusable Loading Overlay Component
 const LoadingOverlay = ({ message }: { message: string }) => (
@@ -198,6 +198,11 @@ function App() {
     } catch (err) { console.error(err); setErrorMsg('Gagal memuat soal. Periksa koneksi.'); setShowConfirmModal(false); } finally { setLoading(false); }
   };
 
+  const handleStartSurvey = () => {
+    enterFullscreen();
+    setView('survey');
+  };
+
   const handleLogout = () => {
     // CLEAR SESSION
     localStorage.removeItem('cbt_user');
@@ -238,10 +243,10 @@ function App() {
             const examName = selectedExamId.toLowerCase();
             if (examName.includes('bahasa') || examName.includes('indo')) {
                 setActiveSurveyType('Survey_Karakter');
-                setView('survey');
+                setView('survey_confirm'); // Go to confirmation first
             } else if (examName.includes('matematika') || examName.includes('mtk')) {
                 setActiveSurveyType('Survey_Lingkungan');
-                setView('survey');
+                setView('survey_confirm'); // Go to confirmation first
             } else {
                 setView('result');
             }
@@ -386,6 +391,33 @@ function App() {
         onFinish={handleFinishExam}
         onExit={handleLogout}
       />
+    );
+  }
+
+  if (view === 'survey_confirm' && currentUser && activeSurveyType) {
+    const surveyName = activeSurveyType === 'Survey_Karakter' ? 'Survey Karakter' : 'Survey Lingkungan Belajar';
+    const duration = 30; // Default Survey Duration
+
+    return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 fade-in font-sans" onClick={enterFullscreen}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-100">
+                <div className="p-8 pt-10 relative">
+                    <div className="absolute top-0 right-0 opacity-5 pointer-events-none"><svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 0C44.7715 0 0 44.7715 0 100C0 155.228 44.7715 200 100 200C155.228 200 200 155.228 200 100C200 44.7715 155.228 0 100 0Z" fill="currentColor"/></svg></div>
+                    <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-6 mx-auto shadow-sm">
+                        <ClipboardList size={32} />
+                    </div>
+                    <h3 className="text-2xl font-normal text-slate-700 mb-8 text-center">Konfirmasi Survey</h3>
+                    <div className="space-y-5">
+                        <div className="border-b border-slate-100 pb-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nama Peserta</p><p className="text-base font-bold text-slate-800">{currentUser.nama_lengkap}</p></div>
+                        <div className="border-b border-slate-100 pb-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nama Survey</p><p className="text-base font-bold text-slate-800">{surveyName}</p></div>
+                        <div className="border-b border-slate-100 pb-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status Survey</p><p className="text-base font-bold text-slate-800">Wajib Dikerjakan</p></div>
+                        <div className="border-b border-slate-100 pb-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Waktu Mulai</p><p className="text-base font-bold text-slate-800">{new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(/\./g, ':')} WIB</p></div>
+                        <div className="border-b border-slate-100 pb-3"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Alokasi Waktu</p><p className="text-base font-bold text-slate-800">{duration} Menit</p></div>
+                    </div>
+                    <button onClick={handleStartSurvey} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-full shadow-lg shadow-purple-200 transition-all mt-8 flex justify-center items-center">Mulai Survey</button>
+                </div>
+            </div>
+        </div>
     );
   }
 

@@ -1,6 +1,7 @@
 
 
 
+
 // 1. Tabel Users
 export interface User {
   id: string;
@@ -85,7 +86,8 @@ export interface AnswerDB {
 export interface SchoolSchedule {
   school: string;
   gelombang: string;
-  tanggal: string; // YYYY-MM-DD
+  tanggal: string; // YYYY-MM-DD (Start Date)
+  tanggal_selesai?: string; // YYYY-MM-DD (End Date)
 }
 
 // UI State Helper Types
