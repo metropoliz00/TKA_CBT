@@ -142,7 +142,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     ) : (
                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold border border-indigo-200">{currentUserState.username.charAt(0).toUpperCase()}</div>
                     )}
-                    <p className="text-sm font-bold text-slate-800 leading-tight break-words flex-1">{currentUserState.nama_lengkap || currentUserState.username}</p>
+                    <p className="text-[7px] font-bold text-slate-800 leading-tight break-words flex-1">{currentUserState.nama_lengkap || currentUserState.username}</p>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${currentUserState.role === 'admin_pusat' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-700'}`}>{currentUserState.role === 'admin_pusat' ? 'Administrator' : 'Proktor'}</span>
             </div>
