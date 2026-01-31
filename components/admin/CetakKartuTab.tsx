@@ -275,7 +275,7 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                                 <div className="text-center flex-1 leading-tight px-1">
                                     <h4 className="font-bold text-[13px]">KARTU PESERTA</h4>
                                     <p className="font-bold text-[11px]">TRY OUT TKA TAHUN 2026</p>
-                                    <p className="text-[10px] italic mt-0.5 truncate max-w-[200px] mx-auto">{s.school} - Kecamatan {s.kecamatan || '-'}</p>
+                                    <p className="text-[10px] italic mt-0.5 truncate max-w-[400px] mx-auto">{s.school} - Kecamatan {s.kecamatan || '-'}</p>
                                 </div>
                                 <img src="https://image2url.com/r2/default/images/1769821862384-d6ef24bf-e12c-4616-a255-7366afae4c30.png" className="h-[46px] w-auto object-contain pr-1" alt="Logo"/>
                             </div>
@@ -295,7 +295,7 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
                                     </table>
                                 </div>
                                 <div className="w-[83px] flex flex-col items-center">
-                                    <div className="w-[76px] h-[98px] border border-slate-400 bg-slate-50 flex items-center justify-center text-[9px] text-slate-400 overflow-hidden">
+                                    <div className="w-[76px] h-[98px] border border-slate-400 bg-slate-50 flex items-center justify-center text-[8px] text-slate-400 overflow-hidden">
                                         {s.photo_url ? <img src={s.photo_url} className="w-full h-full object-cover"/> : <span className="text-center leading-tight">FOTO<br/>3x4</span>}
                                     </div>
                                 </div>
