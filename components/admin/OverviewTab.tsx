@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { School, Users, PlayCircle, CheckCircle2, AlertCircle, Key, ClipboardList, Activity, Calendar, MapPin } from 'lucide-react';
+import { School, Users, PlayCircle, CheckCircle2, AlertCircle, Key, ClipboardList, Activity, Calendar, MapPin, Clock } from 'lucide-react';
 import { User } from '../../types';
 import { SimpleDonutChart } from '../../utils/adminHelpers';
 
@@ -37,6 +37,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
     const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = stats.counts;
     const displayTotalUsers = stats.total;
     const totalStatus = OFFLINE + LOGGED_IN + WORKING + FINISHED;
+    
+    // Duration Calculation
+    const examDuration = Number(dashboardData.duration) || 0;
+    const surveyDuration = Number(dashboardData.surveyDuration) || 0;
+    const totalDuration = examDuration + surveyDuration;
     
     const statusData = [
         { value: OFFLINE, color: '#e2e8f0', label: 'Belum Login' },
@@ -82,22 +87,29 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
         )}
 
         {currentUserState.role === 'admin_sekolah' && mySchedule && (
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
-                 <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-2xl shadow-lg flex flex-col lg:flex-row justify-between items-center gap-6">
+                 <div className="flex items-center gap-4 border-b lg:border-b-0 border-indigo-500/30 pb-4 lg:pb-0 w-full lg:w-auto">
                     <div className="bg-white/20 p-3 rounded-full"><Calendar size={32}/></div>
                     <div>
                          <h2 className="text-xl font-bold">Jadwal Ujian Aktif</h2>
                          <p className="opacity-90 text-sm">Anda telah dijadwalkan oleh admin pusat.</p>
                     </div>
                  </div>
-                 <div className="flex gap-4 text-center">
-                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20">
-                        <p className="text-xs uppercase font-bold text-indigo-200">Tanggal Pelaksanaan</p>
-                        <p className="text-xl font-bold">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                 <div className="flex flex-wrap gap-4 text-center justify-center w-full lg:w-auto">
+                    <div className="bg-white/10 px-6 py-3 rounded-xl border border-white/20 min-w-[140px]">
+                        <p className="text-[10px] uppercase font-bold text-indigo-200 mb-1">Tanggal Pelaksanaan</p>
+                        <p className="text-lg font-bold leading-tight">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p className="text-xs opacity-75">{new Date(mySchedule.tanggal).toLocaleDateString('id-ID', { weekday: 'long' })}</p>
                     </div>
-                    <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md">
-                        <p className="text-xs uppercase font-bold text-indigo-400">Sesi Gelombang</p>
+                    <div className="bg-white text-indigo-900 px-6 py-3 rounded-xl shadow-md min-w-[140px]">
+                        <p className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Sesi Gelombang</p>
                         <p className="text-xl font-extrabold">{mySchedule.gelombang}</p>
+                    </div>
+                    {/* NEW: Total Duration Display */}
+                    <div className="bg-emerald-500/20 px-6 py-3 rounded-xl border border-emerald-400/30 backdrop-blur-sm min-w-[140px]">
+                        <p className="text-[10px] uppercase font-bold text-emerald-100 flex items-center justify-center gap-1 mb-1"><Clock size={10}/> Total Durasi</p>
+                        <p className="text-xl font-extrabold text-white leading-none">{totalDuration} <span className="text-xs font-normal opacity-80">Menit</span></p>
+                        <p className="text-[9px] text-emerald-100 mt-1 bg-black/20 px-2 py-0.5 rounded-full inline-block">Ujian {examDuration} + Survey {surveyDuration}</p>
                     </div>
                  </div>
             </div>
