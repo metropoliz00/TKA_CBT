@@ -125,7 +125,7 @@ const AturGelombangTab = ({ students }: { students: any[] }) => {
                     <p className="text-xs text-slate-400">Database: <b>Jadwal_Sekolah</b>. Mengatur sesi tanggal pelaksanaan per sekolah.</p>
                 </div>
                 <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2">
-                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan Ke Database
+                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan Set Gelombang
                 </button>
              </div>
              

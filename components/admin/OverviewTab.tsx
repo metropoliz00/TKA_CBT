@@ -122,7 +122,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                             {mySchedule.tanggal_selesai && mySchedule.tanggal_selesai !== mySchedule.tanggal ? (
                                 <div className="text-sm font-bold text-white leading-tight flex flex-col gap-1.5">
                                     <span>{formatDateFull(mySchedule.tanggal)}</span>
-                                    <span className="text-indigo-300 text-xs font-bold">-</span>
+                                    <span className="text-indigo-300 text-xs font-bold">s/d</span>
                                     <span>{formatDateFull(mySchedule.tanggal_selesai)}</span>
                                 </div>
                             ) : (
