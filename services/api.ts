@@ -16,9 +16,9 @@ const formatGoogleDriveUrl = (url?: string): string | undefined => {
             // Regex to find ID (alphanumeric, -, _, length 25+)
             const match = url.match(/[-\w]{25,}/);
             if (match) {
-                // Alternative Method: Use thumbnail endpoint which is often more reliable for <img> tags
-                // &sz=s1000 requests a size of 1000px (width or height)
-                return `https://drive.google.com/thumbnail?id=${match[0]}&sz=s1000`;
+                // Use thumbnail endpoint which is often more reliable for <img> tags
+                // sz=w1000 sets width to 1000px to ensure good quality
+                return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1000`;
             }
         }
     } catch (e) { 
@@ -216,11 +216,11 @@ export const api = {
         text_soal: q.text || "Pertanyaan tanpa teks",
         tipe_soal: q.type || 'PG',
         bobot_nilai: 10,
-        gambar: formatGoogleDriveUrl(q.image) || undefined,
+        gambar: q.image || undefined,
         options: Array.isArray(q.options) ? q.options.map((o: any, idx: number) => ({
             id: o.id || `opt-${i}-${idx}`,
             question_id: q.id || `Q${i+1}`,
-            text_jawaban: formatGoogleDriveUrl(o.text_jawaban || o.text || "") || "", 
+            text_jawaban: o.text_jawaban || o.text || "", 
             is_correct: false 
         })) : []
     }));
@@ -352,7 +352,7 @@ export const api = {
           payload.subject, 
           payload.answers, 
           scoreInfo, 
-          payload.startTime,
+          payload.startTime, 
           payload.displayedQuestionCount || 0, 
           payload.questionIds || [] 
       );

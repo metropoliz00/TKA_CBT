@@ -629,9 +629,11 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
                 <title>Cetak Absensi_TKA 2026</title>
                 <style>
                     body { font-family: 'Times New Roman', serif; padding: 20px; color: #000; }
-                    .header { text-align: center; margin-bottom: 20px; line-height: 1.5; }
-                    .header h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
-                    .header h3 { margin: 0; font-size: 16px; font-weight: normal; }
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double black; padding-bottom: 10px; margin-bottom: 20px; }
+                    .logo { height: 80px; width: auto; object-fit: contain; }
+                    .header-text { text-align: center; flex-grow: 1; padding: 0 10px; }
+                    .header-text h2 { margin: 0; font-size: 18px; text-transform: uppercase; line-height: 1.2; }
+                    .header-text h3 { margin: 5px 0 0; font-size: 16px; font-weight: normal; }
                     .info-table { margin-bottom: 20px; font-size: 14px; width: 100%; }
                     .info-table td { padding: 4px; vertical-align: top; }
                     .main-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -639,17 +641,22 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
                     .main-table th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
                     .signature-section { margin-top: 50px; float: right; width: 250px; text-align: center; font-size: 14px; }
                     @media print {
-                        @page { size: A4; margin: 2cm; }
+                        @page { size: A4; margin: 1.5cm; }
                         button { display: none; }
                         body { padding: 0; }
+                        .header-container { -webkit-print-color-adjust: exact; }
                     }
                 </style>
             </head>
             <body>
-                <div class="header">
-                    <h2>DAFTAR HADIR</h2>
-                    <h2>PESERTA TRY OUT TKA TAHUN 2026</h2>
-                    <h3>${schoolName} ${kecamatanName !== '-' ? `- Kecamatan ${kecamatanName}` : ''}</h3>
+                <div class="header-container">
+                    <img src="https://image2url.com/r2/default/images/1769821786493-a2e4eb8b-c903-460d-b8d9-44f326ff71bb.png" class="logo" alt="Logo Kiri" />
+                    <div class="header-text">
+                        <h2>DAFTAR HADIR</h2>
+                        <h2>PESERTA TRY OUT TKA TAHUN 2026</h2>
+                        <h3>${schoolName} ${kecamatanName !== '-' ? `- Kecamatan ${kecamatanName}` : ''}</h3>
+                    </div>
+                    <img src="https://image2url.com/r2/default/images/1769821862384-d6ef24bf-e12c-4616-a255-7366afae4c30.png" class="logo" alt="Logo Kanan" />
                 </div>
 
                 <table class="info-table">
