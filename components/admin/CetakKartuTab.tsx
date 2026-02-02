@@ -210,8 +210,8 @@ const CetakKartuTab = ({ currentUser, students, schedules }: { currentUser: User
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6">
              <div className="flex justify-between items-center mb-6">
-                 <h3 className="font-bold text-lg flex items-center gap-2 text-slate-700"><Printer size={20}/> Cetak Kartu Peserta (100x68mm)</h3>
-                 {isLoading && <span className="text-xs text-indigo-600 font-bold flex items-center gap-1"><RefreshCw size={12} className="animate-spin"/> Mengambil Data Password...</span>}
+                 <h3 className="font-bold text-lg flex items-center gap-2 text-slate-700"><Printer size={20}/> Cetak Kartu Peserta</h3>
+                 {isLoading && <span className="text-xs text-indigo-600 font-bold flex items-center gap-1"><RefreshCw size={12} className="animate-spin"/> Mengambil Data...</span>}
              </div>
              
              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">

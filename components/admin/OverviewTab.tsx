@@ -94,6 +94,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
 
     return (
     <div className="space-y-6 fade-in max-w-7xl mx-auto">
+        {/* Welcome Section */}
+        <div className="mb-4">
+            <p className="text-base text-slate-500 font-medium mb-0.5">
+                Selamat Datang, <span className="font-bold text-indigo-600">{currentUserState.nama_lengkap || currentUserState.username}</span>
+            </p>
+            <p className="text-slate-400 text-sm mt-1">
+                {currentUserState.role === 'admin_pusat' 
+                    ? 'Panel Admin Pusat: Pantau dan kelola seluruh aktivitas sistem CBT.' 
+                    : 'Panel Proktor Sekolah: Pantau status peserta dan sesi ujian sekolah.'}
+            </p>
+        </div>
+
         {currentUserState.role === 'admin_sekolah' && (
             <div className="bg-blue-50 border border-blue-200 text-blue-800 px-6 py-4 rounded-xl flex items-center gap-3 justify-between">
                 <div className="flex items-center gap-3">

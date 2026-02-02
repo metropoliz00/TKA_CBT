@@ -51,9 +51,13 @@ const CetakAbsensiTab = ({ currentUser, students }: { currentUser: User, student
         const sesiName = selectedSession || 'Semua Sesi';
         const examName = exams.find(e => e.id === selectedExamId)?.nama_ujian || '...........................';
         
-        // Update: Added 'weekday: long' to show day name (e.g. Sabtu, 30 Januari 2025)
+        // Full date with weekday for Header Info
         const dateNow = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        const signatureDate = `Tuban, ${dateNow}`;
+        
+        // Date without weekday for Signature
+        const dateOnly = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        const signatureDate = `Tuban, ${dateOnly}`;
+        
         const proktorName = currentUser.nama_lengkap || "...........................";
 
         const rowsHtml = filteredStudents.map((s, idx) => `
