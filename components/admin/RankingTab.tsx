@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Award, FileText, Loader2 } from 'lucide-react';
+import { Award, FileText, Loader2, FileDown } from 'lucide-react';
 import { api } from '../../services/api';
-import { exportToExcel, getPredicateBadge } from '../../utils/adminHelpers';
+import { exportToExcel, exportToPDF, getPredicateBadge, getScorePredicate } from '../../utils/adminHelpers';
+import { User } from '../../types';
 
-const RankingTab = ({ students }: { students: any[] }) => {
+const RankingTab = ({ students, currentUser }: { students: any[], currentUser: User }) => {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [filterKecamatan, setFilterKecamatan] = useState('all');
@@ -70,6 +71,37 @@ const RankingTab = ({ students }: { students: any[] }) => {
             return kecMatch && schoolMatch;
         });
     }, [pivotedData, filterKecamatan, filterSchool]);
+
+    const handlePdfExport = () => {
+        const title = "Hasil Peringkat Peserta TKA";
+        const columns = ['Rank', 'Nama', 'Sekolah', 'Kecamatan', 'Indo', 'Mat', 'Akhir', 'Predikat'];
+        const rows = filteredData.map((d, i) => [
+            i + 1,
+            d.nama,
+            d.sekolah,
+            d.kecamatan,
+            d.score_bi !== null ? d.score_bi : '-',
+            d.score_mtk !== null ? d.score_mtk : '-',
+            d.avg.toFixed(2),
+            getScorePredicate(d.avg)
+        ]);
+        
+        // Custom styles for specific columns (Indices start from 0)
+        // Ensure score columns are centered and have equal width
+        const colStyles = {
+            0: { halign: 'center', cellWidth: 15 }, // Rank
+            4: { halign: 'center', cellWidth: 20 }, // B. Indo
+            5: { halign: 'center', cellWidth: 20 }, // Mat
+            6: { halign: 'center', cellWidth: 20 }, // Akhir
+            7: { halign: 'center', cellWidth: 25 }  // Predikat
+        };
+
+        exportToPDF(title, columns, rows, {
+            school: filterSchool,
+            kecamatan: filterKecamatan,
+            signerName: currentUser.nama_lengkap || currentUser.username
+        }, colStyles);
+    };
     
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6">
@@ -78,7 +110,8 @@ const RankingTab = ({ students }: { students: any[] }) => {
                 <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterKecamatan} onChange={e => setFilterKecamatan(e.target.value)}><option value="all">Semua Kecamatan</option>{uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
-                    <button onClick={() => exportToExcel(filteredData, "Peringkat_Siswa_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"><FileText size={16}/> Export</button>
+                    <button onClick={handlePdfExport} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200"><FileDown size={16}/> PDF</button>
+                    <button onClick={() => exportToExcel(filteredData, "Peringkat_Siswa_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"><FileText size={16}/> Excel</button>
                 </div>
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -104,12 +137,12 @@ const RankingTab = ({ students }: { students: any[] }) => {
                             filteredData.map((d, i) => (
                                 <tr key={i} className="border-b hover:bg-slate-50 transition">
                                     <td className="p-4 font-bold text-center text-slate-500"><div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto ${i < 3 ? 'bg-yellow-100 text-yellow-700 font-black' : 'bg-slate-100'}`}>{i+1}</div></td>
-                                    <td className="p-4 font-bold text-slate-700">{d.nama}</td>
+                                    <td className="p-4 font-bold text-slate-600">{d.nama}</td>
                                     <td className="p-4 text-slate-600">{d.sekolah}</td>
                                     <td className="p-4 text-slate-600">{d.kecamatan}</td>
                                     <td className="p-4 text-center font-bold text-blue-600 bg-blue-50/10 border-l border-slate-100">{d.score_bi !== null ? d.score_bi : '-'}</td>
-                                    <td className="p-4 text-center font-bold text-orange-600 bg-orange-50/10 border-l border-slate-100">{d.score_mtk !== null ? d.score_mtk : '-'}</td>
-                                    <td className="p-4 text-center font-extrabold text-indigo-700 text-lg border-l border-slate-100">{d.avg.toFixed(2)}</td>
+                                    <td className="p-4 text-center font-bold text-orange-500 bg-orange-50/10 border-l border-slate-100">{d.score_mtk !== null ? d.score_mtk : '-'}</td>
+                                    <td className="p-4 text-center font-extrabold text-indigo-600 text-lg border-l border-slate-100">{d.avg.toFixed(2)}</td>
                                     <td className="p-4 text-center border-l border-slate-100">{getPredicateBadge(d.avg)}</td>
                                 </tr>
                             ))

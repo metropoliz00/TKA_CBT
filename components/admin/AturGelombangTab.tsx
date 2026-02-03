@@ -82,7 +82,7 @@ const AturGelombangTab = ({ students }: { students: any[] }) => {
             
             await api.saveSchoolSchedules(payload);
             await loadSchedules(); // Reload data dari server untuk konfirmasi
-            alert("Jadwal sekolah (Gelombang & Tanggal) berhasil disimpan ke database.");
+            alert("Jadwal Gelombang berhasil disimpan");
         } catch(e) { 
             console.error(e);
             alert("Gagal menyimpan jadwal.");
@@ -122,17 +122,17 @@ const AturGelombangTab = ({ students }: { students: any[] }) => {
              <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
                 <div>
                     <h3 className="font-bold text-slate-800 flex items-center gap-2"><Calendar size={20}/> Atur Gelombang & Tanggal</h3>
-                    <p className="text-xs text-slate-400">Database: <b>Jadwal_Sekolah</b>. Mengatur sesi tanggal pelaksanaan per sekolah.</p>
+                    <p className="text-xs text-slate-400"><b>Jadwal Ujian</b>. Mengatur sesi tanggal pelaksanaan per sekolah.</p>
                 </div>
                 <button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center gap-2">
-                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan Set Gelombang
+                    {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Simpan Gelombang
                 </button>
              </div>
              
              {/* BULK TOOLS */}
              <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
                 <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Set Gelombang Massal</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Set All</label>
                     <select className="p-2 border border-slate-200 rounded-lg text-sm bg-white min-w-[150px] outline-none focus:ring-2 focus:ring-indigo-100" value={bulkGelombang} onChange={e => setBulkGelombang(e.target.value)}>
                         <option>Gelombang 1</option>
                         <option>Gelombang 2</option>
