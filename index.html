@@ -58,6 +58,16 @@
       .animate-shimmer {
         animation: shimmer 2s infinite linear;
       }
+
+      @media print {
+        aside, header, button, .no-print { display: none !important; }
+        main { margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important; overflow: visible !important; }
+        body { background: white !important; overflow: visible !important; }
+        .card, .table-container, .bg-white { box-shadow: none !important; border: none !important; }
+        /* Reset table styles for print */
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd !important; padding: 4px !important; color: black !important; }
+      }
     </style>
   <script type="importmap">
 {
@@ -68,9 +78,7 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "xlsx": "https://esm.sh/xlsx@^0.18.5",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.5.29"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>

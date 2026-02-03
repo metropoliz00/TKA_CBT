@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, FileText, Loader2, Printer } from 'lucide-react';
 import { api } from '../../services/api';
-import { exportToExcel, exportToPDF, formatDurationToText } from '../../utils/adminHelpers';
+import { exportToExcel, formatDurationToText } from '../../utils/adminHelpers';
 import { User } from '../../types';
 
 const RekapTab = ({ students, currentUser }: { students: any[], currentUser: User }) => {
@@ -67,37 +67,13 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
         return Array.from(kecs).sort();
     }, [students]);
 
-    const handlePdfExport = () => {
-        const title = "Hasil Rekapitulasi Nilai Try Out TKA 2026";
-        const columns = ['No', 'Username', 'Nama', 'Sekolah', 'Kecamatan', 'B. Indo', 'Matematika'];
-        const rows = filteredData.map((d, i) => [
-            i + 1,
-            d.username,
-            d.nama,
-            d.sekolah,
-            d.kecamatan,
-            d.nilai_bi !== '-' ? d.nilai_bi : '-',
-            d.nilai_mtk !== '-' ? d.nilai_mtk : '-'
-        ]);
-        
-        // Define styles for value columns to ensure equal width and centering
-        const colStyles = {
-            0: { halign: 'center', cellWidth: 10 }, // No
-            5: { halign: 'center', cellWidth: 25 }, // B. Indo (Nilai)
-            6: { halign: 'center', cellWidth: 25 }  // Matematika (Nilai)
-        };
-
-        // Using 'print' action
-        exportToPDF(title, columns, rows, {
-            school: filterSchool,
-            kecamatan: filterKecamatan,
-            signerName: currentUser.nama_lengkap || currentUser.username
-        }, colStyles, 'print');
+    const handlePrint = () => {
+        window.print();
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6 print:shadow-none print:border-0 print:p-0">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
                 <div>
                     <h3 className="font-bold text-lg flex items-center gap-2"><LayoutDashboard size={20}/> Rekapitulasi Nilai</h3>
                     <p className="text-xs text-slate-400">Hasil ujian.</p>
@@ -111,45 +87,55 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                         <option value="all">Semua Sekolah</option>
                         {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>
-                     <button onClick={handlePdfExport} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200">
-                        <Printer size={16}/> Cetak PDF
+                     <button onClick={handlePrint} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200">
+                        <Printer size={16}/> Cetak
                      </button>
                      <button onClick={() => exportToExcel(filteredData, "Rekap_Nilai_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
                         <FileText size={16}/> Excel
                      </button>
                 </div>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs">
+
+            {/* Print Header */}
+            <div className="hidden print:block mb-4 text-center">
+                <h2 className="text-xl font-bold uppercase">Rekapitulasi Nilai Try Out TKA 2026</h2>
+                <p className="text-sm text-slate-600">
+                    Sekolah: {filterSchool === 'all' ? 'Semua Sekolah' : filterSchool} | 
+                    Kecamatan: {filterKecamatan === 'all' ? 'Semua Kecamatan' : filterKecamatan}
+                </p>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-slate-200 print:border-0">
+                <table className="w-full text-sm text-left print:text-xs">
+                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs print:bg-white print:border-b-2 print:border-black">
                         <tr>
-                            <th className="p-4 w-12 text-center">No</th>
-                            <th className="p-4">Username</th>
-                            <th className="p-4">Nama Peserta</th>
-                            <th className="p-4">Sekolah</th>
-                            <th className="p-4">Kecamatan</th>
-                            <th className="p-4 text-center border-l border-slate-200 bg-blue-50/50">Bahasa Indonesia</th>
-                            <th className="p-4 text-center border-l border-slate-200 bg-orange-50/50">Matematika</th>
+                            <th className="p-4 w-12 text-center print:p-2">No</th>
+                            <th className="p-4 print:p-2">Username</th>
+                            <th className="p-4 print:p-2">Nama Peserta</th>
+                            <th className="p-4 print:p-2">Sekolah</th>
+                            <th className="p-4 print:p-2">Kecamatan</th>
+                            <th className="p-4 text-center border-l border-slate-200 bg-blue-50/50 print:bg-white print:p-2">B. Indo</th>
+                            <th className="p-4 text-center border-l border-slate-200 bg-orange-50/50 print:bg-white print:p-2">Matematika</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 print:divide-slate-300">
                         {loading ? (
                             <tr><td colSpan={7} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data nilai...</td></tr>
                         ) : filteredData.length === 0 ? (
                             <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan untuk filter ini.</td></tr>
                         ) : (
                             filteredData.map((d, i) => (
-                                <tr key={i} className="hover:bg-slate-50 transition">
-                                    <td className="p-4 text-center text-slate-500">{i + 1}</td>
-                                    <td className="p-4 font-mono text-slate-600">{d.username}</td>
-                                    <td className="p-4 font-bold text-slate-700">{d.nama}</td>
-                                    <td className="p-4 text-slate-600">{d.sekolah}</td>
-                                    <td className="p-4 text-slate-600">{d.kecamatan}</td>
-                                    <td className="p-4 text-center border-l border-slate-100 bg-blue-50/10">
-                                        {d.nilai_bi !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-blue-600">{d.nilai_bi}</span><span className="text-[10px] text-slate-400 font-mono">{formatDurationToText(d.durasi_bi)}</span></div>) : <span className="text-slate-300">-</span>}
+                                <tr key={i} className="hover:bg-slate-50 transition print:hover:bg-transparent">
+                                    <td className="p-4 text-center text-slate-500 print:p-2">{i + 1}</td>
+                                    <td className="p-4 font-mono text-slate-600 print:p-2">{d.username}</td>
+                                    <td className="p-4 font-bold text-slate-700 print:p-2">{d.nama}</td>
+                                    <td className="p-4 text-slate-600 print:p-2">{d.sekolah}</td>
+                                    <td className="p-4 text-slate-600 print:p-2">{d.kecamatan}</td>
+                                    <td className="p-4 text-center border-l border-slate-100 bg-blue-50/10 print:bg-transparent print:p-2">
+                                        {d.nilai_bi !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-blue-600 print:text-black print:text-base">{d.nilai_bi}</span><span className="text-[10px] text-slate-400 font-mono print:hidden">{formatDurationToText(d.durasi_bi)}</span></div>) : <span className="text-slate-300">-</span>}
                                     </td>
-                                    <td className="p-4 text-center border-l border-slate-100 bg-orange-50/10">
-                                        {d.nilai_mtk !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-orange-600">{d.nilai_mtk}</span><span className="text-[10px] text-slate-400 font-mono">{formatDurationToText(d.durasi_mtk)}</span></div>) : <span className="text-slate-300">-</span>}
+                                    <td className="p-4 text-center border-l border-slate-100 bg-orange-50/10 print:bg-transparent print:p-2">
+                                        {d.nilai_mtk !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-orange-600 print:text-black print:text-base">{d.nilai_mtk}</span><span className="text-[10px] text-slate-400 font-mono print:hidden">{formatDurationToText(d.durasi_mtk)}</span></div>) : <span className="text-slate-300">-</span>}
                                     </td>
                                 </tr>
                             ))
@@ -157,7 +143,7 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                     </tbody>
                 </table>
             </div>
-            <div className="mt-4 flex justify-between items-center text-xs text-slate-400">
+            <div className="mt-4 flex justify-between items-center text-xs text-slate-400 print:hidden">
                 <span>Total Data: {filteredData.length}</span>
             </div>
         </div>
