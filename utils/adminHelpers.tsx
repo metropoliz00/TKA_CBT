@@ -128,7 +128,7 @@ export const exportToPDF = (
             fillColor: [255, 255, 255] // No alternate color (Standard Report)
         },
         margin: { top: 20, left: 15, right: 15, bottom: 20 },
-        didDrawPage: (data) => {
+        didDrawPage: (data: any) => {
             // Footer Page Number
             const str = 'Halaman ' + (doc as any).internal.getNumberOfPages();
             doc.setFontSize(8);
