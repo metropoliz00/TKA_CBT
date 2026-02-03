@@ -105,11 +105,10 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
             
             filteredParsedData.forEach(d => {
                 const val = d.ansMap[qId];
-                // Only count if the question exists in the answer map (even if skipped/wrong)
-                // Assuming analysis JSON contains 0 for wrong, 1 for correct
-                if (val !== undefined) {
+                // Only count if the question exists in the answer map
+                if (val !== undefined && val !== "") {
                     totalCount++;
-                    if (val === 1) correctCount++;
+                    if (Number(val) === 1) correctCount++;
                 }
             });
 
