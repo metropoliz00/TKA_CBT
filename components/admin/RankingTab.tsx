@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Award, FileText, Loader2, FileDown } from 'lucide-react';
+import { Award, FileText, Loader2, Printer } from 'lucide-react';
 import { api } from '../../services/api';
 import { exportToExcel, exportToPDF, getPredicateBadge, getScorePredicate } from '../../utils/adminHelpers';
 import { User } from '../../types';
@@ -88,7 +88,6 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
         ]);
         
         // Custom styles for specific columns (Indices start from 0)
-        // Ensure score columns are centered and have equal width
         const colStyles = {
             0: { halign: 'center', cellWidth: 10 }, // Rank
             5: { halign: 'center', cellWidth: 15 }, // B. Indo
@@ -97,11 +96,12 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
             8: { halign: 'center', cellWidth: 20 }  // Predikat
         };
 
+        // Using 'print' action
         exportToPDF(title, columns, rows, {
             school: filterSchool,
             kecamatan: filterKecamatan,
             signerName: currentUser.nama_lengkap || currentUser.username
-        }, colStyles);
+        }, colStyles, 'print');
     };
     
     return (
@@ -111,7 +111,7 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
                 <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterKecamatan} onChange={e => setFilterKecamatan(e.target.value)}><option value="all">Semua Kecamatan</option>{uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
-                    <button onClick={handlePdfExport} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200"><FileDown size={16}/> PDF</button>
+                    <button onClick={handlePdfExport} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200"><Printer size={16}/> Cetak PDF</button>
                     <button onClick={() => exportToExcel(filteredData, "Peringkat_Siswa_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"><FileText size={16}/> Excel</button>
                 </div>
             </div>

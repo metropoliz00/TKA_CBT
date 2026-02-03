@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, FileText, Loader2, FileDown } from 'lucide-react';
+import { LayoutDashboard, FileText, Loader2, Printer } from 'lucide-react';
 import { api } from '../../services/api';
 import { exportToExcel, exportToPDF, formatDurationToText } from '../../utils/adminHelpers';
 import { User } from '../../types';
@@ -87,11 +87,12 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
             6: { halign: 'center', cellWidth: 25 }  // Matematika (Nilai)
         };
 
+        // Using 'print' action
         exportToPDF(title, columns, rows, {
             school: filterSchool,
             kecamatan: filterKecamatan,
             signerName: currentUser.nama_lengkap || currentUser.username
-        }, colStyles);
+        }, colStyles, 'print');
     };
 
     return (
@@ -111,7 +112,7 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                         {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>
                      <button onClick={handlePdfExport} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200">
-                        <FileDown size={16}/> PDF
+                        <Printer size={16}/> Cetak PDF
                      </button>
                      <button onClick={() => exportToExcel(filteredData, "Rekap_Nilai_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
                         <FileText size={16}/> Excel

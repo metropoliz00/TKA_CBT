@@ -61,7 +61,8 @@ export const exportToPDF = (
         kecamatan?: string; 
         signerName?: string;
     },
-    customColumnStyles?: any
+    customColumnStyles?: any,
+    action: 'save' | 'print' = 'save'
 ) => {
     // A4 Portrait
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -170,9 +171,15 @@ export const exportToPDF = (
     doc.setFont("helvetica", "bold");
     doc.text(`( ${signer} )`, signX, finalY, { align: 'center' });
 
-    // Save
+    // Action
     const cleanTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
-    doc.save(`${cleanTitle}.pdf`);
+    
+    if (action === 'print') {
+        doc.autoPrint();
+        window.open(doc.output('bloburl'), '_blank');
+    } else {
+        doc.save(`${cleanTitle}.pdf`);
+    }
 };
 
 // Custom SVG Donut Chart
