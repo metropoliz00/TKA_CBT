@@ -191,7 +191,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
              </div>
              <div>
                 <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">CBT <span className="text-indigo-600">Admin</span></h1>
-                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{currentUserState.role === 'admin_pusat' ? 'Administrator' : 'Proktor Panel'}</p>
+                <p className="text-[10px] font-bold text-indigo-500 mt-1 uppercase tracking-wider">{currentUserState.role === 'admin_pusat' ? 'Administrator' : 'Proktor Panel'}</p>
              </div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition"><X size={20} /></button>
@@ -258,12 +258,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     </div>
                 )}
                 <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-bold text-slate-800 truncate">{currentUserState.nama_lengkap || currentUserState.username}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{currentUserState.role === 'admin_pusat' ? 'Administrator' : currentUserState.kelas_id}</p>
+                    <p className="text-[9px] font-bold text-slate-1000 truncate">{currentUserState.nama_lengkap || currentUserState.username}</p>
+                    <p className="text-[10px] font-bold text-indigo-600 truncate">{currentUserState.role === 'admin_pusat' ? 'Administrator' : currentUserState.kelas_id}</p>
                 </div>
             </div>
             <button onClick={onLogout} className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition">
-                <LogOut size={16} /> Keluar Sistem
+                <LogOut size={16} /> Keluar
             </button>
         </div>
       </aside>
@@ -276,7 +276,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                  <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-white rounded-xl border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50 active:scale-95 transition">
                     <Menu size={20} />
                 </button>
-                <h1 className="text-lg font-bold text-slate-800">CBT Management System</h1>
+                <h1 className="text-lg font-bold text-slate-800">CBT System</h1>
             </div>
             <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">
                  {currentUserState.username.charAt(0).toUpperCase()}
@@ -288,7 +288,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           <div className="hidden md:flex justify-between items-center mb-8">
             <div>
                 <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">{getTabTitle()}</h2>
-                <p className="text-sm text-slate-500 mt-1">Kelola data Ujian  dan pantau aktivitas ujian secara realtime.</p>
+                <p className="text-sm text-slate-500 mt-1">Kelola data dan pantau aktivitas ujian secara realtime.</p>
             </div>
             <div className="flex items-center gap-3">
               <button 

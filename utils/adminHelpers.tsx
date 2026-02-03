@@ -108,20 +108,20 @@ export const exportToPDF = (
             valign: 'middle',
             lineWidth: 0.1,
             lineColor: [0, 0, 0],       // Black border
-            fontSize: 8                 // Header Font Size 8
+            fontSize: 7                 // Header Font Size 8
         },
         bodyStyles: {
             lineWidth: 0.1,
             lineColor: [0, 0, 0],
             textColor: [0, 0, 0],
             font: "helvetica",          
-            fontSize: 8,               // Body Font Size 8
+            fontSize: 7,               // Body Font Size 8
             valign: 'middle'
         },
         styles: {
             cellPadding: 2,
             overflow: 'linebreak',
-            fontSize: 8
+            fontSize: 7
         },
         columnStyles: customColumnStyles || {},
         alternateRowStyles: {
@@ -163,7 +163,7 @@ export const exportToPDF = (
     
     doc.text(`Tuban, ${dateStr}`, signX, finalY, { align: 'center' });
     finalY += 5;
-    doc.text("Proktor / Penanggung Jawab", signX, finalY, { align: 'center' });
+    doc.text("Administrator", signX, finalY, { align: 'center' });
     
     finalY += 20; // Space for signature
     

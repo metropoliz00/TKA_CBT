@@ -35,6 +35,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
     }, [dashboardData, currentUserState]);
 
     const { OFFLINE, LOGGED_IN, WORKING, FINISHED } = stats.counts;
+    // Calculate Not Yet Exam (Offline + Logged In but not started)
+    const BELUM_UJIAN = OFFLINE + LOGGED_IN;
+
     const displayTotalUsers = stats.total;
     const totalStatus = OFFLINE + LOGGED_IN + WORKING + FINISHED;
     
@@ -173,6 +176,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ dashboardData, currentUserSta
                 <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Terdaftar</p><h3 className="text-3xl font-extrabold text-slate-700 mt-1">{displayTotalUsers}</h3></div>
                 <div className="bg-indigo-50 p-3 rounded-xl text-indigo-500"><Users size={24}/></div>
             </div>
+            
+            {/* NEW: Belum Ujian Card */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Belum Ujian</p><h3 className="text-3xl font-extrabold text-amber-500 mt-1">{BELUM_UJIAN}</h3></div>
+                <div className="bg-amber-50 p-3 rounded-xl text-amber-500"><Clock size={24}/></div>
+            </div>
+
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                 <div><p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Sedang Ujian</p><h3 className="text-3xl font-extrabold text-blue-600 mt-1">{WORKING}</h3></div>
                 <div className="bg-blue-50 p-3 rounded-xl text-blue-500"><PlayCircle size={24}/></div>

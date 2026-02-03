@@ -74,9 +74,10 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
 
     const handlePdfExport = () => {
         const title = "Hasil Peringkat Peserta TKA";
-        const columns = ['Rank', 'Nama', 'Sekolah', 'Kecamatan', 'Indo', 'Mat', 'Akhir', 'Predikat'];
+        const columns = ['Rank', 'Username', 'Nama', 'Sekolah', 'Kecamatan', 'Indo', 'Mat', 'Akhir', 'Predikat'];
         const rows = filteredData.map((d, i) => [
             i + 1,
+            d.username,
             d.nama,
             d.sekolah,
             d.kecamatan,
@@ -89,11 +90,11 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
         // Custom styles for specific columns (Indices start from 0)
         // Ensure score columns are centered and have equal width
         const colStyles = {
-            0: { halign: 'center', cellWidth: 15 }, // Rank
-            4: { halign: 'center', cellWidth: 20 }, // B. Indo
-            5: { halign: 'center', cellWidth: 20 }, // Mat
-            6: { halign: 'center', cellWidth: 20 }, // Akhir
-            7: { halign: 'center', cellWidth: 25 }  // Predikat
+            0: { halign: 'center', cellWidth: 10 }, // Rank
+            5: { halign: 'center', cellWidth: 15 }, // B. Indo
+            6: { halign: 'center', cellWidth: 15 }, // Mat
+            7: { halign: 'center', cellWidth: 15 }, // Akhir
+            8: { halign: 'center', cellWidth: 20 }  // Predikat
         };
 
         exportToPDF(title, columns, rows, {
@@ -119,6 +120,7 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
                     <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs">
                         <tr>
                             <th className="p-4 text-center w-16">Rank</th>
+                            <th className="p-4">Username</th>
                             <th className="p-4">Nama</th>
                             <th className="p-4">Sekolah</th>
                             <th className="p-4">Kecamatan</th>
@@ -130,13 +132,14 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
-                            <tr><td colSpan={8} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</td></tr>
+                            <tr><td colSpan={9} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</td></tr>
                         ) : filteredData.length === 0 ? (
-                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>
+                            <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan.</td></tr>
                         ) : (
                             filteredData.map((d, i) => (
                                 <tr key={i} className="border-b hover:bg-slate-50 transition">
                                     <td className="p-4 font-bold text-center text-slate-500"><div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto ${i < 3 ? 'bg-yellow-100 text-yellow-700 font-black' : 'bg-slate-100'}`}>{i+1}</div></td>
+                                    <td className="p-4 font-mono text-slate-600">{d.username}</td>
                                     <td className="p-4 font-bold text-slate-600">{d.nama}</td>
                                     <td className="p-4 text-slate-600">{d.sekolah}</td>
                                     <td className="p-4 text-slate-600">{d.kecamatan}</td>

@@ -43,6 +43,12 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
         return Array.from(kecs).sort();
     }, [students]);
 
+    // Get max questions config for selected exam
+    const limitQuestions = useMemo(() => {
+        const examConfig = exams.find(e => e.id === selectedExam);
+        return examConfig?.max_questions || 0;
+    }, [exams, selectedExam]);
+
     const { parsedData, questionIds } = useMemo(() => {
         const parsed = data.map(d => {
             let ans = {};
@@ -57,15 +63,27 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
             }
             return { ...d, ansMap: ans };
         });
+
         const allKeys = new Set<string>();
         parsed.forEach(p => { Object.keys(p.ansMap).forEach(k => allKeys.add(k)); });
-        const sortedKeys = Array.from(allKeys).sort((a, b) => {
+        
+        let sortedKeys = Array.from(allKeys).sort((a, b) => {
             const numA = parseInt(a.replace(/\D/g, '')) || 0;
             const numB = parseInt(b.replace(/\D/g, '')) || 0;
             return numA - numB;
         });
+
+        // Filter keys based on max_questions setting
+        if (limitQuestions > 0) {
+            sortedKeys = sortedKeys.filter(key => {
+                const num = parseInt(key.replace(/\D/g, '')) || 0;
+                // Only include if number exists and is within limit
+                return num > 0 && num <= limitQuestions;
+            });
+        }
+
         return { parsedData: parsed, questionIds: sortedKeys };
-    }, [data]);
+    }, [data, limitQuestions]);
 
     const filteredParsedData = useMemo(() => {
         return parsedData.filter(d => {
@@ -77,10 +95,48 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
         });
     }, [parsedData, filterSchool, filterKecamatan, userMap]);
 
+    // Calculate Statistics per Question
+    const questionStats = useMemo(() => {
+        const stats: Record<string, { correct: number, wrong: number, percent: number }> = {};
+        
+        questionIds.forEach(qId => {
+            let correctCount = 0;
+            let totalCount = 0;
+            
+            filteredParsedData.forEach(d => {
+                const val = d.ansMap[qId];
+                // Only count if the question exists in the answer map (even if skipped/wrong)
+                // Assuming analysis JSON contains 0 for wrong, 1 for correct
+                if (val !== undefined) {
+                    totalCount++;
+                    if (val === 1) correctCount++;
+                }
+            });
+
+            stats[qId] = {
+                correct: correctCount,
+                wrong: totalCount - correctCount,
+                percent: totalCount > 0 ? (correctCount / totalCount) * 100 : 0
+            };
+        });
+        
+        return stats;
+    }, [filteredParsedData, questionIds]);
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div><h3 className="font-bold text-lg flex items-center gap-2"><BarChart3 size={20}/> Analisis Butir Soal</h3><p className="text-xs text-slate-400">Detail jawaban benar/salah setiap peserta.</p></div>
+                <div>
+                    <h3 className="font-bold text-lg flex items-center gap-2"><BarChart3 size={20}/> Analisis Butir Soal</h3>
+                    <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-xs text-slate-400">Detail jawaban benar/salah setiap peserta.</p>
+                        {limitQuestions > 0 && (
+                            <p className="text-[10px] font-bold text-indigo-500 bg-indigo-50 w-fit px-2 py-0.5 rounded">
+                                Menampilkan {limitQuestions} Soal (Sesuai Pengaturan)
+                            </p>
+                        )}
+                    </div>
+                </div>
                 <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterKecamatan} onChange={e => setFilterKecamatan(e.target.value)}><option value="all">Semua Kecamatan</option>{uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
@@ -95,17 +151,17 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
                         }} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"><FileText size={16}/> Export</button>)}
                 </div>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 max-h-[600px]">
                 <table className="w-full text-xs text-left whitespace-nowrap">
-                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase">
+                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase sticky top-0 z-20 shadow-sm">
                         <tr>
-                            <th className="p-3 w-10 text-center border-r border-slate-200">No</th>
-                            <th className="p-3 border-r border-slate-200">Username</th>
-                            <th className="p-3 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Nama Peserta</th>
-                            <th className="p-3">Sekolah</th>
-                            <th className="p-3">Kecamatan</th>
-                            <th className="p-3 border-r border-slate-200">Nilai</th>
-                            {questionIds.map(q => (<th key={q} className="p-3 text-center min-w-[40px]">{q}</th>))}
+                            <th className="p-3 w-10 text-center border-r border-slate-200 bg-slate-50">No</th>
+                            <th className="p-3 border-r border-slate-200 bg-slate-50">Username</th>
+                            <th className="p-3 sticky left-0 bg-slate-50 z-30 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Nama Peserta</th>
+                            <th className="p-3 bg-slate-50">Sekolah</th>
+                            <th className="p-3 bg-slate-50">Kecamatan</th>
+                            <th className="p-3 border-r border-slate-200 bg-slate-50">Nilai</th>
+                            {questionIds.map(q => (<th key={q} className="p-3 text-center min-w-[40px] bg-slate-50">{q}</th>))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -113,13 +169,41 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
                         <tr key={i} className="hover:bg-slate-50 transition">
                             <td className="p-3 text-center text-slate-500 border-r border-slate-100">{i + 1}</td>
                             <td className="p-3 font-mono text-slate-600 border-r border-slate-100">{d.username}</td>
-                            <td className="p-3 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100">{d.nama}</td>
+                            <td className="p-3 font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{d.nama}</td>
                             <td className="p-3 text-slate-600">{d.sekolah}</td>
                             <td className="p-3 text-slate-600">{userMap[d.username]?.kecamatan || '-'}</td>
                             <td className="p-3 font-bold text-indigo-600 border-r border-slate-100">{d.nilai}</td>
                             {questionIds.map(q => { const val = d.ansMap[q]; const isCorrect = val === 1; return (<td key={q} className={`p-1 text-center font-bold border-l border-slate-50 ${val === undefined ? 'text-slate-300' : isCorrect ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{val === undefined ? '-' : val}</td>); })}
                         </tr>)))}
                     </tbody>
+                    {filteredParsedData.length > 0 && (
+                        <tfoot className="bg-slate-100 font-bold sticky bottom-0 z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] border-t-2 border-slate-300">
+                            <tr>
+                                <td colSpan={6} className="p-3 text-right bg-slate-100 border-r border-slate-200">Total Benar</td>
+                                {questionIds.map(q => (
+                                    <td key={q} className="p-3 text-center text-emerald-600 bg-slate-100 border-l border-slate-200">{questionStats[q]?.correct}</td>
+                                ))}
+                            </tr>
+                            <tr>
+                                <td colSpan={6} className="p-3 text-right bg-slate-100 border-r border-slate-200">Total Salah</td>
+                                {questionIds.map(q => (
+                                    <td key={q} className="p-3 text-center text-rose-600 bg-slate-100 border-l border-slate-200">{questionStats[q]?.wrong}</td>
+                                ))}
+                            </tr>
+                            <tr>
+                                <td colSpan={6} className="p-3 text-right bg-slate-100 border-r border-slate-200">% Ketercapaian</td>
+                                {questionIds.map(q => {
+                                    const percent = questionStats[q]?.percent || 0;
+                                    const color = percent >= 75 ? 'text-emerald-700' : percent >= 50 ? 'text-yellow-700' : 'text-rose-700';
+                                    return (
+                                        <td key={q} className={`p-3 text-center ${color} bg-slate-100 border-l border-slate-200`}>
+                                            {percent.toFixed(0)}%
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        </tfoot>
+                    )}
                 </table>
             </div>
         </div>
