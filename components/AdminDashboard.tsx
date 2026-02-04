@@ -187,7 +187,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="p-6 flex justify-between items-center border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                <Settings size={22} className="animate-spin-slow" />
+                <Monitor size={22} className="animate-pulse" />
              </div>
              <div>
                 <h1 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">CBT <span className="text-indigo-600">Admin</span></h1>

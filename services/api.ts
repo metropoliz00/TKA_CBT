@@ -1,7 +1,8 @@
+
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzFS0jwFigrUFvoSfruwODLQHOz4XOFRiurtn3i87ex50G0TmRk53W9wMss3xIMTtpy/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbxMUhlSglPA4C-6dg9iEY-KRsL5nV_kqq7A8mHCi_hxjP14WshzfikXGTgsw74rQIXT/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -42,18 +43,19 @@ const callBackend = async (fnName: string, ...args: any[]) => {
   // 2. Remote Mode (Fetch to Exec URL) with Retry
   if (GAS_EXEC_URL) {
       let attempt = 0;
-      const maxAttempts = 3;
+      const maxAttempts = 5; // Increased attempts for better reliability
       
       while (attempt < maxAttempts) {
           try {
-              // Add timestamp to prevent caching
+              // Add timestamp to prevent caching, though usually not needed for POST
               const url = `${GAS_EXEC_URL}?t=${new Date().getTime()}`;
               
               const response = await fetch(url, {
                   redirect: "follow", 
                   method: 'POST',
                   headers: {
-                     'Content-Type': 'text/plain;charset=utf-8', 
+                     // Using simple text/plain to avoid preflight OPTIONS request on some browsers
+                     'Content-Type': 'text/plain', 
                   },
                   body: JSON.stringify({ action: fnName, args: args })
               });
@@ -65,7 +67,12 @@ const callBackend = async (fnName: string, ...args: any[]) => {
               
               const text = await response.text();
               try {
-                  return JSON.parse(text);
+                  const json = JSON.parse(text);
+                  // Check if GAS returned an error object
+                  if (json && json.error) {
+                      throw new Error(json.error);
+                  }
+                  return json;
               } catch (e) {
                   console.error("Invalid JSON received:", text);
                   if (text.includes("Google Drive") || text.includes("Google Docs")) {
@@ -74,6 +81,7 @@ const callBackend = async (fnName: string, ...args: any[]) => {
                   if (text.includes("<!DOCTYPE html>")) {
                      throw new Error("Script Error: Check Apps Script 'Executions' log. Re-deploy new version.");
                   }
+                  // If JSON parse fails but it wasn't HTML, it might be a weird server error
                   throw new Error("Invalid response from server");
               }
 
@@ -87,7 +95,7 @@ const callBackend = async (fnName: string, ...args: any[]) => {
                    throw error;
               }
               
-              // Exponential backoff: 1s, 2s, etc.
+              // Exponential backoff: 1s, 2s, 3s, 4s...
               await new Promise(r => setTimeout(r, 1000 * attempt));
           }
       }

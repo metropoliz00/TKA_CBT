@@ -25,8 +25,13 @@ const SYSTEM_SHEETS = [
 /* ENTRY POINT: doPost */
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  // Wait for up to 10 seconds to avoid race conditions
-  lock.tryLock(10000);
+  // Wait for up to 10 seconds to avoid race conditions. 
+  // tryLock returns true if acquired, false if timeout.
+  const hasLock = lock.tryLock(10000);
+
+  if (!hasLock) {
+    return responseJSON({ error: "Server Busy (Lock Timeout). Please try again." });
+  }
 
   try {
     if (!e || !e.postData || !e.postData.contents) {
@@ -40,7 +45,9 @@ function doPost(e) {
   } catch (err) {
     return responseJSON({ error: "Server Error: " + err.toString() });
   } finally {
-    lock.releaseLock();
+    if (hasLock) {
+      lock.releaseLock();
+    }
   }
 }
 
