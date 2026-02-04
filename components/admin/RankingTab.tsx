@@ -145,7 +145,7 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
                 </div>
 
                 <table class="info-table">
-                    <tr><td width="150">Kecamatanayah</td><td>: ${kecamatanName}</td></tr>
+                    <tr><td width="150">Cakupan Wilayah</td><td>: ${kecamatanName}</td></tr>
                     <tr><td width="150">Sekolah</td><td>: ${schoolName}</td></tr>
                     <tr><td>Tanggal Cetak</td><td>: ${dateNow}</td></tr>
                 </table>
@@ -171,9 +171,10 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
 
                 <div class="signature-section">
                     <p>${signatureDate}</p>
-                    <p>Administrator</p>
+                    <p>Koordinator / Proktor</p>
                     <br/><br/><br/>
                     <p style="text-decoration: underline; font-weight: bold;">${adminName}</p>
+                    <p style="font-size: 12px;">NIP. ........................................</p>
                 </div>
 
                 <script>
