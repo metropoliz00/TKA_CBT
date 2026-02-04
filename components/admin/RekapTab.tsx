@@ -158,7 +158,7 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                     <p>${signatureDate}</p>
                     <p>Koordinator</p>
                     <br/><br/><br/>
-                    <p style="text-decoration: underline; font-weight: bold;">${adminName}</p>
+                    <p style="text-decoration; font-weight: bold;">${adminName}</p>
                 </div>
 
                 <script>

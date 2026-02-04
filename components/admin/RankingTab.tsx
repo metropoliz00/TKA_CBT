@@ -172,9 +172,9 @@ const RankingTab = ({ students, currentUser }: { students: any[], currentUser: U
 
                 <div class="signature-section">
                     <p>${signatureDate}</p>
-                    <p>Koordinator / Proktor</p>
+                    <p>Administrator</p>
                     <br/><br/><br/>
-                    <p style="text-decoration: underline; font-weight: bold;">${adminName}</p>
+                    <p style="text-decoration:font-weight: bold;">${adminName}</p>
                 </div>
 
                 <script>
