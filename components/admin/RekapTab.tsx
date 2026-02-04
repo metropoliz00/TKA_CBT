@@ -68,12 +68,112 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
     }, [students]);
 
     const handlePrint = () => {
-        window.print();
+        if (filteredData.length === 0) return alert("Tidak ada data untuk dicetak.");
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert("Pop-up blocked. Please allow pop-ups.");
+
+        const schoolName = filterSchool !== 'all' ? filterSchool : 'Semua Sekolah';
+        const kecamatanName = filterKecamatan !== 'all' ? filterKecamatan : 'Semua Kecamatan';
+        const dateNow = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const dateOnly = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        const signatureDate = `Tuban, ${dateOnly}`;
+        const adminName = currentUser.nama_lengkap || "Administrator";
+        
+        // Generate Rows
+        const rowsHtml = filteredData.map((d, i) => `
+            <tr>
+                <td style="text-align: center;">${i + 1}</td>
+                <td>${d.username}</td>
+                <td>${d.nama}</td>
+                <td>${d.sekolah}</td>
+                <td>${d.kecamatan}</td>
+                <td style="text-align: center;">${d.nilai_bi}</td>
+                <td style="text-align: center;">${d.nilai_mtk}</td>
+            </tr>
+        `).join('');
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Rekap Nilai TKA 2026</title>
+                <style>
+                    body { font-family: 'Times New Roman', serif; padding: 20px; color: #000; }
+                    .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double black; padding-bottom: 10px; margin-bottom: 20px; }
+                    .logo { height: 80px; width: auto; object-fit: contain; }
+                    .header-text { text-align: center; flex-grow: 1; padding: 0 10px; }
+                    .header-text h2 { margin: 0; font-size: 18px; text-transform: uppercase; line-height: 1.2; }
+                    .header-text h3 { margin: 5px 0 0; font-size: 16px; font-weight: normal; }
+                    .info-table { margin-bottom: 20px; font-size: 14px; width: 100%; }
+                    .info-table td { padding: 2px; vertical-align: top; }
+                    .main-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                    .main-table th, .main-table td { border: 1px solid black; padding: 6px; }
+                    .main-table th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
+                    .signature-section { margin-top: 50px; float: right; width: 250px; text-align: center; font-size: 14px; }
+                    @media print {
+                        @page { size: A4 landscape; margin: 1cm; }
+                        button { display: none; }
+                        body { padding: 0; }
+                        .header-container { -webkit-print-color-adjust: exact; }
+                        .main-table th { -webkit-print-color-adjust: exact; background-color: #f0f0f0 !important; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header-container">
+                    <img src="https://image2url.com/r2/default/images/1769821786493-a2e4eb8b-c903-460d-b8d9-44f326ff71bb.png" class="logo" alt="Logo Kiri" />
+                    <div class="header-text">
+                        <h2>REKAPITULASI NILAI</h2>
+                        <h2>TRY OUT TKA TAHUN 2026</h2>
+                    </div>
+                    <img src="https://image2url.com/r2/default/images/1769821862384-d6ef24bf-e12c-4616-a255-7366afae4c30.png" class="logo" alt="Logo Kanan" />
+                </div>
+
+                <table class="info-table">
+                    <tr><td width="150">Kecamatan</td><td>: ${kecamatanName}</td></tr>
+                    <tr><td width="150">Sekolah</td><td>: ${schoolName}</td></tr>
+                    <tr><td>Tanggal Cetak</td><td>: ${dateNow}</td></tr>
+                </table>
+
+                <table class="main-table">
+                    <thead>
+                        <tr>
+                            <th width="40">No</th>
+                            <th>Username</th>
+                            <th>Nama Peserta</th>
+                            <th>Sekolah</th>
+                            <th>Kecamatan</th>
+                            <th width="80">B. Indo</th>
+                            <th width="80">Matematika</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+
+                <div class="signature-section">
+                    <p>${signatureDate}</p>
+                    <p>Koordinator / Proktor</p>
+                    <br/><br/><br/>
+                    <p style="text-decoration: underline; font-weight: bold;">${adminName}</p>
+                </div>
+
+                <script>
+                    window.onload = function() { window.print(); }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6 print:shadow-none print:border-0 print:p-0">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 fade-in p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h3 className="font-bold text-lg flex items-center gap-2"><LayoutDashboard size={20}/> Rekapitulasi Nilai</h3>
                     <p className="text-xs text-slate-400">Hasil ujian.</p>
@@ -88,7 +188,7 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                         {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>
                      <button onClick={handlePrint} className="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition shadow-lg shadow-rose-200">
-                        <Printer size={16}/> Cetak
+                        <Printer size={16}/> Cetak PDF
                      </button>
                      <button onClick={() => exportToExcel(filteredData, "Rekap_Nilai_TKA")} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">
                         <FileText size={16}/> Excel
@@ -96,46 +196,37 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                 </div>
             </div>
 
-            {/* Print Header */}
-            <div className="hidden print:block mb-4 text-center">
-                <h2 className="text-xl font-bold uppercase">Rekapitulasi Nilai Try Out TKA 2026</h2>
-                <p className="text-sm text-slate-600">
-                    Sekolah: {filterSchool === 'all' ? 'Semua Sekolah' : filterSchool} | 
-                    Kecamatan: {filterKecamatan === 'all' ? 'Semua Kecamatan' : filterKecamatan}
-                </p>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-slate-200 print:border-0">
-                <table className="w-full text-sm text-left print:text-xs">
-                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs print:bg-white print:border-b-2 print:border-black">
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 font-bold text-slate-600 uppercase text-xs">
                         <tr>
-                            <th className="p-4 w-12 text-center print:p-2">No</th>
-                            <th className="p-4 print:p-2">Username</th>
-                            <th className="p-4 print:p-2">Nama Peserta</th>
-                            <th className="p-4 print:p-2">Sekolah</th>
-                            <th className="p-4 print:p-2">Kecamatan</th>
-                            <th className="p-4 text-center border-l border-slate-200 bg-blue-50/50 print:bg-white print:p-2">B. Indo</th>
-                            <th className="p-4 text-center border-l border-slate-200 bg-orange-50/50 print:bg-white print:p-2">Matematika</th>
+                            <th className="p-4 w-12 text-center">No</th>
+                            <th className="p-4">Username</th>
+                            <th className="p-4">Nama Peserta</th>
+                            <th className="p-4">Sekolah</th>
+                            <th className="p-4">Kecamatan</th>
+                            <th className="p-4 text-center border-l border-slate-200 bg-blue-50/50">B. Indo</th>
+                            <th className="p-4 text-center border-l border-slate-200 bg-orange-50/50">Matematika</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                    <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr><td colSpan={7} className="p-8 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data nilai...</td></tr>
                         ) : filteredData.length === 0 ? (
                             <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Data tidak ditemukan untuk filter ini.</td></tr>
                         ) : (
                             filteredData.map((d, i) => (
-                                <tr key={i} className="hover:bg-slate-50 transition print:hover:bg-transparent">
-                                    <td className="p-4 text-center text-slate-500 print:p-2">{i + 1}</td>
-                                    <td className="p-4 font-mono text-slate-600 print:p-2">{d.username}</td>
-                                    <td className="p-4 font-bold text-slate-700 print:p-2">{d.nama}</td>
-                                    <td className="p-4 text-slate-600 print:p-2">{d.sekolah}</td>
-                                    <td className="p-4 text-slate-600 print:p-2">{d.kecamatan}</td>
-                                    <td className="p-4 text-center border-l border-slate-100 bg-blue-50/10 print:bg-transparent print:p-2">
-                                        {d.nilai_bi !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-blue-600 print:text-black print:text-base">{d.nilai_bi}</span><span className="text-[10px] text-slate-400 font-mono print:hidden">{formatDurationToText(d.durasi_bi)}</span></div>) : <span className="text-slate-300">-</span>}
+                                <tr key={i} className="hover:bg-slate-50 transition">
+                                    <td className="p-4 text-center text-slate-500">{i + 1}</td>
+                                    <td className="p-4 font-mono text-slate-600">{d.username}</td>
+                                    <td className="p-4 font-bold text-slate-700">{d.nama}</td>
+                                    <td className="p-4 text-slate-600">{d.sekolah}</td>
+                                    <td className="p-4 text-slate-600">{d.kecamatan}</td>
+                                    <td className="p-4 text-center border-l border-slate-100 bg-blue-50/10">
+                                        {d.nilai_bi !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-blue-600">{d.nilai_bi}</span><span className="text-[10px] text-slate-400 font-mono">{formatDurationToText(d.durasi_bi)}</span></div>) : <span className="text-slate-300">-</span>}
                                     </td>
-                                    <td className="p-4 text-center border-l border-slate-100 bg-orange-50/10 print:bg-transparent print:p-2">
-                                        {d.nilai_mtk !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-orange-600 print:text-black print:text-base">{d.nilai_mtk}</span><span className="text-[10px] text-slate-400 font-mono print:hidden">{formatDurationToText(d.durasi_mtk)}</span></div>) : <span className="text-slate-300">-</span>}
+                                    <td className="p-4 text-center border-l border-slate-100 bg-orange-50/10">
+                                        {d.nilai_mtk !== '-' ? (<div className="flex flex-col items-center"><span className="text-lg font-bold text-orange-600">{d.nilai_mtk}</span><span className="text-[10px] text-slate-400 font-mono">{formatDurationToText(d.durasi_mtk)}</span></div>) : <span className="text-slate-300">-</span>}
                                     </td>
                                 </tr>
                             ))
@@ -143,7 +234,8 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                     </tbody>
                 </table>
             </div>
-            <div className="mt-4 flex justify-between items-center text-xs text-slate-400 print:hidden">
+
+            <div className="mt-4 flex justify-between items-center text-xs text-slate-400">
                 <span>Total Data: {filteredData.length}</span>
             </div>
         </div>
