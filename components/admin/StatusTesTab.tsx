@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Monitor, Search, PlayCircle, Key, CheckCircle2 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -21,7 +22,22 @@ const StatusTesTab = ({ currentUser, students, refreshData }: { currentUser: Use
                     {currentUser.role === 'admin_pusat' && (
                         <>
                         <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={filterKecamatan} onChange={e => setFilterKecamatan(e.target.value)}><option value="all">Semua Kecamatan</option>{uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
-                        <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        <select 
+                            className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" 
+                            value={filterSchool} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                setFilterSchool(val);
+                                if (val !== 'all') {
+                                    const found = students.find(s => s.school === val);
+                                    if (found && found.kecamatan) setFilterKecamatan(found.kecamatan);
+                                } else {
+                                    setFilterKecamatan('all');
+                                }
+                            }}
+                        >
+                            <option value="all">Semua Sekolah</option>{uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
                         </>
                     )}
                     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Cari Peserta..." className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 w-full" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>

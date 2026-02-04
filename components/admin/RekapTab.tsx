@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, FileText, Loader2, Printer } from 'lucide-react';
 import { api } from '../../services/api';
@@ -184,7 +185,20 @@ const RekapTab = ({ students, currentUser }: { students: any[], currentUser: Use
                         <option value="all">Semua Kecamatan</option>
                         {uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>
-                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
+                     <select 
+                        className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" 
+                        value={filterSchool} 
+                        onChange={e => {
+                            const val = e.target.value;
+                            setFilterSchool(val);
+                            if (val !== 'all') {
+                                const found = students.find(s => s.school === val);
+                                if (found && found.kecamatan) setFilterKecamatan(found.kecamatan);
+                            } else {
+                                setFilterKecamatan('all');
+                            }
+                        }}
+                     >
                         <option value="all">Semua Sekolah</option>
                         {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
                      </select>

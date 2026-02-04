@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart3, FileText, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -138,7 +139,23 @@ const AnalisisTab = ({ students }: { students: any[] }) => {
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterKecamatan} onChange={e => setFilterKecamatan(e.target.value)}><option value="all">Semua Kecamatan</option>{uniqueKecamatans.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
-                    <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>
+                    <select 
+                        className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" 
+                        value={filterSchool} 
+                        onChange={e => {
+                            const val = e.target.value;
+                            setFilterSchool(val);
+                            if (val !== 'all') {
+                                const found = students.find(s => s.school === val);
+                                if (found && found.kecamatan) setFilterKecamatan(found.kecamatan);
+                            } else {
+                                setFilterKecamatan('all');
+                            }
+                        }}
+                    >
+                        <option value="all">Semua Sekolah</option>
+                        {uniqueSchools.map((s:any) => <option key={s} value={s}>{s}</option>)}
+                    </select>
                     <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-100" value={selectedExam} onChange={e => setSelectedExam(e.target.value)}><option value="">-- Pilih Ujian --</option>{exams.map(e => <option key={e.id} value={e.id}>{e.nama_ujian}</option>)}</select>
                     {filteredParsedData.length > 0 && (<button onClick={() => {
                             const exportData = filteredParsedData.map(d => {

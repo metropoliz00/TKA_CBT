@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Users, FileText, Download, Upload, Loader2, Plus, Search, Edit, Trash2, X, Camera, Save } from 'lucide-react';
 import { api } from '../../services/api';
@@ -104,7 +105,29 @@ const DaftarPesertaTab = ({ currentUser, onDataChange }: { currentUser: User, on
              <div className="flex flex-col md:flex-row gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Cari Username, Nama, Sekolah, atau Kecamatan..." className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
                 {currentUser.role === 'admin_pusat' && (
-                    <><select className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}><option value="all">Semua Sekolah</option>{uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}</select><select className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={filterRole} onChange={e => setFilterRole(e.target.value)}><option value="all">Semua Role</option><option value="siswa">Siswa</option><option value="admin_sekolah">Proktor (Admin Sekolah)</option><option value="admin_pusat">Admin Pusat</option></select></>
+                    <>
+                    <select 
+                        className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" 
+                        value={filterSchool} 
+                        onChange={e => {
+                            const val = e.target.value;
+                            setFilterSchool(val);
+                            // Auto-set kecamatan search term if simpler, 
+                            // or ideally add filterKecamatan state if needed here like in other tabs.
+                            // For simplicity in this specific tab which uses generic text search:
+                            if (val !== 'all') {
+                                // Find user to get kecamatan is nice but here filters act differently.
+                                // Let's keep it consistent with other tabs if we add kecamatan filter state, 
+                                // but this component uses searchTerm mostly. 
+                                // However, let's assume we want to update a hypothetical kecamatan filter if it existed.
+                                // Since filterKecamatan isn't a state here (it uses searchTerm), we skip.
+                            }
+                        }}
+                    >
+                        <option value="all">Semua Sekolah</option>{uniqueSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select className="p-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 bg-white" value={filterRole} onChange={e => setFilterRole(e.target.value)}><option value="all">Semua Role</option><option value="siswa">Siswa</option><option value="admin_sekolah">Proktor (Admin Sekolah)</option><option value="admin_pusat">Admin Pusat</option></select>
+                    </>
                 )}
              </div>
              <div className="overflow-x-auto rounded-lg border border-slate-200">
