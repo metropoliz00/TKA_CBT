@@ -1124,16 +1124,23 @@ function getDashboardData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // 1. Init Users Map (Default Status: OFFLINE)
-  const uSheet = ss.getSheetByName(SHEET_USERS);
   const users = {};
   let totalUsers = 0;
-  
+
+  // Load Students
+  const uSheet = ss.getSheetByName(SHEET_USERS);
   if (uSheet) {
     const d = uSheet.getDataRange().getDisplayValues();
     for(let i=1; i<d.length; i++) {
-        const role = String(d[i][3]).toLowerCase();
-        if (role === 'siswa') {
-            const uname = String(d[i][1]).toLowerCase();
+        // Robust role checking
+        let role = String(d[i][3]).trim().toLowerCase();
+        // If role is empty, assume student as default
+        if (!role) role = 'siswa';
+
+        const uname = String(d[i][1]).trim().toLowerCase();
+        
+        // Ensure username is valid
+        if (uname) {
             users[uname] = { 
                 username: d[i][1], 
                 fullname: d[i][4], 
@@ -1141,11 +1148,34 @@ function getDashboardData() {
                 kecamatan: d[i][9] || '-', 
                 status: 'OFFLINE',
                 active_exam: d[i][7] || '-', 
-                session: d[i][8] || '-' 
+                session: d[i][8] || '-',
+                role: role
             };
-            totalUsers++;
+            if (role === 'siswa') totalUsers++;
         }
     }
+  }
+
+  // Load Admins (Proktors)
+  const aSheet = ss.getSheetByName(SHEET_ADMINS);
+  if (aSheet) {
+      const ad = aSheet.getDataRange().getDisplayValues();
+      for(let i=1; i<ad.length; i++) {
+          const uname = String(ad[i][1]).trim().toLowerCase();
+          
+          if (uname && !users[uname]) {
+              users[uname] = {
+                  username: ad[i][1],
+                  fullname: ad[i][4],
+                  school: ad[i][6] || '-',
+                  kecamatan: ad[i][7] || '-',
+                  status: 'OFFLINE', // Default status
+                  active_exam: '-',
+                  session: '-',
+                  role: String(ad[i][3]).trim().toLowerCase() // 'admin_sekolah' or 'admin_pusat'
+              };
+          }
+      }
   }
 
   // 2. Check Results (Mark as FINISHED)
@@ -1157,7 +1187,7 @@ function getDashboardData() {
     const d = rSheet.getDataRange().getDisplayValues();
     for(let i=1; i<d.length; i++) {
        if(!d[i][0]) continue;
-       const uname = String(d[i][1]).toLowerCase();
+       const uname = String(d[i][1]).trim().toLowerCase();
        let analysis = {};
        try { analysis = JSON.parse(d[i][6]); } catch(e){}
        
@@ -1193,10 +1223,11 @@ function getDashboardData() {
   if (lSheet) {
       const d = lSheet.getDataRange().getDisplayValues(); 
       for(let i=d.length-1; i>=1; i--) {
-          const uname = String(d[i][1]).toLowerCase();
+          const uname = String(d[i][1]).trim().toLowerCase();
           const act = String(d[i][3]).toUpperCase();
 
-          if (users[uname] && users[uname].status !== 'FINISHED') {
+          // Only update status for students (not admins) if not finished
+          if (users[uname] && users[uname].status !== 'FINISHED' && users[uname].role === 'siswa') {
              if (!statusSetFromLogs.has(uname)) {
                   if (act === 'RESET') {
                       users[uname].status = 'OFFLINE'; 
@@ -1239,7 +1270,8 @@ function getDashboardData() {
 
   const counts = { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
   Object.values(users).forEach(u => {
-      if (counts[u.status] !== undefined) {
+      // Only count students for exam statistics
+      if (u.role === 'siswa' && counts[u.status] !== undefined) {
          counts[u.status]++;
       }
   });
