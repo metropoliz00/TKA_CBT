@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Home, LogOut, Menu, Monitor, Group, Clock, Printer, List, Calendar, Key, FileQuestion, LayoutDashboard, ClipboardList, BarChart3, Award, RefreshCw, X, CreditCard, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { api } from '../services/api';
@@ -251,12 +252,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <div className="p-4 border-t border-slate-100 bg-slate-50/50">
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-3 flex items-center gap-3">
                  {currentUserState.photo_url ? (
-                    <img src={currentUserState.photo_url} className="w-9 h-9 rounded-full object-cover border border-slate-200" alt="Profile" />
-                ) : (
-                    <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold border border-indigo-200 shadow-inner">
-                        {currentUserState.username.charAt(0).toUpperCase()}
-                    </div>
-                )}
+                    <img 
+                        src={currentUserState.photo_url} 
+                        className="w-9 h-9 rounded-full object-cover border border-slate-200 bg-white" 
+                        alt="Profile"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                    />
+                ) : null}
+                <div className={`${currentUserState.photo_url ? 'hidden' : ''} w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold border border-indigo-200 shadow-inner`}>
+                    {currentUserState.username.charAt(0).toUpperCase()}
+                </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-[9px] font-bold text-slate-1000 truncate">{currentUserState.nama_lengkap || currentUserState.username}</p>
                     <p className="text-[10px] font-bold text-indigo-600 truncate">{currentUserState.role === 'admin_pusat' ? 'Administrator' : currentUserState.kelas_id}</p>
@@ -315,7 +323,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {activeTab === 'rilis_token' && <RilisTokenTab currentUser={currentUserState} token={dashboardData.token} duration={dashboardData.duration} maxQuestions={dashboardData.maxQuestions} surveyDuration={dashboardData.surveyDuration} refreshData={fetchData} isRefreshing={isRefreshing} />}
                 {activeTab === 'bank_soal' && currentUserState.role === 'admin_pusat' && <BankSoalTab />}
                 {activeTab === 'rekap' && currentUserState.role === 'admin_pusat' && <RekapTab students={dashboardData.allUsers} currentUser={currentUserState} />}
-                {activeTab === 'rekap_survey' && currentUserState.role === 'admin_pusat' && <RekapSurveyTab />}
+                {activeTab === 'rekap_survey' && currentUserState.role === 'admin_pusat' && <RekapSurveyTab students={dashboardData.allUsers || []} currentUser={currentUserState} />}
                 {activeTab === 'ranking' && currentUserState.role === 'admin_pusat' && <RankingTab students={dashboardData.allUsers} currentUser={currentUserState} />}
                 {activeTab === 'analisis' && currentUserState.role === 'admin_pusat' && <AnalisisTab students={dashboardData.allUsers} />}
              </>
