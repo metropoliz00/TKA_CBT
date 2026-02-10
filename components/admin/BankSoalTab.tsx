@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FileQuestion, Download, Upload, Loader2, Plus, Edit, Trash2, X, Save } from 'lucide-react';
 import { api } from '../../services/api';
@@ -56,6 +57,7 @@ const BankSoalTab = () => {
             text_soal: '',
             tipe_soal: isSurvey ? 'LIKERT' : 'PG',
             gambar: '',
+            keterangan_gambar: '', // Init
             opsi_a: '',
             opsi_b: '',
             opsi_c: '',
@@ -95,7 +97,7 @@ const BankSoalTab = () => {
         // A=1, B=2, C=3, D=4
         const header = isSurvey 
             ? ["ID", "Pernyataan", "Skala 1 (Nilai 1)", "Skala 2 (Nilai 2)", "Skala 3 (Nilai 3)", "Skala 4 (Nilai 4)"]
-            : ["ID Soal", "Teks Soal", "Tipe Soal (PG/PGK/BS)", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D"];
+            : ["ID Soal", "Teks Soal", "Tipe Soal (PG/PGK/BS)", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot", "Ket. Gambar"];
         
         const row = isSurvey 
             ? [
@@ -118,7 +120,8 @@ const BankSoalTab = () => {
                 "Opsi C / Pernyataan 3": "4",
                 "Opsi D / Pernyataan 4": "5",
                 "Kunci Jawaban": "A",
-                "Bobot": 10
+                "Bobot": 10,
+                "Ket. Gambar": "Gambar ilustrasi penjumlahan"
             }];
 
         const ws = XLSX.utils.json_to_sheet(row);
@@ -173,7 +176,8 @@ const BankSoalTab = () => {
                             opsi_c: String(row[6] || ""),
                             opsi_d: String(row[7] || ""),
                             kunci_jawaban: String(row[8] || "").toUpperCase(),
-                            bobot: Number(row[9] || 10)
+                            bobot: Number(row[9] || 10),
+                            keterangan_gambar: String(row[10] || "") // Index 10 for caption
                         });
                     }
                 }
@@ -272,6 +276,7 @@ const BankSoalTab = () => {
                                         <td className="p-4">
                                             <div className="line-clamp-2 font-medium text-slate-700">{q.text_soal}</div>
                                             {q.gambar && <span className="text-xs text-blue-500 flex items-center gap-1 mt-1"><FileQuestion size={12}/> Ada Gambar</span>}
+                                            {q.keterangan_gambar && <span className="text-[10px] text-slate-400 block mt-0.5 italic">"{q.keterangan_gambar}"</span>}
                                         </td>
                                         {!isSurveyMode && <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{q.tipe_soal}</span></td>}
                                         {!isSurveyMode && <td className="p-4 font-mono text-emerald-600 font-bold">{q.kunci_jawaban}</td>}
@@ -329,6 +334,15 @@ const BankSoalTab = () => {
                                     
                                     {!isSurveyMode && (
                                     <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link Gambar (URL / Base64)</label>
+                                        <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.gambar} onChange={e => setCurrentQ({...currentQ, gambar: e.target.value})} placeholder="https://..." />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan Gambar (Opsional)</label>
+                                        <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.keterangan_gambar} onChange={e => setCurrentQ({...currentQ, keterangan_gambar: e.target.value})} placeholder="Keterangan singkat..." />
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kunci Jawaban</label>

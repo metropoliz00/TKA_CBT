@@ -2,7 +2,7 @@
 import { User, Exam, QuestionWithOptions, QuestionRow, SchoolSchedule } from '../types';
 
 // The Apps Script Web App URL provided
-const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbxRQYHu76zQ2u2eLLCdIrk-32VLnGRwROzlDdn3woDRa95oWMyEY-30y2v1FPOizJOz/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbzPq97vNvRGFQJxQc5P818k_D0maUVW1CDBZFM30ukEtk7TyOt37L27XJoHzX9_FiIf/exec";
 
 // Check if running inside GAS iframe
 const isEmbedded = typeof window !== 'undefined' && window.google && window.google.script;
@@ -225,6 +225,7 @@ export const api = {
         tipe_soal: q.type || 'PG',
         bobot_nilai: 10,
         gambar: q.image || undefined,
+        keterangan_gambar: q.keterangan_gambar || undefined, // Map caption
         options: Array.isArray(q.options) ? q.options.map((o: any, idx: number) => ({
             id: o.id || `opt-${i}-${idx}`,
             question_id: q.id || `Q${i+1}`,

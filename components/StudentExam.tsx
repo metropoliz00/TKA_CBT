@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Check, ChevronLeft, ChevronRight, LayoutDashboard, Flag, Monitor, LogOut, Loader2, AlertTriangle, X, ShieldAlert, RotateCcw, ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
 import { QuestionWithOptions, UserAnswerValue, Exam } from '../types';
@@ -351,7 +352,10 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
           </div>
       )}
       <header className="h-16 bg-white/95 backdrop-blur shadow-sm border-b border-slate-200 flex justify-between items-center px-4 md:px-6 z-40 sticky top-0">
-        <div className="flex items-center gap-3"><div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-indigo-200 shadow-md"><Monitor size={20} /></div><div><h1 className="font-bold text-slate-800 text-sm md:text-lg leading-tight tracking-tight">CBT System</h1></div></div>
+        <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-indigo-200 shadow-md"><Monitor size={20} /></div>
+            <div><h1 className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-sm md:text-xl leading-tight tracking-tight">Computer Based Test</h1></div>
+        </div>
         <div className="flex items-center gap-3 md:gap-4">
           <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-slate-200 shadow-sm">
             <Clock size={16} className="text-indigo-600" />
@@ -375,7 +379,7 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
       </header>
       <div className="flex flex-1 overflow-hidden relative">
         <main className="flex-1 overflow-y-auto p-3 md:p-6 pb-24 w-full">
-          <div className="max-w-full md:max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 min-h-[600px] flex flex-col overflow-hidden">
+          <div className="max-w-full md:max-w-[1440px] mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 min-h-[600px] flex flex-col overflow-hidden">
             <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
               <div className="flex items-center gap-3">
                 <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded">SOAL NO. {currentIdx + 1}</span>
@@ -387,18 +391,35 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
               </div>
             </div>
             <div className={`p-4 md:p-8 flex-1 ${fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-xl' : 'text-base'} text-slate-700 leading-relaxed overflow-x-hidden`}>
-              <div className={currentQ.gambar ? "grid grid-cols-1 lg:grid-cols-2 gap-8 items-start" : "w-full flex flex-col gap-6"}>
-                {currentQ.gambar && (
-                    <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] relative group overflow-hidden">
-                        <div className="relative cursor-zoom-in w-full h-full flex items-center justify-center" onClick={() => setZoomedImage(currentQ.gambar!)}>
-                            <img src={currentQ.gambar} alt="Soal" className="max-w-full h-auto rounded-lg shadow-sm max-h-[400px] md:max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center rounded-lg"><div className="bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0"><Maximize size={14} /> Klik untuk memperbesar</div></div>
+              <div className={(currentQ.gambar || currentQ.tipe_soal === 'BS') ? "grid grid-cols-1 lg:grid-cols-2 gap-8 items-start" : "w-full flex flex-col gap-6"}>
+                <div className="flex flex-col gap-6 w-full">
+                    {currentQ.gambar && (
+                        <div className="flex flex-col gap-4">
+                            <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] relative group overflow-hidden">
+                                <div className="relative cursor-zoom-in w-full h-full flex items-center justify-center" onClick={() => setZoomedImage(currentQ.gambar!)}>
+                                    <img src={currentQ.gambar} alt="Soal" className="max-w-full h-auto rounded-lg shadow-sm max-h-[400px] md:max-h-[500px] object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center rounded-lg"><div className="bg-black/70 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0"><Maximize size={14} /> Klik untuk memperbesar</div></div>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-2 italic text-center flex items-center gap-1"><ZoomIn size={12}/> Klik gambar untuk mode zoom & pan</p>
+                            </div>
+                            {currentQ.keterangan_gambar && (
+                                <p className={`font-medium text-blue-600 text-center w-full leading-relaxed ${fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-xl' : 'text-lg'}`}>
+                                    {currentQ.keterangan_gambar}
+                                </p>
+                            )}
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2 italic text-center flex items-center gap-1"><ZoomIn size={12}/> Klik gambar untuk mode zoom & pan</p>
-                    </div>
-                )}
+                    )}
+                    {currentQ.tipe_soal === 'BS' && (
+                         <div className={`font-medium whitespace-pre-wrap leading-relaxed text-justify break-words ${fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-xl' : 'text-base'}`}>
+                            {currentQ.text_soal}
+                         </div>
+                    )}
+                </div>
+                
                 <div className="flex flex-col gap-6 md:gap-8 w-full">
-                    <div className="font-medium whitespace-pre-wrap leading-relaxed text-justify break-words">{currentQ.text_soal}</div>
+                    {currentQ.tipe_soal !== 'BS' && (
+                        <div className="font-medium whitespace-pre-wrap leading-relaxed text-justify break-words">{currentQ.text_soal}</div>
+                    )}
                     <div className="space-y-3 md:space-y-4">
                         {currentQ.tipe_soal === 'PG' && currentQ.options.map((opt, idx) => {
                         const isSelected = answers[currentQ.id] === opt.id;
@@ -438,13 +459,13 @@ const StudentExam: React.FC<StudentExamProps> = ({ exam, questions, userFullName
         </aside>
       </div>
       <footer className="bg-white border-t border-slate-200 p-3 md:p-4 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="max-w-full md:max-w-7xl mx-auto flex justify-between items-center gap-2 md:gap-4">
-          <button onClick={() => setCurrentIdx(p => Math.max(0, p - 1))} disabled={currentIdx === 0 || isSubmitting} className={`px-3 md:px-5 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 transition text-sm md:text-base ${currentIdx === 0 ? 'opacity-0 cursor-default' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 active:scale-95'}`}><ChevronLeft size={20} /> <span className="hidden md:inline">SEBELUMNYA</span></button>
-          <label className="flex items-center gap-2 md:gap-3 bg-yellow-50 px-3 md:px-5 py-2.5 rounded-xl border border-yellow-200 cursor-pointer hover:bg-yellow-100 transition select-none group active:scale-95"><input type="checkbox" className="w-5 h-5 accent-yellow-600 rounded cursor-pointer" checked={!!doubtful[currentQ.id]} onChange={() => setDoubtful(p => ({...p, [currentQ.id]: !p[currentQ.id]}))} disabled={isSubmitting} /><span className="font-bold text-yellow-700 text-xs md:text-base group-hover:text-yellow-800">RAGU</span><Flag size={16} className={`hidden md:block ${doubtful[currentQ.id] ? 'fill-yellow-600 text-yellow-600' : 'text-yellow-400'}`} /></label>
+        <div className="max-w-full md:max-w-[1440px] mx-auto flex justify-between items-center gap-2 md:gap-4">
+          <button onClick={() => setCurrentIdx(p => Math.max(0, p - 1))} disabled={currentIdx === 0 || isSubmitting} className={`px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 transition text-sm md:text-base shadow-lg ${currentIdx === 0 ? 'opacity-0 cursor-default' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-200 active:scale-95'}`}><ChevronLeft size={20} /> <span className="hidden md:inline">SEBELUMNYA</span></button>
+          <label className="flex items-center gap-2 md:gap-3 bg-yellow-400 px-4 md:px-6 py-2.5 rounded-xl border-b-4 border-yellow-500 cursor-pointer hover:bg-yellow-500 transition select-none group active:scale-95 active:border-b-0 active:translate-y-1"><input type="checkbox" className="w-5 h-5 accent-slate-800 rounded cursor-pointer" checked={!!doubtful[currentQ.id]} onChange={() => setDoubtful(p => ({...p, [currentQ.id]: !p[currentQ.id]}))} disabled={isSubmitting} /><span className="font-bold text-yellow-900 text-xs md:text-base">RAGU</span><Flag size={16} className={`hidden md:block ${doubtful[currentQ.id] ? 'fill-yellow-900 text-yellow-900' : 'text-yellow-800'}`} /></label>
           {isLastQuestion ? (
             <button onClick={() => setShowConfirmFinish(true)} disabled={isSubmitting} className={`px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base ${isSubmitting ? 'bg-slate-400 text-white cursor-wait' : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-green-200'}`}>{isSubmitting ? (<>Wait... <div className="loader border-white w-4 h-4 border-2"></div></>) : (<>SELESAI <Check size={18} /></>)}</button>
           ) : (
-            <button onClick={() => setCurrentIdx(p => Math.min(examQuestions.length - 1, p + 1))} disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base"><span className="hidden md:inline">BERIKUTNYA</span> <ChevronRight size={20} /></button>
+            <button onClick={() => setCurrentIdx(p => Math.min(examQuestions.length - 1, p + 1))} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-6 py-3 md:py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 transition transform hover:-translate-y-0.5 active:scale-95 text-sm md:text-base"><span className="hidden md:inline">BERIKUTNYA</span> <ChevronRight size={20} /></button>
           )}
         </div>
       </footer>

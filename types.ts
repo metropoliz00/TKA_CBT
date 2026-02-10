@@ -1,7 +1,4 @@
 
-
-
-
 // 1. Tabel Users
 export interface User {
   id: string;
@@ -36,6 +33,7 @@ export interface Question {
   exam_id: string;
   text_soal: string;
   gambar?: string;
+  keterangan_gambar?: string; // New Field: Image Caption
   tipe_soal: QuestionType;
   bobot_nilai: number;
 }
@@ -46,6 +44,7 @@ export interface QuestionRow {
   text_soal: string;
   tipe_soal: QuestionType;
   gambar: string;
+  keterangan_gambar?: string; // New Field
   opsi_a: string;
   opsi_b: string;
   opsi_c: string;

@@ -368,7 +368,17 @@ function getQuestionsFromSheet(subject) {
        const pLabels = ['P1', 'P2', 'P3', 'P4'];
        for(let j=0; j<4; j++) { if(data[i][4+j]) options.push({ id: `${qId}-${pLabels[j]}`, text_jawaban: data[i][4+j] }); }
     }
-    questions.push({ id: qId, text: data[i][1], type: type, image: data[i][3], options: options, bobot_nilai: data[i][9] ? Number(data[i][9]) : 10 });
+    
+    // index 10 is 'keterangan_gambar' (new field)
+    questions.push({ 
+        id: qId, 
+        text: data[i][1], 
+        type: type, 
+        image: data[i][3], 
+        options: options, 
+        bobot_nilai: data[i][9] ? Number(data[i][9]) : 10,
+        keterangan_gambar: data[i][10] || "" // Added caption
+    });
   }
   return questions;
 }
@@ -380,30 +390,77 @@ function adminGetQuestions(sheetName) {
   const res = [];
   for (let i = 1; i < data.length; i++) {
     if (!data[i][0]) continue;
-    res.push({ id: data[i][0], text_soal: data[i][1], tipe_soal: data[i][2] || "PG", gambar: data[i][3], opsi_a: data[i][4], opsi_b: data[i][5], opsi_c: data[i][6], opsi_d: data[i][7], kunci_jawaban: data[i][8], bobot: data[i][9] ? Number(data[i][9]) : 0 });
+    res.push({ 
+        id: data[i][0], 
+        text_soal: data[i][1], 
+        tipe_soal: data[i][2] || "PG", 
+        gambar: data[i][3], 
+        opsi_a: data[i][4], 
+        opsi_b: data[i][5], 
+        opsi_c: data[i][6], 
+        opsi_d: data[i][7], 
+        kunci_jawaban: data[i][8], 
+        bobot: data[i][9] ? Number(data[i][9]) : 0,
+        keterangan_gambar: data[i][10] || "" // Added caption
+    });
   }
   return res;
 }
 
 function adminSaveQuestion(sheetName, qData) {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  if (!sheet) { sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName); sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"]); }
+  if (!sheet) { 
+      sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName); 
+      sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot", "Ket. Gambar"]); 
+  }
   const data = sheet.getDataRange().getDisplayValues();
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) { if (String(data[i][0]) === String(qData.id)) { rowIndex = i + 1; break; } }
-  const rowVals = [toSheetValue(qData.id), qData.text_soal, qData.tipe_soal, qData.gambar||"", qData.opsi_a||"", qData.opsi_b||"", qData.opsi_c||"", qData.opsi_d||"", qData.kunci_jawaban, qData.bobot];
-  if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, 10).setValues([rowVals]);
+  
+  const rowVals = [
+      toSheetValue(qData.id), 
+      qData.text_soal, 
+      qData.tipe_soal, 
+      qData.gambar||"", 
+      qData.opsi_a||"", 
+      qData.opsi_b||"", 
+      qData.opsi_c||"", 
+      qData.opsi_d||"", 
+      qData.kunci_jawaban, 
+      qData.bobot,
+      qData.keterangan_gambar || "" // Added caption
+  ];
+  
+  if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, rowVals.length).setValues([rowVals]);
   else sheet.appendRow(rowVals);
+  
   return { success: true, message: "Saved" };
 }
 
 function adminImportQuestions(sheetName, questionsList) {
   if (!Array.isArray(questionsList) || questionsList.length === 0) return { success: false, message: "Data kosong" };
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  if (!sheet) { sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName); sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot"]); }
-  const newRows = questionsList.map(q => [ toSheetValue(q.id), q.text_soal, q.tipe_soal || 'PG', q.gambar || '', q.opsi_a || '', q.opsi_b || '', q.opsi_c || '', q.opsi_d || '', q.kunci_jawaban || '', q.bobot || 10 ]);
+  if (!sheet) { 
+      sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName); 
+      sheet.appendRow(["ID Soal", "Teks Soal", "Tipe Soal", "Link Gambar", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban", "Bobot", "Ket. Gambar"]); 
+  }
+  
+  const newRows = questionsList.map(q => [ 
+      toSheetValue(q.id), 
+      q.text_soal, 
+      q.tipe_soal || 'PG', 
+      q.gambar || '', 
+      q.opsi_a || '', 
+      q.opsi_b || '', 
+      q.opsi_c || '', 
+      q.opsi_d || '', 
+      q.kunci_jawaban || '', 
+      q.bobot || 10,
+      q.keterangan_gambar || '' // Added caption
+  ]);
+  
   const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow + 1, 1, newRows.length, 10).setValues(newRows);
+  sheet.getRange(lastRow + 1, 1, newRows.length, 11).setValues(newRows);
   return { success: true, message: `Berhasil mengimpor ${newRows.length} soal.` };
 }
 
@@ -857,7 +914,16 @@ function getDashboardData() {
        const displayUsername = users[uname] ? users[uname].username : d[i][1];
        const displayKecamatan = users[uname] ? users[uname].kecamatan : '-';
        students.push({ timestamp: d[i][0], username: displayUsername, fullname: d[i][2], school: d[i][3], kecamatan: displayKecamatan, subject: d[i][4], score: Number(d[i][5]), itemAnalysis: analysis, duration: d[i][7] });
-       if(users[uname]) { users[uname].status = 'FINISHED'; users[uname].score = d[i][5]; }
+       
+       // FIX: Only mark as FINISHED if the result subject matches the user's currently active exam
+       if(users[uname]) { 
+           const resultSubject = String(d[i][4]).trim().toLowerCase();
+           const activeSubject = String(users[uname].active_exam).trim().toLowerCase();
+           if(resultSubject === activeSubject) {
+               users[uname].status = 'FINISHED'; 
+               users[uname].score = d[i][5]; 
+           }
+       }
        if (!qMap[d[i][4]]) qMap[d[i][4]] = Object.keys(analysis).map(k=>({id:k}));
     }
   }
@@ -870,12 +936,36 @@ function getDashboardData() {
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).trim().toLowerCase();
           const act = String(d[i][3]).toUpperCase();
+          const logDetail = String(d[i][4]);
+          
+          // Determine Log Subject
+          let logSubject = "";
+          if (act === 'START' || act === 'RESUME') {
+              logSubject = logDetail;
+          } else if (act === 'FINISH') {
+              logSubject = logDetail.includes(':') ? logDetail.split(':')[0] : logDetail;
+          }
+
+          // FIX: Check if log is relevant to current exam
+          let isLogRelevant = true;
+          if (users[uname] && ['START', 'RESUME', 'FINISH'].includes(act)) {
+              const activeSubject = String(users[uname].active_exam).trim().toLowerCase();
+              const logSubClean = String(logSubject).trim().toLowerCase();
+              if (activeSubject !== logSubClean) {
+                  isLogRelevant = false;
+              }
+          }
+
           if (users[uname] && users[uname].status !== 'FINISHED' && users[uname].role === 'siswa') {
              if (!statusSetFromLogs.has(uname)) {
                   if (act === 'RESET') users[uname].status = 'OFFLINE'; 
-                  else if (act === 'START' || act === 'RESUME') users[uname].status = 'WORKING';
+                  else if (isLogRelevant && (act === 'START' || act === 'RESUME')) users[uname].status = 'WORKING';
                   else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
-                  statusSetFromLogs.add(uname);
+                  
+                  // Only add to set if we actually set a status based on relevant logs or global actions (RESET/LOGIN)
+                  if (act === 'RESET' || act === 'LOGIN' || isLogRelevant) {
+                      statusSetFromLogs.add(uname);
+                  }
              }
           }
           if (feed.length < 20) {
