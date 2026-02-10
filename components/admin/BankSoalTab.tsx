@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileQuestion, Download, Upload, Loader2, Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { FileQuestion, Download, Upload, Loader2, Plus, Edit, Trash2, X, Save, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../services/api';
 import { QuestionRow } from '../../types';
 import * as XLSX from 'xlsx';
@@ -206,6 +206,16 @@ const BankSoalTab = () => {
 
     const isSurveyMode = selectedSubject.startsWith('Survey_');
 
+    const formatImgUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('data:image')) return url;
+        if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+            const match = url.match(/[-\w]{25,}/);
+            if (match) return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w200`;
+        }
+        return url;
+    };
+
     return (
         <div className="space-y-6 fade-in max-w-full mx-auto">
              <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -275,8 +285,30 @@ const BankSoalTab = () => {
                                         <td className="p-4 font-mono font-bold text-slate-600">{q.id}</td>
                                         <td className="p-4">
                                             <div className="line-clamp-2 font-medium text-slate-700">{q.text_soal}</div>
-                                            {q.gambar && <span className="text-xs text-blue-500 flex items-center gap-1 mt-1"><FileQuestion size={12}/> Ada Gambar</span>}
-                                            {q.keterangan_gambar && <span className="text-[10px] text-slate-400 block mt-0.5 italic">"{q.keterangan_gambar}"</span>}
+                                            {q.gambar && (
+                                                <div className="mt-2 flex items-start gap-2">
+                                                    <div className="relative group">
+                                                        <img 
+                                                            src={formatImgUrl(q.gambar)} 
+                                                            alt="Soal" 
+                                                            className="h-12 w-auto min-w-[3rem] object-contain rounded-md border border-slate-200 bg-white shadow-sm hover:scale-[3] hover:z-50 origin-top-left transition-transform duration-200 cursor-pointer"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                            }}
+                                                        />
+                                                        <div className="hidden flex items-center gap-1 text-xs text-red-400 bg-red-50 px-2 py-1 rounded border border-red-100 mt-1">
+                                                            <ImageIcon size={12}/> Link Rusak
+                                                        </div>
+                                                    </div>
+                                                    {q.keterangan_gambar ? (
+                                                        <span className="text-[10px] text-slate-400 italic leading-tight self-center line-clamp-2 max-w-[200px]">"{q.keterangan_gambar}"</span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-blue-400 font-bold bg-blue-50 px-1.5 py-0.5 rounded self-center">IMG</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!q.gambar && q.keterangan_gambar && <span className="text-[10px] text-slate-400 block mt-0.5 italic">"{q.keterangan_gambar}"</span>}
                                         </td>
                                         {!isSurveyMode && <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{q.tipe_soal}</span></td>}
                                         {!isSurveyMode && <td className="p-4 font-mono text-emerald-600 font-bold">{q.kunci_jawaban}</td>}
@@ -337,6 +369,12 @@ const BankSoalTab = () => {
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link Gambar (URL / Base64)</label>
                                         <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-lg" value={currentQ.gambar} onChange={e => setCurrentQ({...currentQ, gambar: e.target.value})} placeholder="https://..." />
+                                        {currentQ.gambar && (
+                                            <div className="mt-2 bg-slate-50 p-2 rounded border border-slate-200">
+                                                <p className="text-[10px] text-slate-400 mb-1">Preview:</p>
+                                                <img src={formatImgUrl(currentQ.gambar)} className="h-20 object-contain rounded" alt="Preview"/>
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan Gambar (Opsional)</label>
