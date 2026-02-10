@@ -150,6 +150,28 @@ function logUserActivity(username, fullname, action, details) {
   } catch (e) { console.error("Logging failed", e); }
 }
 
+// Helper to set status in User Sheet (Column 12 / Index 11)
+function setUserStatus(username, status) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
+    if (!sheet) return;
+    
+    // Check/Add Header if missing
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    if (headers.length < 12) {
+        sheet.getRange(1, 12).setValue("Status");
+    }
+
+    const data = sheet.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
+        sheet.getRange(i + 1, 12).setValue(status);
+        return;
+      }
+    }
+  } catch(e) { console.error("Set Status Failed", e); }
+}
+
 // --- AUTH & USER MANAGEMENT ---
 
 function loginUser(username, password) {
@@ -206,6 +228,7 @@ function loginUser(username, password) {
       const dbPass = String(data[i][2]).trim();
       if (dbUser === inputUser && dbPass === inputPass) {
         logUserActivity(dbUser, data[i][4], "LOGIN", "Success");
+        setUserStatus(dbUser, "LOGGED_IN"); // Update status column
         return { success: true, user: { username: data[i][1], role: 'siswa', fullname: data[i][4], gender: data[i][5] || '-', school: data[i][6] || '-', kecamatan: data[i][9] || '-', active_exam: data[i][7] || '-', session: data[i][8] || '-', photo_url: data[i][10] || '' } };
       }
     }
@@ -250,7 +273,7 @@ function adminSaveUser(userData) {
     let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(targetSheetName);
     if (!sheet) {
         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(targetSheetName);
-        if (isStudent) sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo"]);
+        if (isStudent) sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo", "Status"]);
         else sheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Kecamatan", "Photo"]);
     }
     if (userData.id) removeUserFromSheet(otherSheetName, userData.id);
@@ -263,10 +286,21 @@ function adminSaveUser(userData) {
         const fileName = `${id}_${userData.username}.jpg`;
         photoUrl = saveImageToDrive(userData.photo, fileName);
     } else if (userData.photo_url) { photoUrl = userData.photo_url; } 
-    else if (rowIndex > 0) { const colIndex = isStudent ? 10 : 8; if (data[rowIndex - 1][colIndex]) photoUrl = data[rowIndex - 1][colIndex]; }
+    else if (rowIndex > 0) { 
+        const colIndex = isStudent ? 10 : 8; 
+        if (data[rowIndex - 1][colIndex]) photoUrl = data[rowIndex - 1][colIndex]; 
+    }
+    
+    // Preserve existing status if updating
+    let currentStatus = "";
+    if (isStudent && rowIndex > 0 && data[rowIndex-1].length > 11) {
+        currentStatus = data[rowIndex-1][11];
+    }
+
     let rowValues = [];
-    if (isStudent) { rowValues = [ toSheetValue(id), toSheetValue(userData.username), toSheetValue(userData.password), 'siswa', userData.fullname, userData.gender || '-', userData.school || '-', userData.active_exam || '-', userData.session || '-', userData.kecamatan || '-', photoUrl ]; } 
+    if (isStudent) { rowValues = [ toSheetValue(id), toSheetValue(userData.username), toSheetValue(userData.password), 'siswa', userData.fullname, userData.gender || '-', userData.school || '-', userData.active_exam || '-', userData.session || '-', userData.kecamatan || '-', photoUrl, currentStatus ]; } 
     else { rowValues = [ toSheetValue(id), toSheetValue(userData.username), toSheetValue(userData.password), userData.role, userData.fullname, userData.gender || '-', userData.school || '-', userData.kecamatan || '-', photoUrl ]; }
+    
     if (rowIndex > 0) {
         if (isStudent) { if (!userData.active_exam && data[rowIndex-1][7]) rowValues[7] = data[rowIndex-1][7]; if (!userData.session && data[rowIndex-1][8]) rowValues[8] = data[rowIndex-1][8]; }
         sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
@@ -286,13 +320,13 @@ function adminImportUsers(usersList) {
     usersList.forEach((u, index) => {
         const isStudent = (u.role === 'siswa');
         const id = u.id || (isStudent ? 'U' : 'A') + new Date().getTime() + '-' + index;
-        if (isStudent) { students.push([ toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-', u.kecamatan || '-', u.photo_url || '' ]); } 
+        if (isStudent) { students.push([ toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), 'siswa', u.fullname, u.gender || '-', u.school || '-', '-', '-', u.kecamatan || '-', u.photo_url || '', '' ]); } // Empty status
         else { admins.push([ toSheetValue(id), toSheetValue(u.username), toSheetValue(u.password), u.role, u.fullname, u.gender || '-', u.school || '-', u.kecamatan || '-', '' ]); }
     });
     if (students.length > 0) {
         let sSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USERS);
-        if (!sSheet) { sSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS); sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo"]); }
-        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 11).setValues(students);
+        if (!sSheet) { sSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_USERS); sSheet.appendRow(["ID", "Username", "Password", "Role", "Fullname", "Gender", "School", "Active_Exam", "Session", "Kecamatan", "Photo", "Status"]); }
+        sSheet.getRange(sSheet.getLastRow() + 1, 1, students.length, 12).setValues(students);
     }
     if (admins.length > 0) {
         let aSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ADMINS);
@@ -494,21 +528,23 @@ function startExam(username, fullname, subject) {
     }
   }
   logUserActivity(username, fullname, isResuming ? "RESUME" : "START", subject);
+  setUserStatus(username, "WORKING"); // Update Status
   return { success: true, startTime: startTime, isResuming: isResuming };
 }
 
 function checkUserStatus(username) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const logSheet = ss.getSheetByName(SHEET_LOGS);
-    if (!logSheet) return { status: 'OK' };
-    const data = logSheet.getDataRange().getValues();
-    for (let i = data.length - 1; i >= 1; i--) {
-        const rowUser = String(data[i][1]).toLowerCase();
-        if (rowUser === String(username).toLowerCase()) {
-            const action = String(data[i][3]).toUpperCase();
-            if (action === 'RESET') return { status: 'RESET' };
-            if (action === 'FINISH') return { status: 'FINISHED' };
-            if (action === 'LOGIN' || action === 'START' || action === 'RESUME') return { status: 'OK' };
+    const sheet = ss.getSheetByName(SHEET_USERS);
+    if (!sheet) return { status: 'OK' };
+    
+    const data = sheet.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
+            // Check status column (Index 11)
+            const status = String(data[i][11] || "").toUpperCase();
+            if (status === 'OFFLINE') return { status: 'RESET' };
+            if (status === 'FINISHED') return { status: 'FINISHED' };
+            return { status: 'OK' };
         }
     }
     return { status: 'OK' };
@@ -663,6 +699,7 @@ function submitAnswers(username, fullname, school, subject, answers, scoreInfo, 
   shRank.appendRow([timestamp, safeUsername, fullname, school, subject, durationStr, finalScore]);
 
   logUserActivity(username, fullname, "FINISH", `${subject}: ${finalScore}`);
+  setUserStatus(username, "FINISHED"); // Update Status
   
   return { success: true, score: finalScore };
 }
@@ -700,16 +737,24 @@ function updateUserSessions(updates) {
 function resetLogin(username) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const userSheet = ss.getSheetByName(SHEET_USERS);
+  let fullname = "Admin Reset";
+  
   if (userSheet) {
       const data = userSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < data.length; i++) {
           if (String(data[i][1]).toLowerCase().trim() === String(username).toLowerCase().trim()) {
+              fullname = data[i][4]; // Get real name
               break; 
           }
       }
   }
-  logUserActivity(username, "Admin Reset", "RESET", "Manual Reset by Admin");
-  SpreadsheetApp.flush(); 
+  // Ensure "RESET" action is logged
+  logUserActivity(username, fullname, "RESET", "Manual Reset by Admin");
+  
+  // Directly update Status to OFFLINE
+  setUserStatus(username, "OFFLINE");
+  SpreadsheetApp.flush();
+  
   return { success: true };
 }
 
@@ -864,12 +909,14 @@ function getDashboardData() {
         if (!role) role = 'siswa';
         const uname = String(d[i][1]).trim().toLowerCase();
         if (uname) {
+            // READ STATUS FROM COLUMN 12 (Index 11)
+            const rawStatus = d[i][11] || 'OFFLINE';
             users[uname] = { 
                 username: d[i][1], 
                 fullname: d[i][4], 
                 school: d[i][6], 
                 kecamatan: d[i][9] || '-', 
-                status: 'OFFLINE', 
+                status: rawStatus, 
                 active_exam: d[i][7] || '-', 
                 session: d[i][8] || '-', 
                 role: role,
@@ -915,59 +962,18 @@ function getDashboardData() {
        const displayKecamatan = users[uname] ? users[uname].kecamatan : '-';
        students.push({ timestamp: d[i][0], username: displayUsername, fullname: d[i][2], school: d[i][3], kecamatan: displayKecamatan, subject: d[i][4], score: Number(d[i][5]), itemAnalysis: analysis, duration: d[i][7] });
        
-       // FIX: Only mark as FINISHED if the result subject matches the user's currently active exam
-       if(users[uname]) { 
-           const resultSubject = String(d[i][4]).trim().toLowerCase();
-           const activeSubject = String(users[uname].active_exam).trim().toLowerCase();
-           if(resultSubject === activeSubject) {
-               users[uname].status = 'FINISHED'; 
-               users[uname].score = d[i][5]; 
-           }
-       }
        if (!qMap[d[i][4]]) qMap[d[i][4]] = Object.keys(analysis).map(k=>({id:k}));
     }
   }
 
   const lSheet = ss.getSheetByName(SHEET_LOGS);
   const feed = [];
-  const statusSetFromLogs = new Set(); 
   if (lSheet) {
       const d = lSheet.getDataRange().getDisplayValues(); 
       for(let i=d.length-1; i>=1; i--) {
           const uname = String(d[i][1]).trim().toLowerCase();
           const act = String(d[i][3]).toUpperCase();
-          const logDetail = String(d[i][4]);
           
-          // Determine Log Subject
-          let logSubject = "";
-          if (act === 'START' || act === 'RESUME') {
-              logSubject = logDetail;
-          } else if (act === 'FINISH') {
-              logSubject = logDetail.includes(':') ? logDetail.split(':')[0] : logDetail;
-          }
-
-          // FIX: Check if log is relevant to current exam
-          let isLogRelevant = true;
-          if (users[uname] && ['START', 'RESUME', 'FINISH'].includes(act)) {
-              const activeSubject = String(users[uname].active_exam).trim().toLowerCase();
-              const logSubClean = String(logSubject).trim().toLowerCase();
-              if (activeSubject !== logSubClean) {
-                  isLogRelevant = false;
-              }
-          }
-
-          if (users[uname] && users[uname].status !== 'FINISHED' && users[uname].role === 'siswa') {
-             if (!statusSetFromLogs.has(uname)) {
-                  if (act === 'RESET') users[uname].status = 'OFFLINE'; 
-                  else if (isLogRelevant && (act === 'START' || act === 'RESUME')) users[uname].status = 'WORKING';
-                  else if (act === 'LOGIN') users[uname].status = 'LOGGED_IN';
-                  
-                  // Only add to set if we actually set a status based on relevant logs or global actions (RESET/LOGIN)
-                  if (act === 'RESET' || act === 'LOGIN' || isLogRelevant) {
-                      statusSetFromLogs.add(uname);
-                  }
-             }
-          }
           if (feed.length < 20) {
               const school = users[uname] ? users[uname].school : '-';
               const kecamatan = users[uname] ? users[uname].kecamatan : '-'; 
@@ -981,7 +987,15 @@ function getDashboardData() {
   }
 
   const counts = { OFFLINE: 0, LOGGED_IN: 0, WORKING: 0, FINISHED: 0 };
-  Object.values(users).forEach(u => { if (u.role === 'siswa' && counts[u.status] !== undefined) counts[u.status]++; });
+  Object.values(users).forEach(u => { 
+      if (u.role === 'siswa') {
+          // Fallback if status in sheet is unexpected
+          const st = u.status || 'OFFLINE';
+          if (counts[st] !== undefined) counts[st]++;
+          else counts['OFFLINE']++;
+      }
+  });
+  
   const token = getConfigValue('TOKEN', 'TOKEN');
   const duration = getConfigValue('DURATION', 60);
   const maxQuestions = getConfigValue('MAX_QUESTIONS', 0);
